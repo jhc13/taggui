@@ -19,9 +19,14 @@ class Model:
         self.directory_path = None
         self.images = None
 
-    def load_directory(self, directory_path: str) -> list[Image]:
+    def get_tags_from_caption(self, caption: str) -> list[str]:
+        separator = (self.separator + ' ' if self.insert_space_after_separator
+                     else self.separator)
+        tags = caption.split(separator)
+        return tags
+
+    def load_directory(self, directory_path: Path) -> list[Image]:
         self.images = []
-        directory_path = Path(directory_path)
         self.directory_path = directory_path
         file_paths = set(directory_path.glob('*'))
         text_file_paths = set(directory_path.glob('*.txt'))
@@ -44,9 +49,3 @@ class Model:
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path.name)
         return self.images
-
-    def get_tags_from_caption(self, caption: str) -> list[str]:
-        separator = (self.separator + ' ' if self.insert_space_after_separator
-                     else self.separator)
-        tags = caption.split(separator)
-        return tags

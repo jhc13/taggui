@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QAbstractListModel, QSettings, QSize, Qt, Slot
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QPixmap
@@ -122,21 +123,13 @@ class MainWindow(QMainWindow):
             separator=self.settings.value('separator'),
             insert_space_after_separator=bool(self.settings.value(
                 'insert_space_after_separator')))
-
         self.setWindowTitle('Captioning Tool')
-        was_geometry_restored = False
-        if self.settings.contains('geometry'):
-            was_geometry_restored = self.restoreGeometry(
-                self.settings.value('geometry'))
-        if not was_geometry_restored:
-            self.resize(1200, 800)
-        self.restoreState(self.settings.value('window_state'))
 
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
         load_directory_action = QAction('Load directory', self)
         load_directory_action.setShortcut(QKeySequence('Ctrl+L'))
-        load_directory_action.triggered.connect(self.load_directory)
+        load_directory_action.triggered.connect(self.select_and_load_directory)
         file_menu.addAction(load_directory_action)
         settings_action = QAction('Settings', self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
@@ -146,7 +139,7 @@ class MainWindow(QMainWindow):
         load_directory_widget = QWidget(self)
         load_directory_button = QPushButton('Load directory',
                                             load_directory_widget)
-        load_directory_button.clicked.connect(self.load_directory)
+        load_directory_button.clicked.connect(self.select_and_load_directory)
         QVBoxLayout(load_directory_widget).addWidget(load_directory_button,
                                                      alignment=Qt.AlignCenter)
         self.setCentralWidget(load_directory_widget)
@@ -156,19 +149,37 @@ class MainWindow(QMainWindow):
             parent=self)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
 
+        self.restore()
+
+    def restore(self):
+        was_geometry_restored = False
+        if self.settings.contains('geometry'):
+            was_geometry_restored = self.restoreGeometry(
+                self.settings.value('geometry'))
+        if not was_geometry_restored:
+            self.resize(1200, 800)
+        self.restoreState(self.settings.value('window_state'))
+        if self.settings.contains('directory_path'):
+            self.load_directory(Path(self.settings.value('directory_path')))
+
     def closeEvent(self, event):
         self.settings.setValue('geometry', self.saveGeometry())
         self.settings.setValue('window_state', self.saveState())
+        self.settings.setValue('directory_path',
+                               str(self.model.directory_path))
         super().closeEvent(event)
 
+    def load_directory(self, directory_path: Path):
+        images = self.model.load_directory(directory_path)
+        self.image_list.set_images(images)
+
     @Slot()
-    def load_directory(self):
+    def select_and_load_directory(self):
         directory_path = QFileDialog.getExistingDirectory(
             self, 'Select directory containing images')
         if not directory_path:
             return
-        images = self.model.load_directory(directory_path)
-        self.image_list.set_images(images)
+        self.load_directory(Path(directory_path))
 
     @Slot()
     def show_settings_dialog(self):
