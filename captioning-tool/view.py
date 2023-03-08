@@ -1,12 +1,19 @@
 import sys
 
-from PySide6.QtCore import QAbstractListModel, QSize, Qt, Slot
+from PySide6.QtCore import QAbstractListModel, QSettings, QSize, Qt, Slot
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QPixmap
 from PySide6.QtWidgets import (QApplication, QDockWidget, QFileDialog,
                                QListView, QMainWindow, QPushButton,
                                QVBoxLayout, QWidget)
 
 from model import Image, Model
+
+default_settings = {
+    'font_size': 18,
+    'separator': ',',
+    'insert_space_after_separator': True,
+    'image_list_image_width': 200
+}
 
 
 class ImageListModel(QAbstractListModel):
@@ -44,6 +51,7 @@ class ImageList(QDockWidget):
     def __init__(self, image_width: int, parent=None):
         super().__init__(parent)
         self.image_width = image_width
+        self.setObjectName('image_list')
         self.setWindowTitle('Images')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         # Use a QListView instead of a QListWidget for faster loading.
@@ -57,12 +65,22 @@ class ImageList(QDockWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, settings):
         super().__init__()
-        self.model = Model(separator=',', insert_space_after_separator=True)
+        self.settings = settings
+        self.model = Model(
+            separator=self.settings.value('separator'),
+            insert_space_after_separator=bool(self.settings.value(
+                'insert_space_after_separator')))
 
         self.setWindowTitle('Captioning Tool')
-        self.resize(1200, 800)
+        was_geometry_restored = False
+        if self.settings.contains('geometry'):
+            was_geometry_restored = self.restoreGeometry(
+                self.settings.value('geometry'))
+        if not was_geometry_restored:
+            self.resize(1200, 800)
+        self.restoreState(self.settings.value('window_state'))
 
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
@@ -82,8 +100,15 @@ class MainWindow(QMainWindow):
                                                      alignment=Qt.AlignCenter)
         self.setCentralWidget(load_directory_widget)
 
-        self.image_list = ImageList(image_width=200, parent=self)
+        self.image_list = ImageList(
+            image_width=int(self.settings.value('image_list_image_width')),
+            parent=self)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
+
+    def closeEvent(self, event):
+        self.settings.setValue('geometry', self.saveGeometry())
+        self.settings.setValue('window_state', self.saveState())
+        super().closeEvent(event)
 
     @Slot()
     def load_directory(self):
@@ -95,11 +120,23 @@ class MainWindow(QMainWindow):
         self.image_list.set_images(images)
 
 
-if __name__ == '__main__':
+def set_default_settings(settings):
+    for key, value in default_settings.items():
+        if not settings.contains(key):
+            settings.setValue(key, value)
+
+
+def main():
     app = QApplication([])
+    settings = QSettings('captioning-tool', 'captioning-tool')
+    set_default_settings(settings)
     font = app.font()
-    font.setPointSize(18)
+    font.setPointSize(int(settings.value('font_size')))
     app.setFont(font)
-    main_window = MainWindow()
+    main_window = MainWindow(settings)
     main_window.show()
     sys.exit(app.exec())
+
+
+if __name__ == '__main__':
+    main()
