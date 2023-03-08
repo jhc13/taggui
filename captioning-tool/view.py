@@ -2,8 +2,9 @@ import sys
 
 from PySide6.QtCore import QAbstractListModel, QSettings, QSize, Qt, Slot
 from PySide6.QtGui import QAction, QIcon, QKeySequence, QPixmap
-from PySide6.QtWidgets import (QApplication, QDockWidget, QFileDialog,
-                               QListView, QMainWindow, QPushButton,
+from PySide6.QtWidgets import (QApplication, QCheckBox, QDialog, QDockWidget,
+                               QFileDialog, QGridLayout, QLabel, QLineEdit,
+                               QListView, QMainWindow, QPushButton, QSpinBox,
                                QVBoxLayout, QWidget)
 
 from model import Image, Model
@@ -14,6 +15,55 @@ default_settings = {
     'insert_space_after_separator': True,
     'image_list_image_width': 200
 }
+
+
+class SettingsDialog(QDialog):
+    def __init__(self, settings, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Settings')
+
+        font_size_spin_box = QSpinBox()
+        font_size_spin_box.setRange(1, 99)
+        font_size_spin_box.setValue(int(settings.value('font_size')))
+        font_size_spin_box.valueChanged.connect(
+            lambda value: settings.setValue('font_size', value))
+
+        separator_line_edit = QLineEdit()
+        separator_line_edit.setText(settings.value('separator'))
+        separator_line_edit.setMaximumWidth(50)
+        separator_line_edit.textChanged.connect(
+            lambda text: settings.setValue('separator', text))
+
+        insert_space_after_separator_check_box = QCheckBox()
+        # The value is initially a Boolean, but later becomes a string.
+        insert_space_after_separator_check_box.setChecked(
+            settings.value('insert_space_after_separator')
+            in (True, 'true'))
+        insert_space_after_separator_check_box.stateChanged.connect(
+            lambda state: settings.setValue(
+                'insert_space_after_separator',
+                state == Qt.CheckState.Checked.value))
+
+        image_list_image_width_spin_box = QSpinBox()
+        image_list_image_width_spin_box.setRange(1, 9999)
+        image_list_image_width_spin_box.setValue(
+            int(settings.value('image_list_image_width')))
+        image_list_image_width_spin_box.valueChanged.connect(
+            lambda value: settings.setValue('image_list_image_width', value))
+
+        layout = QGridLayout(self)
+        layout.addWidget(QLabel('Font size'), 0, 0, Qt.AlignRight)
+        layout.addWidget(font_size_spin_box, 0, 1, Qt.AlignLeft)
+        layout.addWidget(QLabel('Separator'), 1, 0, Qt.AlignRight)
+        layout.addWidget(separator_line_edit, 1, 1, Qt.AlignLeft)
+        layout.addWidget(QLabel('Insert space after separator'), 2, 0,
+                         Qt.AlignRight)
+        layout.addWidget(insert_space_after_separator_check_box, 2, 1,
+                         Qt.AlignLeft)
+        layout.addWidget(QLabel('Image list image width (px)'), 3, 0,
+                         Qt.AlignRight)
+        layout.addWidget(image_list_image_width_spin_box, 3, 1, Qt.AlignLeft)
+        self.adjustSize()
 
 
 class ImageListModel(QAbstractListModel):
@@ -90,6 +140,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(load_directory_action)
         settings_action = QAction('Settings', self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
+        settings_action.triggered.connect(self.show_settings_dialog)
         file_menu.addAction(settings_action)
 
         load_directory_widget = QWidget(self)
@@ -118,6 +169,11 @@ class MainWindow(QMainWindow):
             return
         images = self.model.load_directory(directory_path)
         self.image_list.set_images(images)
+
+    @Slot()
+    def show_settings_dialog(self):
+        settings_dialog = SettingsDialog(self.settings, self)
+        settings_dialog.exec()
 
 
 def set_default_settings(settings):
