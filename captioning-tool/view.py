@@ -175,11 +175,15 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def select_and_load_directory(self):
-        directory_path = QFileDialog.getExistingDirectory(
-            self, 'Select directory containing images')
-        if not directory_path:
+        if self.model.directory_path:
+            initial_directory_path = str(self.model.directory_path)
+        else:
+            initial_directory_path = ''
+        load_directory_path = QFileDialog.getExistingDirectory(
+            self, 'Select directory containing images', initial_directory_path)
+        if not load_directory_path:
             return
-        self.load_directory(Path(directory_path))
+        self.load_directory(Path(load_directory_path))
 
     @Slot()
     def show_settings_dialog(self):
