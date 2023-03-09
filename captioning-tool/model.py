@@ -13,21 +13,24 @@ class Image:
 
 
 class Model:
-    def __init__(self, separator: str, insert_space_after_separator: bool):
-        self.separator = separator
-        self.insert_space_after_separator = insert_space_after_separator
+    def __init__(self, settings):
+        super().__init__()
+        self.settings = settings
         self.directory_path = None
-        self.images = None
+        self.images = []
 
     def get_tags_from_caption(self, caption: str) -> list[str]:
-        separator = (self.separator + ' ' if self.insert_space_after_separator
-                     else self.separator)
+        separator = self.settings.value('separator')
+        insert_space_after_separator = bool(
+            self.settings.value('insert_space_after_separator'))
+        if insert_space_after_separator:
+            separator += ' '
         tags = caption.split(separator)
         return tags
 
-    def load_directory(self, directory_path: Path) -> list[Image]:
-        self.images = []
+    def load_directory(self, directory_path: Path):
         self.directory_path = directory_path
+        self.images.clear()
         file_paths = set(directory_path.glob('*'))
         text_file_paths = set(directory_path.glob('*.txt'))
         image_paths = file_paths - text_file_paths
@@ -48,4 +51,3 @@ class Model:
                 image = Image(image_path, dimensions)
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path.name)
-        return self.images
