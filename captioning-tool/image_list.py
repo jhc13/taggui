@@ -43,8 +43,9 @@ class ImageList(QDockWidget):
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         # Use a QListView instead of a QListWidget for faster loading.
         self.list_view = QListView(self)
-        self.list_view.setIconSize(QSize(parent.image_list_image_width,
-                                         parent.image_list_image_width * 4))
+        self.list_view.setIconSize(
+            QSize(self.parent().image_list_image_width,
+                  self.parent().image_list_image_width * 4))
         self.list_view.setWordWrap(True)
         self.list_view.setModel(model)
         self.setWidget(self.list_view)

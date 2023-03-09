@@ -11,7 +11,7 @@ default_settings = {
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, settings, parent=None):
+    def __init__(self, settings, parent):
         super().__init__(parent)
         self.setWindowTitle('Settings')
 
@@ -20,6 +20,7 @@ class SettingsDialog(QDialog):
         font_size_spin_box.setValue(int(settings.value('font_size')))
         font_size_spin_box.valueChanged.connect(
             lambda value: settings.setValue('font_size', value))
+        font_size_spin_box.valueChanged.connect(self.parent().set_font_size)
 
         separator_line_edit = QLineEdit()
         separator_line_edit.setText(settings.value('separator'))
@@ -44,12 +45,6 @@ class SettingsDialog(QDialog):
         image_list_image_width_spin_box.valueChanged.connect(
             lambda value: settings.setValue('image_list_image_width', value))
 
-        restart_label = QLabel('The application must be restarted for some '
-                               'changes to take effect.')
-        restart_label.setWordWrap(True)
-        restart_label.setAlignment(Qt.AlignCenter)
-        restart_label.setStyleSheet('color: #f54242')
-
         layout = QGridLayout(self)
         layout.addWidget(QLabel('Font size'), 0, 0, Qt.AlignRight)
         layout.addWidget(font_size_spin_box, 0, 1, Qt.AlignLeft)
@@ -62,9 +57,6 @@ class SettingsDialog(QDialog):
         layout.addWidget(QLabel('Image list image width (px)'), 3, 0,
                          Qt.AlignRight)
         layout.addWidget(image_list_image_width_spin_box, 3, 1, Qt.AlignLeft)
-        # Make an empty row.
-        layout.addWidget(QLabel(''), 4, 0)
-        layout.addWidget(restart_label, 5, 0, 1, 2)
         self.adjustSize()
 
 

@@ -19,7 +19,7 @@ class MainWindow(QMainWindow):
         self.model = Model(self.settings)
 
         self.setWindowTitle('Captioning Tool')
-        self.set_font_size_from_setting()
+        self.set_font_size(int(self.settings.value('font_size')))
         self.create_menu_bar()
         self.create_load_directory_button()
         self.image_list_image_width = int(
@@ -30,9 +30,10 @@ class MainWindow(QMainWindow):
 
         self.restore()
 
-    def set_font_size_from_setting(self):
+    @Slot()
+    def set_font_size(self, font_size: int):
         font = self.app.font()
-        font.setPointSize(int(self.settings.value('font_size')))
+        font.setPointSize(font_size)
         self.app.setFont(font)
 
     def create_menu_bar(self):
