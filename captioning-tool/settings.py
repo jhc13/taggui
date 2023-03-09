@@ -5,8 +5,8 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QGridLayout, QLabel,
 default_settings = {
     'font_size': 16,
     'image_list_image_width': 200,
-    'separator': ',',
-    'insert_space_after_separator': True,
+    'tag_separator': ',',
+    'insert_space_after_tag_separator': True,
 }
 
 
@@ -17,16 +17,17 @@ class SettingsDialog(QDialog):
         self.setWindowTitle('Settings')
         layout = QGridLayout(self)
         layout.addWidget(QLabel('Font size'), 0, 0, Qt.AlignRight)
-        layout.addWidget(QLabel('Image list image width (px)'), 1, 0,
+        layout.addWidget(QLabel('Image width in image list (px)'), 1, 0,
                          Qt.AlignRight)
-        layout.addWidget(QLabel('Separator'), 2, 0, Qt.AlignRight)
-        layout.addWidget(QLabel('Insert space after separator'), 3, 0,
+        layout.addWidget(QLabel('Tag separator'), 2, 0, Qt.AlignRight)
+        layout.addWidget(QLabel('Insert space after tag separator'), 3, 0,
                          Qt.AlignRight)
         layout.addWidget(self.get_font_size_spin_box(), 0, 1, Qt.AlignLeft)
         layout.addWidget(self.get_image_list_image_width_spin_box(), 1, 1,
                          Qt.AlignLeft)
-        layout.addWidget(self.get_separator_line_edit(), 2, 1, Qt.AlignLeft)
-        layout.addWidget(self.get_insert_space_after_separator_check_box(),
+        layout.addWidget(self.get_tag_separator_line_edit(), 2, 1,
+                         Qt.AlignLeft)
+        layout.addWidget(self.get_insert_space_after_tag_separator_check_box(),
                          3, 1, Qt.AlignLeft)
         self.adjustSize()
 
@@ -52,25 +53,25 @@ class SettingsDialog(QDialog):
             self.parent().set_image_list_image_width)
         return image_list_image_width_spin_box
 
-    def get_separator_line_edit(self) -> QLineEdit:
-        separator_line_edit = QLineEdit()
-        separator_line_edit.setText(self.settings.value('separator'))
-        separator_line_edit.setMaximumWidth(50)
-        separator_line_edit.textChanged.connect(
-            lambda text: self.settings.setValue('separator', text))
-        return separator_line_edit
+    def get_tag_separator_line_edit(self) -> QLineEdit:
+        tag_separator_line_edit = QLineEdit()
+        tag_separator_line_edit.setText(self.settings.value('tag_separator'))
+        tag_separator_line_edit.setMaximumWidth(50)
+        tag_separator_line_edit.textChanged.connect(
+            lambda text: self.settings.setValue('tag_separator', text))
+        return tag_separator_line_edit
 
-    def get_insert_space_after_separator_check_box(self) -> QCheckBox:
-        insert_space_after_separator_check_box = QCheckBox()
+    def get_insert_space_after_tag_separator_check_box(self) -> QCheckBox:
+        insert_space_after_tag_separator_check_box = QCheckBox()
         # The value is initially a Boolean, but later becomes a string.
-        insert_space_after_separator_check_box.setChecked(
-            self.settings.value('insert_space_after_separator')
+        insert_space_after_tag_separator_check_box.setChecked(
+            self.settings.value('insert_space_after_tag_separator')
             in (True, 'true'))
-        insert_space_after_separator_check_box.stateChanged.connect(
+        insert_space_after_tag_separator_check_box.stateChanged.connect(
             lambda state: self.settings.setValue(
-                'insert_space_after_separator',
+                'insert_space_after_tag_separator',
                 state == Qt.CheckState.Checked.value))
-        return insert_space_after_separator_check_box
+        return insert_space_after_tag_separator_check_box
 
 
 def set_default_settings(settings):
