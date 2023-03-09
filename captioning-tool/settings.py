@@ -3,61 +3,74 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QGridLayout, QLabel,
                                QLineEdit, QSpinBox)
 
 default_settings = {
-    'font_size': 18,
+    'font_size': 16,
+    'image_list_image_width': 200,
     'separator': ',',
     'insert_space_after_separator': True,
-    'image_list_image_width': 200
 }
 
 
 class SettingsDialog(QDialog):
     def __init__(self, settings, parent):
         super().__init__(parent)
+        self.settings = settings
         self.setWindowTitle('Settings')
+        layout = QGridLayout(self)
+        layout.addWidget(QLabel('Font size'), 0, 0, Qt.AlignRight)
+        layout.addWidget(QLabel('Image list image width (px)'), 1, 0,
+                         Qt.AlignRight)
+        layout.addWidget(QLabel('Separator'), 2, 0, Qt.AlignRight)
+        layout.addWidget(QLabel('Insert space after separator'), 3, 0,
+                         Qt.AlignRight)
+        layout.addWidget(self.get_font_size_spin_box(), 0, 1, Qt.AlignLeft)
+        layout.addWidget(self.get_image_list_image_width_spin_box(), 1, 1,
+                         Qt.AlignLeft)
+        layout.addWidget(self.get_separator_line_edit(), 2, 1, Qt.AlignLeft)
+        layout.addWidget(self.get_insert_space_after_separator_check_box(),
+                         3, 1, Qt.AlignLeft)
+        self.adjustSize()
 
+    def get_font_size_spin_box(self) -> QSpinBox:
         font_size_spin_box = QSpinBox()
         font_size_spin_box.setRange(1, 99)
-        font_size_spin_box.setValue(int(settings.value('font_size')))
+        font_size_spin_box.setValue(int(self.settings.value('font_size')))
         font_size_spin_box.valueChanged.connect(
-            lambda value: settings.setValue('font_size', value))
+            lambda value: self.settings.setValue('font_size', value))
         font_size_spin_box.valueChanged.connect(self.parent().set_font_size)
+        return font_size_spin_box
 
+    def get_image_list_image_width_spin_box(self) -> QSpinBox:
+        image_list_image_width_spin_box = QSpinBox()
+        # Images that are too small cause lag, so set a minimum width.
+        image_list_image_width_spin_box.setRange(16, 9999)
+        image_list_image_width_spin_box.setValue(
+            int(self.settings.value('image_list_image_width')))
+        image_list_image_width_spin_box.valueChanged.connect(
+            lambda value: self.settings.setValue('image_list_image_width',
+                                                 value))
+        image_list_image_width_spin_box.valueChanged.connect(
+            self.parent().set_image_list_image_width)
+        return image_list_image_width_spin_box
+
+    def get_separator_line_edit(self) -> QLineEdit:
         separator_line_edit = QLineEdit()
-        separator_line_edit.setText(settings.value('separator'))
+        separator_line_edit.setText(self.settings.value('separator'))
         separator_line_edit.setMaximumWidth(50)
         separator_line_edit.textChanged.connect(
-            lambda text: settings.setValue('separator', text))
+            lambda text: self.settings.setValue('separator', text))
+        return separator_line_edit
 
+    def get_insert_space_after_separator_check_box(self) -> QCheckBox:
         insert_space_after_separator_check_box = QCheckBox()
         # The value is initially a Boolean, but later becomes a string.
         insert_space_after_separator_check_box.setChecked(
-            settings.value('insert_space_after_separator')
+            self.settings.value('insert_space_after_separator')
             in (True, 'true'))
         insert_space_after_separator_check_box.stateChanged.connect(
-            lambda state: settings.setValue(
+            lambda state: self.settings.setValue(
                 'insert_space_after_separator',
                 state == Qt.CheckState.Checked.value))
-
-        image_list_image_width_spin_box = QSpinBox()
-        image_list_image_width_spin_box.setRange(1, 9999)
-        image_list_image_width_spin_box.setValue(
-            int(settings.value('image_list_image_width')))
-        image_list_image_width_spin_box.valueChanged.connect(
-            lambda value: settings.setValue('image_list_image_width', value))
-
-        layout = QGridLayout(self)
-        layout.addWidget(QLabel('Font size'), 0, 0, Qt.AlignRight)
-        layout.addWidget(font_size_spin_box, 0, 1, Qt.AlignLeft)
-        layout.addWidget(QLabel('Separator'), 1, 0, Qt.AlignRight)
-        layout.addWidget(separator_line_edit, 1, 1, Qt.AlignLeft)
-        layout.addWidget(QLabel('Insert space after separator'), 2, 0,
-                         Qt.AlignRight)
-        layout.addWidget(insert_space_after_separator_check_box, 2, 1,
-                         Qt.AlignLeft)
-        layout.addWidget(QLabel('Image list image width (px)'), 3, 0,
-                         Qt.AlignRight)
-        layout.addWidget(image_list_image_width_spin_box, 3, 1, Qt.AlignLeft)
-        self.adjustSize()
+        return insert_space_after_separator_check_box
 
 
 def set_default_settings(settings):

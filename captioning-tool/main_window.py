@@ -36,6 +36,23 @@ class MainWindow(QMainWindow):
         font.setPointSize(font_size)
         self.app.setFont(font)
 
+    @Slot()
+    def select_and_load_directory(self):
+        if self.model.directory_path:
+            initial_directory_path = str(self.model.directory_path)
+        else:
+            initial_directory_path = ''
+        load_directory_path = QFileDialog.getExistingDirectory(
+            self, 'Select directory containing images', initial_directory_path)
+        if not load_directory_path:
+            return
+        self.load_directory(Path(load_directory_path))
+
+    @Slot()
+    def show_settings_dialog(self):
+        settings_dialog = SettingsDialog(self.settings, self)
+        settings_dialog.exec()
+
     def create_menu_bar(self):
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
@@ -57,11 +74,14 @@ class MainWindow(QMainWindow):
                                                      alignment=Qt.AlignCenter)
         self.setCentralWidget(load_directory_widget)
 
-    def load_directory(self, directory_path: Path):
-        self.model.load_directory(directory_path)
+    def update_image_list(self):
         self.image_list_model.dataChanged.emit(
             self.image_list_model.index(0, 0),
             self.image_list_model.index(len(self.model.images) - 1, 0))
+
+    def load_directory(self, directory_path: Path):
+        self.model.load_directory(directory_path)
+        self.update_image_list()
         # Select the first image.
         self.image_list.list_view.setCurrentIndex(
             self.image_list_model.index(0, 0))
@@ -77,29 +97,18 @@ class MainWindow(QMainWindow):
         if self.settings.contains('directory_path'):
             self.load_directory(Path(self.settings.value('directory_path')))
 
+    @Slot()
+    def set_image_list_image_width(self, image_list_image_width: int):
+        self.image_list_image_width = image_list_image_width
+        self.update_image_list()
+        self.image_list.set_image_width()
+
     def closeEvent(self, event):
         self.settings.setValue('geometry', self.saveGeometry())
         self.settings.setValue('window_state', self.saveState())
         self.settings.setValue('directory_path',
                                str(self.model.directory_path))
         super().closeEvent(event)
-
-    @Slot()
-    def select_and_load_directory(self):
-        if self.model.directory_path:
-            initial_directory_path = str(self.model.directory_path)
-        else:
-            initial_directory_path = ''
-        load_directory_path = QFileDialog.getExistingDirectory(
-            self, 'Select directory containing images', initial_directory_path)
-        if not load_directory_path:
-            return
-        self.load_directory(Path(load_directory_path))
-
-    @Slot()
-    def show_settings_dialog(self):
-        settings_dialog = SettingsDialog(self.settings, self)
-        settings_dialog.exec()
 
 
 def main():
