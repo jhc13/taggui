@@ -4,9 +4,11 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
-                               QPushButton, QVBoxLayout, QWidget)
+                               QPushButton, QStackedWidget, QVBoxLayout,
+                               QWidget)
 
 from image_list import ImageList, ImageListModel
+from image_viewer import ImageViewer
 from model import Model
 from settings import SettingsDialog, get_settings
 
@@ -20,12 +22,16 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle('Captioning Tool')
         self.set_font_size(int(self.settings.value('font_size')))
-        self.create_menu_bar()
-        self.create_load_directory_button()
+        self.add_menus()
+        self.image_viewer = ImageViewer(self)
+        self.create_central_widget()
+
         self.image_list_image_width = int(
             self.settings.value('image_list_image_width'))
         self.image_list_model = ImageListModel(self.model.images, self)
         self.image_list = ImageList(self.image_list_model, self)
+        self.image_list.list_view.selectionModel().currentChanged.connect(
+            self.set_image)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
 
         self.restore()
@@ -53,7 +59,7 @@ class MainWindow(QMainWindow):
         settings_dialog = SettingsDialog(self.settings, self)
         settings_dialog.exec()
 
-    def create_menu_bar(self):
+    def add_menus(self):
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
         load_directory_action = QAction('Load directory', self)
@@ -65,14 +71,21 @@ class MainWindow(QMainWindow):
         settings_action.triggered.connect(self.show_settings_dialog)
         file_menu.addAction(settings_action)
 
-    def create_load_directory_button(self):
-        load_directory_widget = QWidget(self)
-        load_directory_button = QPushButton('Load directory',
-                                            load_directory_widget)
+    def create_central_widget(self):
+        central_widget = QStackedWidget(self)
+        load_directory_widget = QWidget()
+        load_directory_button = QPushButton('Load directory')
         load_directory_button.clicked.connect(self.select_and_load_directory)
         QVBoxLayout(load_directory_widget).addWidget(load_directory_button,
                                                      alignment=Qt.AlignCenter)
-        self.setCentralWidget(load_directory_widget)
+        central_widget.addWidget(load_directory_widget)
+        central_widget.addWidget(self.image_viewer)
+        self.setCentralWidget(central_widget)
+
+    @Slot()
+    def set_image(self, index):
+        image = self.model.images[index.row()]
+        self.image_viewer.load_image(image.path)
 
     def update_image_list(self):
         self.image_list_model.dataChanged.emit(
@@ -85,6 +98,7 @@ class MainWindow(QMainWindow):
         # Select the first image.
         self.image_list.list_view.setCurrentIndex(
             self.image_list_model.index(0, 0))
+        self.centralWidget().setCurrentWidget(self.image_viewer)
 
     def restore(self):
         was_geometry_restored = False
