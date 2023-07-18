@@ -20,9 +20,9 @@ class Model:
         self.images = []
 
     def get_tags_from_caption(self, caption: str) -> list[str]:
-        separator = self.settings.value('separator')
+        separator = self.settings.value('tag_separator')
         insert_space_after_separator = bool(
-            self.settings.value('insert_space_after_separator'))
+            self.settings.value('insert_space_after_tag_separator'))
         if insert_space_after_separator:
             separator += ' '
         tags = caption.split(separator)
