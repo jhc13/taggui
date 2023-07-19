@@ -37,7 +37,8 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
 
         self.image_tag_editor = ImageTagEditor(self.tag_counter_model,
-                                               self.image_list_model, self)
+                                               self.image_list_model,
+                                               self.settings, self)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tag_editor)
 
         self.restore()
@@ -94,6 +95,7 @@ class MainWindow(QMainWindow):
         image = self.image_list_model.images[index.row()]
         self.image_viewer.load_image(image.path)
         self.image_tag_editor.load_tags(index, image.tags)
+        self.image_tag_editor.count_tokens()
 
     def update_image_list(self):
         self.image_list_model.dataChanged.emit(

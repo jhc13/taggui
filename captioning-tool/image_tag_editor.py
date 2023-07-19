@@ -1,10 +1,11 @@
 from PySide6.QtCore import QPersistentModelIndex, QStringListModel, Qt, Slot
 from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
-                               QLineEdit,
-                               QListView, QVBoxLayout,
+                               QLabel, QLineEdit, QListView, QVBoxLayout,
                                QWidget)
+from transformers import AutoTokenizer
 
 from image_list import ImageListModel
+from settings import get_separator
 from tag_counter_model import TagCounterModel
 
 
@@ -36,10 +37,13 @@ class ImageTagList(QListView):
 
 class ImageTagEditor(QDockWidget):
     def __init__(self, tag_counter_model: TagCounterModel,
-                 image_list_model: ImageListModel, parent):
+                 image_list_model: ImageListModel, settings, parent):
         super().__init__(parent)
         self.tag_counter_model = tag_counter_model
         self.image_list_model = image_list_model
+        self.settings = settings
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            'openai/clip-vit-base-patch32')
 
         self.setObjectName('image_tag_editor')
         self.setWindowTitle('Tags')
@@ -55,14 +59,21 @@ class ImageTagEditor(QDockWidget):
 
         self.image_index = None
         self.model = QStringListModel(self)
+        # `rowsInserted` does not have to be connected because `dataChanged`
+        # is emitted when a tag is added.
         self.model.dataChanged.connect(self.update_image_list_model)
         self.model.rowsRemoved.connect(self.update_image_list_model)
+        self.model.dataChanged.connect(self.count_tokens)
+        self.model.rowsRemoved.connect(self.count_tokens)
         self.image_tag_list = ImageTagList(self.model, self)
+
+        self.token_count_label = QLabel(self)
 
         container = QWidget(self)
         layout = QVBoxLayout(container)
         layout.addWidget(self.input_box)
         layout.addWidget(self.image_tag_list)
+        layout.addWidget(self.token_count_label)
         self.setWidget(container)
 
     def load_tags(self, index: QPersistentModelIndex, tags: list[str]):
@@ -83,3 +94,14 @@ class ImageTagEditor(QDockWidget):
     def update_image_list_model(self):
         self.image_list_model.update_tags(self.image_index,
                                           self.model.stringList())
+
+    @Slot()
+    def count_tokens(self):
+        caption = get_separator(self.settings).join(self.model.stringList())
+        # Subtract 2 for the `<|startoftext|>` and `<|endoftext|>` tokens.
+        caption_token_count = len(self.tokenizer(caption).input_ids) - 2
+        if caption_token_count > 75:
+            self.token_count_label.setStyleSheet('color: red;')
+        else:
+            self.token_count_label.setStyleSheet('')
+        self.token_count_label.setText(f'{caption_token_count} / 75 tokens')
