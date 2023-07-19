@@ -70,13 +70,6 @@ class ImageTagList(QListView):
                                 in self.selectedIndexes()]
             for index in selected_indexes:
                 self.model.removeRow(index.row())
-            # Select the next tag in the list, or the last tag if there is no
-            # next tag.
-            index_to_select = (
-                self.model.index(self.currentIndex().row() + 1, 0)
-                if self.currentIndex().row() + 1 < self.model.rowCount()
-                else self.model.index(self.model.rowCount() - 1, 0))
-            self.setCurrentIndex(index_to_select)
         else:
             super().keyPressEvent(event)
 
