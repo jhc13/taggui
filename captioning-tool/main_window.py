@@ -22,11 +22,13 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle('Captioning Tool')
         self.set_font_size(int(self.settings.value('font_size')))
+        # Not setting this results in some ugly colors.
+        self.setPalette(self.app.style().standardPalette())
         self.add_menus()
         self.image_viewer = ImageViewer(self)
         self.create_central_widget()
-        self.tag_counter_model = TagCounterModel()
 
+        self.tag_counter_model = TagCounterModel()
         self.image_list_image_width = int(
             self.settings.value('image_list_image_width'))
         self.image_list_model = ImageListModel(self.tag_counter_model,
