@@ -5,7 +5,7 @@ import imagesize
 from PySide6.QtCore import (QAbstractListModel, QPersistentModelIndex, QSize,
                             Qt)
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtWidgets import QDockWidget, QListView
+from PySide6.QtWidgets import QDockWidget, QListView, QMessageBox
 
 from settings import get_separator
 
@@ -72,6 +72,16 @@ class ImageListModel(QAbstractListModel):
     def update_tags(self, image_index: QPersistentModelIndex, tags: list[str]):
         image = self.images[image_index.row()]
         image.tags = tags
+        try:
+            image.path.with_suffix('.txt').write_text(
+                get_separator(self.settings).join(tags))
+        except OSError:
+            error_message_box = QMessageBox()
+            error_message_box.setWindowTitle('Error')
+            error_message_box.setIcon(QMessageBox.Icon.Critical)
+            error_message_box.setText(f'An error occurred while saving the '
+                                      f'tags for {image.path.name}.')
+            error_message_box.exec()
         self.dataChanged.emit(image_index, image_index)
 
 
