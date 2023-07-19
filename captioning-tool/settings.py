@@ -84,3 +84,12 @@ def get_settings() -> QSettings:
     settings = QSettings('captioning-tool', 'captioning-tool')
     set_default_settings(settings)
     return settings
+
+
+def get_separator(settings) -> str:
+    separator = settings.value('tag_separator')
+    insert_space_after_separator = bool(
+        settings.value('insert_space_after_tag_separator'))
+    if insert_space_after_separator:
+        separator += ' '
+    return separator

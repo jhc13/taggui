@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
 from image_list import ImageList, ImageListModel
 from image_tag_list import ImageTagList
 from image_viewer import ImageViewer
-from model import Model
 from settings import SettingsDialog, get_settings
 
 
@@ -19,7 +18,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = get_settings()
-        self.model = Model(self.settings)
 
         self.setWindowTitle('Captioning Tool')
         self.set_font_size(int(self.settings.value('font_size')))
@@ -29,7 +27,7 @@ class MainWindow(QMainWindow):
 
         self.image_list_image_width = int(
             self.settings.value('image_list_image_width'))
-        self.image_list_model = ImageListModel(self.model.images, self)
+        self.image_list_model = ImageListModel(self.settings)
         self.image_list = ImageList(self.image_list_model, self)
         self.image_list.list_view.selectionModel().currentChanged.connect(
             self.set_image)
@@ -48,8 +46,8 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def select_and_load_directory(self):
-        if self.model.directory_path:
-            initial_directory_path = str(self.model.directory_path)
+        if self.image_list_model.directory_path:
+            initial_directory_path = str(self.image_list_model.directory_path)
         else:
             initial_directory_path = ''
         load_directory_path = QFileDialog.getExistingDirectory(
@@ -88,17 +86,18 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def set_image(self, index):
-        image = self.model.images[index.row()]
+        image = self.image_list_model.images[index.row()]
         self.image_viewer.load_image(image.path)
         self.image_tag_list.set_tags(image.tags)
 
     def update_image_list(self):
         self.image_list_model.dataChanged.emit(
             self.image_list_model.index(0, 0),
-            self.image_list_model.index(len(self.model.images) - 1, 0))
+            self.image_list_model.index(len(self.image_list_model.images) - 1,
+                                        0))
 
     def load_directory(self, directory_path: Path):
-        self.model.load_directory(directory_path)
+        self.image_list_model.load_directory(directory_path)
         self.update_image_list()
         # Select the first image.
         self.image_list.list_view.setCurrentIndex(
@@ -126,7 +125,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue('geometry', self.saveGeometry())
         self.settings.setValue('window_state', self.saveState())
         self.settings.setValue('directory_path',
-                               str(self.model.directory_path))
+                               str(self.image_list_model.directory_path))
         super().closeEvent(event)
 
 
