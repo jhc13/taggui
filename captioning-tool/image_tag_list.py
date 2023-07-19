@@ -11,6 +11,8 @@ class ImageTagList(QDockWidget):
         self.list_view = QListView(self)
         self.model = QStringListModel(self)
         self.list_view.setModel(self.model)
+        self.list_view.setWordWrap(True)
+        self.list_view.setSpacing(4)
         self.setWidget(self.list_view)
 
     def set_tags(self, tags: list[str]):
