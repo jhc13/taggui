@@ -1,5 +1,6 @@
-from PySide6.QtCore import QStringListModel, Qt, Slot
-from PySide6.QtWidgets import (QDockWidget, QLineEdit, QListView, QVBoxLayout,
+from PySide6.QtCore import QPersistentModelIndex, QStringListModel, Qt, Slot
+from PySide6.QtWidgets import (QAbstractItemView, QDockWidget, QLineEdit,
+                               QListView, QVBoxLayout,
                                QWidget)
 
 
@@ -10,10 +11,13 @@ class ImageTagList(QListView):
         self.setModel(self.model)
         self.setSpacing(4)
         self.setWordWrap(True)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Delete:
-            for index in self.selectedIndexes():
+            selected_indexes = [QPersistentModelIndex(index) for index
+                                in self.selectedIndexes()]
+            for index in selected_indexes:
                 self.model.removeRow(index.row())
         else:
             super().keyPressEvent(event)
