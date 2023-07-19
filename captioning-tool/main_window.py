@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import QPersistentModelIndex, Qt, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
@@ -33,7 +33,7 @@ class MainWindow(QMainWindow):
             self.set_image)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
 
-        self.image_tag_editor = ImageTagEditor(self)
+        self.image_tag_editor = ImageTagEditor(self.image_list_model, self)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tag_editor)
 
         self.restore()
@@ -86,9 +86,10 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def set_image(self, index):
+        index = QPersistentModelIndex(index)
         image = self.image_list_model.images[index.row()]
         self.image_viewer.load_image(image.path)
-        self.image_tag_editor.set_tags(image.tags)
+        self.image_tag_editor.load_tags(index, image.tags)
 
     def update_image_list(self):
         self.image_list_model.dataChanged.emit(

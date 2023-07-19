@@ -2,7 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import imagesize
-from PySide6.QtCore import QAbstractListModel, QSize, Qt
+from PySide6.QtCore import (QAbstractListModel, QPersistentModelIndex, QSize,
+                            Qt)
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QDockWidget, QListView
 
@@ -67,6 +68,11 @@ class ImageListModel(QAbstractListModel):
                 image = Image(image_path, dimensions)
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path.name)
+
+    def update_tags(self, image_index: QPersistentModelIndex, tags: list[str]):
+        image = self.images[image_index.row()]
+        image.tags = tags
+        self.dataChanged.emit(image_index, image_index)
 
 
 class ImageList(QDockWidget):

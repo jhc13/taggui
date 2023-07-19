@@ -3,6 +3,8 @@ from PySide6.QtWidgets import (QAbstractItemView, QDockWidget, QLineEdit,
                                QListView, QVBoxLayout,
                                QWidget)
 
+from image_list import ImageListModel
+
 
 class ImageTagList(QListView):
     def __init__(self, model: QStringListModel, parent):
@@ -24,8 +26,10 @@ class ImageTagList(QListView):
 
 
 class ImageTagEditor(QDockWidget):
-    def __init__(self, parent):
+    def __init__(self, image_list_model: ImageListModel, parent):
         super().__init__(parent)
+        self.image_list_model = image_list_model
+
         self.setObjectName('image_tag_editor')
         self.setWindowTitle('Tags')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
@@ -35,7 +39,10 @@ class ImageTagEditor(QDockWidget):
         self.input_box.setPlaceholderText('Add tag')
         self.input_box.returnPressed.connect(self.add_tag)
 
+        self.image_index = None
         self.model = QStringListModel(self)
+        self.model.dataChanged.connect(self.update_image_list_model)
+        self.model.rowsRemoved.connect(self.update_image_list_model)
         self.image_tag_list = ImageTagList(self.model, self)
 
         container = QWidget(self)
@@ -44,7 +51,8 @@ class ImageTagEditor(QDockWidget):
         layout.addWidget(self.image_tag_list)
         self.setWidget(container)
 
-    def set_tags(self, tags: list[str]):
+    def load_tags(self, index: QPersistentModelIndex, tags: list[str]):
+        self.image_index = index
         self.model.setStringList(tags)
 
     @Slot()
@@ -55,3 +63,8 @@ class ImageTagEditor(QDockWidget):
         self.model.insertRow(self.model.rowCount())
         self.model.setData(self.model.index(self.model.rowCount() - 1), tag)
         self.input_box.clear()
+
+    @Slot()
+    def update_image_list_model(self):
+        self.image_list_model.update_tags(self.image_index,
+                                          self.model.stringList())
