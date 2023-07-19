@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 
 class ImageLabel(QLabel):
-    def __init__(self, image_path, parent):
+    def __init__(self, image_path: Path | None, parent):
         super().__init__(parent)
         self.image_path = image_path
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
