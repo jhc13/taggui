@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QWidget)
 
 from image_list import ImageList, ImageListModel
+from image_tag_list import ImageTagList
 from image_viewer import ImageViewer
 from model import Model
 from settings import SettingsDialog, get_settings
@@ -33,6 +34,9 @@ class MainWindow(QMainWindow):
         self.image_list.list_view.selectionModel().currentChanged.connect(
             self.set_image)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
+
+        self.image_tag_list = ImageTagList(self)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.image_tag_list)
 
         self.restore()
 
@@ -86,6 +90,7 @@ class MainWindow(QMainWindow):
     def set_image(self, index):
         image = self.model.images[index.row()]
         self.image_viewer.load_image(image.path)
+        self.image_tag_list.set_tags(image.tags)
 
     def update_image_list(self):
         self.image_list_model.dataChanged.emit(
