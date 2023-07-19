@@ -2,10 +2,10 @@ from PySide6.QtCore import QStringListModel, Qt
 from PySide6.QtWidgets import QDockWidget, QListView
 
 
-class ImageTagList(QDockWidget):
+class ImageTagEditor(QDockWidget):
     def __init__(self, parent):
         super().__init__(parent)
-        self.setObjectName('image_tag_list')
+        self.setObjectName('image_tag_editor')
         self.setWindowTitle('Tags')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.list_view = QListView(self)
