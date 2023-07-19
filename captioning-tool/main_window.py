@@ -40,7 +40,8 @@ class MainWindow(QMainWindow):
 
         self.image_tag_editor = ImageTagEditor(self.tag_counter_model,
                                                self.image_list_model,
-                                               self.settings, self)
+                                               self.image_list, self.settings,
+                                               self)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tag_editor)
 
         self.restore()
