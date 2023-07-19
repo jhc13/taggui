@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6.QtCore import QPersistentModelIndex, QStringListModel, Qt, Slot
 from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
                                QLabel, QLineEdit, QListView, QVBoxLayout,
@@ -7,6 +9,8 @@ from transformers import AutoTokenizer
 from image_list import ImageListModel
 from settings import get_separator
 from tag_counter_model import TagCounterModel
+
+TOKENIZER_PATH = Path('../tokenizer')
 
 
 class ImageTagList(QListView):
@@ -42,8 +46,7 @@ class ImageTagEditor(QDockWidget):
         self.tag_counter_model = tag_counter_model
         self.image_list_model = image_list_model
         self.settings = settings
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            'openai/clip-vit-base-patch32')
+        self.tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
 
         self.setObjectName('image_tag_editor')
         self.setWindowTitle('Tags')
