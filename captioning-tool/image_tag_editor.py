@@ -1,5 +1,6 @@
 from PySide6.QtCore import QPersistentModelIndex, QStringListModel, Qt, Slot
-from PySide6.QtWidgets import (QAbstractItemView, QDockWidget, QLineEdit,
+from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
+                               QLineEdit,
                                QListView, QVBoxLayout,
                                QWidget)
 
@@ -35,6 +36,8 @@ class ImageTagEditor(QDockWidget):
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
         self.input_box = QLineEdit(self)
+        self.input_box.setCompleter(
+            QCompleter(self.image_list_model.tag_counter_model, self))
         self.input_box.setStyleSheet('padding: 8px;')
         self.input_box.setPlaceholderText('Add tag')
         self.input_box.returnPressed.connect(self.add_tag)

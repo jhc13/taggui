@@ -1,9 +1,10 @@
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import imagesize
 from PySide6.QtCore import (QAbstractListModel, QPersistentModelIndex, QSize,
-                            Qt)
+                            QStringListModel, Qt, Slot)
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QDockWidget, QListView, QMessageBox
 
@@ -23,6 +24,9 @@ class ImageListModel(QAbstractListModel):
         self.settings = settings
         self.directory_path = None
         self.images = []
+        self.tag_counter = Counter()
+        self.tag_counter_model = QStringListModel()
+        self.dataChanged.connect(self.update_tag_counter)
 
     def rowCount(self, parent=None):
         return len(self.images)
@@ -44,6 +48,14 @@ class ImageListModel(QAbstractListModel):
                 # Scale the dimensions to the image width.
                 return QSize(image_width, int(image_width * height / width))
             return QSize(image_width, image_width)
+
+    @Slot()
+    def update_tag_counter(self):
+        self.tag_counter.clear()
+        for image in self.images:
+            self.tag_counter.update(image.tags)
+        self.tag_counter_model.setStringList(
+            [tag for tag, _ in self.tag_counter.most_common()])
 
     def load_directory(self, directory_path: Path):
         self.directory_path = directory_path
@@ -72,6 +84,7 @@ class ImageListModel(QAbstractListModel):
     def update_tags(self, image_index: QPersistentModelIndex, tags: list[str]):
         image = self.images[image_index.row()]
         image.tags = tags
+        self.dataChanged.emit(image_index, image_index)
         try:
             image.path.with_suffix('.txt').write_text(
                 get_separator(self.settings).join(tags))
@@ -82,7 +95,6 @@ class ImageListModel(QAbstractListModel):
             error_message_box.setText(f'An error occurred while saving the '
                                       f'tags for {image.path.name}.')
             error_message_box.exec()
-        self.dataChanged.emit(image_index, image_index)
 
 
 class ImageList(QDockWidget):
