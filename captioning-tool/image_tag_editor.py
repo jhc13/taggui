@@ -1,6 +1,22 @@
-from PySide6.QtCore import QStringListModel, Qt
+from PySide6.QtCore import QStringListModel, Qt, Slot
 from PySide6.QtWidgets import (QDockWidget, QLineEdit, QListView, QVBoxLayout,
                                QWidget)
+
+
+class ImageTagList(QListView):
+    def __init__(self, model: QStringListModel, parent):
+        super().__init__(parent)
+        self.model = model
+        self.setModel(self.model)
+        self.setSpacing(4)
+        self.setWordWrap(True)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Delete:
+            for index in self.selectedIndexes():
+                self.model.removeRow(index.row())
+        else:
+            super().keyPressEvent(event)
 
 
 class ImageTagEditor(QDockWidget):
@@ -13,18 +29,25 @@ class ImageTagEditor(QDockWidget):
         self.input_box = QLineEdit(self)
         self.input_box.setStyleSheet('padding: 8px;')
         self.input_box.setPlaceholderText('Add tag')
+        self.input_box.returnPressed.connect(self.add_tag)
 
-        self.list_view = QListView(self)
         self.model = QStringListModel(self)
-        self.list_view.setModel(self.model)
-        self.list_view.setWordWrap(True)
-        self.list_view.setSpacing(4)
+        self.image_tag_list = ImageTagList(self.model, self)
 
         container = QWidget(self)
         layout = QVBoxLayout(container)
         layout.addWidget(self.input_box)
-        layout.addWidget(self.list_view)
+        layout.addWidget(self.image_tag_list)
         self.setWidget(container)
 
     def set_tags(self, tags: list[str]):
         self.model.setStringList(tags)
+
+    @Slot()
+    def add_tag(self):
+        tag = self.input_box.text()
+        if not tag:
+            return
+        self.model.insertRow(self.model.rowCount())
+        self.model.setData(self.model.index(self.model.rowCount() - 1), tag)
+        self.input_box.clear()
