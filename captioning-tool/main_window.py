@@ -11,6 +11,7 @@ from image_list import ImageList, ImageListModel
 from image_tag_editor import ImageTagEditor
 from image_viewer import ImageViewer
 from settings import SettingsDialog, get_settings
+from tag_counter_model import TagCounterModel
 
 
 class MainWindow(QMainWindow):
@@ -24,16 +25,19 @@ class MainWindow(QMainWindow):
         self.add_menus()
         self.image_viewer = ImageViewer(self)
         self.create_central_widget()
+        self.tag_counter_model = TagCounterModel()
 
         self.image_list_image_width = int(
             self.settings.value('image_list_image_width'))
-        self.image_list_model = ImageListModel(self.settings)
+        self.image_list_model = ImageListModel(self.tag_counter_model,
+                                               self.settings)
         self.image_list = ImageList(self.image_list_model, self)
         self.image_list.list_view.selectionModel().currentChanged.connect(
             self.set_image)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
 
-        self.image_tag_editor = ImageTagEditor(self.image_list_model, self)
+        self.image_tag_editor = ImageTagEditor(self.tag_counter_model,
+                                               self.image_list_model, self)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tag_editor)
 
         self.restore()

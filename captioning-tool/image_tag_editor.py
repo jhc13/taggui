@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
                                QWidget)
 
 from image_list import ImageListModel
+from tag_counter_model import TagCounterModel
 
 
 class ImageTagList(QListView):
@@ -27,8 +28,10 @@ class ImageTagList(QListView):
 
 
 class ImageTagEditor(QDockWidget):
-    def __init__(self, image_list_model: ImageListModel, parent):
+    def __init__(self, tag_counter_model: TagCounterModel,
+                 image_list_model: ImageListModel, parent):
         super().__init__(parent)
+        self.tag_counter_model = tag_counter_model
         self.image_list_model = image_list_model
 
         self.setObjectName('image_tag_editor')
@@ -36,8 +39,7 @@ class ImageTagEditor(QDockWidget):
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
         self.input_box = QLineEdit(self)
-        self.input_box.setCompleter(
-            QCompleter(self.image_list_model.tag_counter_model, self))
+        self.input_box.setCompleter(QCompleter(self.tag_counter_model, self))
         self.input_box.setStyleSheet('padding: 8px;')
         self.input_box.setPlaceholderText('Add tag')
         self.input_box.returnPressed.connect(self.add_tag)
