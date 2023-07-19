@@ -104,10 +104,11 @@ class MainWindow(QMainWindow):
     def load_directory(self, directory_path: Path):
         self.image_list_model.load_directory(directory_path)
         self.update_image_list()
+        self.centralWidget().setCurrentWidget(self.image_viewer)
         # Select the first image.
         self.image_list.list_view.setCurrentIndex(
             self.image_list_model.index(0, 0))
-        self.centralWidget().setCurrentWidget(self.image_viewer)
+        self.set_image(self.image_list_model.index(0, 0))
 
     def restore(self):
         was_geometry_restored = False
