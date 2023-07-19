@@ -39,10 +39,12 @@ class ImageTagEditor(QDockWidget):
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
         self.input_box = QLineEdit(self)
-        self.input_box.setCompleter(QCompleter(self.tag_counter_model, self))
+        completer = QCompleter(self.tag_counter_model, self)
+        completer.activated.connect(self.add_tag, Qt.QueuedConnection)
+        self.input_box.setCompleter(completer)
         self.input_box.setStyleSheet('padding: 8px;')
         self.input_box.setPlaceholderText('Add tag')
-        self.input_box.returnPressed.connect(self.add_tag)
+        self.input_box.returnPressed.connect(self.add_tag, Qt.QueuedConnection)
 
         self.image_index = None
         self.model = QStringListModel(self)
@@ -68,6 +70,7 @@ class ImageTagEditor(QDockWidget):
         self.model.insertRow(self.model.rowCount())
         self.model.setData(self.model.index(self.model.rowCount() - 1), tag)
         self.input_box.clear()
+        self.image_tag_list.scrollToBottom()
 
     @Slot()
     def update_image_list_model(self):
