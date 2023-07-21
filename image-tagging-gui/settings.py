@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (QCheckBox, QDialog, QGridLayout, QLabel,
                                QLineEdit, QSpinBox)
 
 default_settings = {
-    'font_size': 16,
+    'font_size': 18,
     'image_list_image_width': 200,
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
