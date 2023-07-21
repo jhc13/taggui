@@ -81,7 +81,7 @@ def set_default_settings(settings):
 
 
 def get_settings() -> QSettings:
-    settings = QSettings('captioning-tool', 'captioning-tool')
+    settings = QSettings('image-tagging-gui', 'image-tagging-gui')
     set_default_settings(settings)
     return settings
 

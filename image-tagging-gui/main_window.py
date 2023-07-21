@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
         self.app = app
         self.settings = get_settings()
 
-        self.setWindowTitle('Captioning Tool')
+        self.setWindowTitle('Image Tagging GUI')
         self.set_font_size(int(self.settings.value('font_size')))
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
