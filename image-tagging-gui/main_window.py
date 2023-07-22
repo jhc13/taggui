@@ -45,10 +45,11 @@ class MainWindow(QMainWindow):
                              Qt.Key_PageDown))
         self.image_tags_editor.tag_input_box.installEventFilter(
             key_press_forwarder)
-        image_list_selection_model = self.image_list.list_view.selectionModel()
-        image_list_selection_model.currentChanged.connect(
+        self.image_list_selection_model = (self.image_list.list_view
+                                           .selectionModel())
+        self.image_list_selection_model.currentChanged.connect(
             self.image_viewer.load_image)
-        image_list_selection_model.currentChanged.connect(
+        self.image_list_selection_model.currentChanged.connect(
             self.image_tags_editor.load_image_tags)
         self.image_list_model.dataChanged.connect(
             lambda: self.tag_counter_model.count_tags(
@@ -71,7 +72,10 @@ class MainWindow(QMainWindow):
     def load_directory(self, path: Path):
         self.settings.setValue('directory_path', str(path))
         self.image_list_model.load_directory(path)
-        # Select the first image.
+        # Select the first image. Clear the current index first to make sure
+        # that the `currentChanged` signal is emitted even if the first image
+        # is already selected.
+        self.image_list_selection_model.clearCurrentIndex()
         self.image_list.list_view.setCurrentIndex(
             self.image_list_model.index(0))
         self.centralWidget().setCurrentWidget(self.image_viewer)
