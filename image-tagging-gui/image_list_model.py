@@ -55,7 +55,10 @@ class ImageListModel(QAbstractListModel):
             if image_path.stem in image_stems_with_captions:
                 text_file_path = path / f'{image_path.stem}.txt'
                 caption = text_file_path.read_text()
-                tags = caption.split(get_separator(self.settings))
+                if caption:
+                    tags = caption.split(get_separator(self.settings))
+                else:
+                    tags = []
                 image = Image(image_path, dimensions, tags)
             else:
                 image = Image(image_path, dimensions)
