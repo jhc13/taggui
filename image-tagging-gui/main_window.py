@@ -1,12 +1,13 @@
 from pathlib import Path
 
-from PySide6.QtCore import QStringListModel, Qt, Slot
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
                                QWidget)
 
 from image_list import ImageList, ImageListModel
+from image_tag_list_model import ImageTagListModel
 from image_tags_editor import ImageTagsEditor
 from image_viewer import ImageViewer
 from key_press_forwarder import KeyPressForwarder
@@ -22,7 +23,7 @@ class MainWindow(QMainWindow):
         self.settings = get_settings()
         self.image_list_model = ImageListModel(self.settings)
         self.tag_counter_model = TagCounterModel()
-        self.image_tag_list_model = QStringListModel()
+        self.image_tag_list_model = ImageTagListModel()
 
         self.setWindowTitle('Image Tagging GUI')
         # Not setting this results in some ugly colors.
@@ -61,6 +62,8 @@ class MainWindow(QMainWindow):
         self.image_tag_list_model.dataChanged.connect(
             self.update_image_list_model_tags)
         self.image_tag_list_model.rowsRemoved.connect(
+            self.update_image_list_model_tags)
+        self.image_tag_list_model.rowsMoved.connect(
             self.update_image_list_model_tags)
 
         self.restore()

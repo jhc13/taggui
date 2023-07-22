@@ -54,6 +54,7 @@ class ImageTagList(QListView):
             QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setSpacing(4)
         self.setWordWrap(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
 
     def keyPressEvent(self, event: QKeyEvent):
         """Delete selected tags when the delete key is pressed."""
