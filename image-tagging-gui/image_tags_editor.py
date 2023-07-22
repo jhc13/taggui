@@ -65,6 +65,9 @@ class ImageTagList(QListView):
                                 in self.selectedIndexes()]
             for index in selected_indices:
                 self.image_tag_list_model.removeRow(index.row())
+            # The current index is set but not selected automatically after the
+            # tags are deleted, so select it.
+            self.setCurrentIndex(self.currentIndex())
         else:
             super().keyPressEvent(event)
 
