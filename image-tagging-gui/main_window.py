@@ -51,6 +51,8 @@ class MainWindow(QMainWindow):
             self.image_viewer.load_image)
         self.image_list_selection_model.currentChanged.connect(
             self.image_tags_editor.load_image_tags)
+        self.image_list_selection_model.currentChanged.connect(
+            lambda index: self.settings.setValue('image_index', index.row()))
         self.image_list_model.dataChanged.connect(
             lambda: self.tag_counter_model.count_tags(
                 self.image_list_model.images))
@@ -69,15 +71,14 @@ class MainWindow(QMainWindow):
         self.settings.setValue('window_state', self.saveState())
         super().closeEvent(event)
 
-    def load_directory(self, path: Path):
+    def load_directory(self, path: Path, select_index: int = 0):
         self.settings.setValue('directory_path', str(path))
         self.image_list_model.load_directory(path)
-        # Select the first image. Clear the current index first to make sure
-        # that the `currentChanged` signal is emitted even if the first image
-        # is already selected.
+        # Clear the current index first to make sure that the `currentChanged`
+        # signal is emitted even if the image at the index is already selected.
         self.image_list_selection_model.clearCurrentIndex()
         self.image_list.list_view.setCurrentIndex(
-            self.image_list_model.index(0))
+            self.image_list_model.index(select_index))
         self.centralWidget().setCurrentWidget(self.image_viewer)
 
     @Slot()
@@ -138,12 +139,19 @@ class MainWindow(QMainWindow):
         self.app.setFont(font)
 
     def restore(self):
+        # Restore the window geometry and state.
         if self.settings.contains('geometry'):
             self.restoreGeometry(self.settings.value('geometry'))
         else:
             self.showMaximized()
         self.restoreState(self.settings.value('window_state'))
+        # Get the last index of the last selected image.
+        if self.settings.contains('image_index'):
+            image_index = int(self.settings.value('image_index'))
+        else:
+            image_index = 0
         # Load the last loaded directory.
         if self.settings.contains('directory_path'):
-            self.load_directory(Path(self.settings.value('directory_path')))
+            self.load_directory(Path(self.settings.value('directory_path')),
+                                select_index=image_index)
         self.set_font_size()
