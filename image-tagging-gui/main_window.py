@@ -1,16 +1,17 @@
-import sys
 from pathlib import Path
 
-from PySide6.QtCore import QPersistentModelIndex, Qt, Slot
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtCore import QStringListModel, Qt, Slot
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
                                QWidget)
 
 from image_list import ImageList, ImageListModel
-from image_tag_editor import ImageTagEditor
+from image_tags_editor import ImageTagsEditor
 from image_viewer import ImageViewer
-from settings import SettingsDialog, get_settings
+from key_press_forwarder import KeyPressForwarder
+from settings import get_settings
+from settings_dialog import SettingsDialog
 from tag_counter_model import TagCounterModel
 
 
@@ -19,57 +20,82 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = get_settings()
+        self.image_list_model = ImageListModel(self.settings)
+        self.tag_counter_model = TagCounterModel()
+        self.image_tag_list_model = QStringListModel()
 
         self.setWindowTitle('Image Tagging GUI')
-        self.set_font_size(int(self.settings.value('font_size')))
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
-        self.add_menus()
-        self.image_viewer = ImageViewer(self)
+        self.create_menus()
+        self.image_viewer = ImageViewer(image_list_model=self.image_list_model)
         self.create_central_widget()
-
-        self.tag_counter_model = TagCounterModel()
-        self.image_list_image_width = int(
-            self.settings.value('image_list_image_width'))
-        self.image_list_model = ImageListModel(self.tag_counter_model,
-                                               self.settings)
-        self.image_list = ImageList(self.image_list_model, self)
-        self.image_list.list_view.selectionModel().currentChanged.connect(
-            self.set_image)
+        self.image_list = ImageList(settings=self.settings,
+                                    image_list_model=self.image_list_model)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
+        self.image_tags_editor = ImageTagsEditor(
+            settings=self.settings, image_list_model=self.image_list_model,
+            tag_counter_model=self.tag_counter_model,
+            image_tag_list_model=self.image_tag_list_model)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
 
-        self.image_tag_editor = ImageTagEditor(self.tag_counter_model,
-                                               self.image_list_model,
-                                               self.image_list, self.settings,
-                                               self)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.image_tag_editor)
+        key_press_forwarder = KeyPressForwarder(
+            parent=self, target=self.image_list.list_view,
+            keys_to_forward=(Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp,
+                             Qt.Key_PageDown))
+        self.image_tags_editor.tag_input_box.installEventFilter(
+            key_press_forwarder)
+        image_list_selection_model = self.image_list.list_view.selectionModel()
+        image_list_selection_model.currentChanged.connect(
+            self.image_viewer.load_image)
+        image_list_selection_model.currentChanged.connect(
+            self.image_tags_editor.load_image_tags)
+        self.image_list_model.dataChanged.connect(
+            lambda: self.tag_counter_model.count_tags(
+                self.image_list_model.images))
+        # `rowsInserted` does not have to be connected because `dataChanged`
+        # is emitted when a tag is added.
+        self.image_tag_list_model.dataChanged.connect(
+            self.update_image_list_model_tags)
+        self.image_tag_list_model.rowsRemoved.connect(
+            self.update_image_list_model_tags)
 
         self.restore()
 
-    @Slot()
-    def set_font_size(self, font_size: int):
-        font = self.app.font()
-        font.setPointSize(font_size)
-        self.app.setFont(font)
+    def closeEvent(self, event: QCloseEvent):
+        """Save the window geometry and state before closing."""
+        self.settings.setValue('geometry', self.saveGeometry())
+        self.settings.setValue('window_state', self.saveState())
+        super().closeEvent(event)
+
+    def load_directory(self, path: Path):
+        self.settings.setValue('directory_path', str(path))
+        self.image_list_model.load_directory(path)
+        # Select the first image.
+        self.image_list.list_view.setCurrentIndex(
+            self.image_list_model.index(0))
+        self.centralWidget().setCurrentWidget(self.image_viewer)
 
     @Slot()
     def select_and_load_directory(self):
-        if self.image_list_model.directory_path:
-            initial_directory_path = str(self.image_list_model.directory_path)
+        # Use the last loaded directory as the initial directory.
+        if self.settings.contains('directory_path'):
+            initial_directory_path = self.settings.value('directory_path')
         else:
             initial_directory_path = ''
         load_directory_path = QFileDialog.getExistingDirectory(
-            self, 'Select directory containing images', initial_directory_path)
+            parent=self, caption='Select directory to load images from',
+            dir=initial_directory_path)
         if not load_directory_path:
             return
         self.load_directory(Path(load_directory_path))
 
     @Slot()
     def show_settings_dialog(self):
-        settings_dialog = SettingsDialog(self.settings, self)
+        settings_dialog = SettingsDialog(parent=self, settings=self.settings)
         settings_dialog.exec()
 
-    def add_menus(self):
+    def create_menus(self):
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
         load_directory_action = QAction('Load directory', self)
@@ -82,7 +108,9 @@ class MainWindow(QMainWindow):
         file_menu.addAction(settings_action)
 
     def create_central_widget(self):
-        central_widget = QStackedWidget(self)
+        central_widget = QStackedWidget()
+        # Put the button inside a widget so that it will not fill up the entire
+        # space.
         load_directory_widget = QWidget()
         load_directory_button = QPushButton('Load directory')
         load_directory_button.clicked.connect(self.select_and_load_directory)
@@ -93,59 +121,25 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
     @Slot()
-    def set_image(self, index):
-        index = QPersistentModelIndex(index)
-        image = self.image_list_model.images[index.row()]
-        self.image_viewer.load_image(image.path)
-        self.image_tag_editor.load_tags(index, image.tags)
-        self.image_tag_editor.count_tokens()
-
-    def update_image_list(self):
-        self.image_list_model.dataChanged.emit(
-            self.image_list_model.index(0, 0),
-            self.image_list_model.index(len(self.image_list_model.images) - 1,
-                                        0))
-
-    def load_directory(self, directory_path: Path):
-        self.image_list_model.load_directory(directory_path)
-        self.update_image_list()
-        self.centralWidget().setCurrentWidget(self.image_viewer)
-        # Select the first image.
-        self.image_list.list_view.setCurrentIndex(
-            self.image_list_model.index(0, 0))
-        self.set_image(self.image_list_model.index(0, 0))
-
-    def restore(self):
-        was_geometry_restored = False
-        if self.settings.contains('geometry'):
-            was_geometry_restored = self.restoreGeometry(
-                self.settings.value('geometry'))
-        if not was_geometry_restored:
-            self.resize(1200, 800)
-        self.restoreState(self.settings.value('window_state'))
-        if self.settings.contains('directory_path'):
-            self.load_directory(Path(self.settings.value('directory_path')))
+    def update_image_list_model_tags(self):
+        self.image_list_model.update_tags(
+            self.image_tags_editor.image_index,
+            self.image_tag_list_model.stringList())
 
     @Slot()
-    def set_image_list_image_width(self, image_list_image_width: int):
-        self.image_list_image_width = image_list_image_width
-        self.update_image_list()
-        self.image_list.set_image_width()
+    def set_font_size(self):
+        font = self.app.font()
+        font_size = int(self.settings.value('font_size'))
+        font.setPointSize(font_size)
+        self.app.setFont(font)
 
-    def closeEvent(self, event):
-        self.settings.setValue('geometry', self.saveGeometry())
-        self.settings.setValue('window_state', self.saveState())
-        self.settings.setValue('directory_path',
-                               str(self.image_list_model.directory_path))
-        super().closeEvent(event)
-
-
-def main():
-    app = QApplication([])
-    main_window = MainWindow(app)
-    main_window.show()
-    sys.exit(app.exec())
-
-
-if __name__ == '__main__':
-    main()
+    def restore(self):
+        if self.settings.contains('geometry'):
+            self.restoreGeometry(self.settings.value('geometry'))
+        else:
+            self.showMaximized()
+        self.restoreState(self.settings.value('window_state'))
+        # Load the last loaded directory.
+        if self.settings.contains('directory_path'):
+            self.load_directory(Path(self.settings.value('directory_path')))
+        self.set_font_size()

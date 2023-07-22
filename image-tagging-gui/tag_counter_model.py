@@ -15,11 +15,10 @@ class TagCounterModel(QAbstractListModel):
         return len(self.tag_counter)
 
     def data(self, index, role=None):
+        tag, count = self.most_common_tags[index.row()]
         if role == Qt.DisplayRole:
-            tag, count = self.most_common_tags[index.row()]
             return f'{tag} ({count})'
-        elif role == Qt.EditRole:
-            tag = self.most_common_tags[index.row()][0]
+        if role == Qt.EditRole:
             return tag
 
     @Slot()
@@ -28,5 +27,5 @@ class TagCounterModel(QAbstractListModel):
         for image in images:
             self.tag_counter.update(image.tags)
         self.most_common_tags = self.tag_counter.most_common()
-        self.dataChanged.emit(self.index(0, 0),
-                              self.index(len(self.most_common_tags) - 1, 0))
+        self.dataChanged.emit(self.index(0),
+                              self.index(len(self.most_common_tags) - 1))
