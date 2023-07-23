@@ -25,7 +25,7 @@ class TagInputBox(QLineEdit):
 
         completer = QCompleter(tag_counter_model)
         self.setCompleter(completer)
-        self.setPlaceholderText('Add tag')
+        self.setPlaceholderText('Add Tag')
         self.setStyleSheet('padding: 8px;')
 
         self.returnPressed.connect(self.add_tag, Qt.QueuedConnection)
@@ -122,7 +122,7 @@ class ImageTagsEditor(QDockWidget):
         else:
             self.token_count_label.setStyleSheet('')
         self.token_count_label.setText(f'{caption_token_count} / '
-                                       f'{MAX_TOKEN_COUNT} tokens')
+                                       f'{MAX_TOKEN_COUNT} Tokens')
 
     @Slot()
     def load_image_tags(self, index: QModelIndex):

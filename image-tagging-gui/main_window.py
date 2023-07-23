@@ -50,10 +50,10 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
-        self.toggle_image_list_action = QAction('Image list', parent=self)
-        self.toggle_image_tags_editor_action = QAction('Image tags',
+        self.toggle_image_list_action = QAction('Image List', parent=self)
+        self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
-        self.toggle_all_tags_editor_action = QAction('All tags', parent=self)
+        self.toggle_all_tags_editor_action = QAction('All Tags', parent=self)
         self.create_menus()
 
         self.image_list_selection_model = (self.image_list.list_view
@@ -75,7 +75,7 @@ class MainWindow(QMainWindow):
         # Put the button inside a widget so that it will not fill up the entire
         # space.
         load_directory_widget = QWidget()
-        load_directory_button = QPushButton('Load directory')
+        load_directory_button = QPushButton('Load Directory')
         load_directory_button.clicked.connect(self.select_and_load_directory)
         QVBoxLayout(load_directory_widget).addWidget(load_directory_button,
                                                      alignment=Qt.AlignCenter)
@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
         menu_bar = self.menuBar()
 
         file_menu = menu_bar.addMenu('File')
-        load_directory_action = QAction('Load directory', parent=self)
+        load_directory_action = QAction('Load Directory', parent=self)
         load_directory_action.setShortcut(QKeySequence('Ctrl+L'))
         load_directory_action.triggered.connect(self.select_and_load_directory)
         file_menu.addAction(load_directory_action)

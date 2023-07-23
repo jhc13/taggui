@@ -14,7 +14,7 @@ class ProxyTagCounterModel(QSortFilterProxyModel):
 class FilterLineEdit(QLineEdit):
     def __init__(self):
         super().__init__()
-        self.setPlaceholderText('Search tags')
+        self.setPlaceholderText('Search Tags')
         self.setStyleSheet('padding: 8px;')
 
 
@@ -39,7 +39,7 @@ class AllTagsEditor(QDockWidget):
             self.tag_counter_model)
         self.proxy_tag_counter_model.setFilterRole(Qt.EditRole)
         filter_line_edit = FilterLineEdit()
-        self.clear_filter_button = QPushButton('Clear Filter')
+        self.clear_filter_button = QPushButton('Clear Image Filter')
         self.all_tags_list = AllTagsList(self.proxy_tag_counter_model)
         self.tag_count_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
@@ -65,4 +65,4 @@ class AllTagsEditor(QDockWidget):
         total_tag_count = self.tag_counter_model.rowCount()
         filtered_tag_count = self.proxy_tag_counter_model.rowCount()
         self.tag_count_label.setText(f'{filtered_tag_count} / '
-                                     f'{total_tag_count} tags')
+                                     f'{total_tag_count} Tags')
