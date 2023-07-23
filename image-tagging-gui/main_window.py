@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, QUrl, Qt, Slot
+from PySide6.QtCore import QItemSelection, QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
@@ -218,21 +218,31 @@ class MainWindow(QMainWindow):
         self.image_list.list_view.setCurrentIndex(
             self.proxy_image_list_model.index(select_index, 0))
 
+    @Slot()
+    def set_image_list_filter(self, selected: QItemSelection,
+                              _deselected: QItemSelection):
+        """
+        Set the regular expression of the image list filter to the selected
+        tag. The tag is not a regular expression, but it has to be set as one
+        to be able to be retrieved in the `filterAcceptsRow` method of the
+        proxy image list model.
+        """
+        selected_indices = selected.indexes()
+        if not selected_indices:
+            return
+        self.proxy_image_list_model.setFilterRegularExpression(
+            selected_indices[0].data(role=Qt.EditRole))
+
     def connect_all_tags_editor_signals(self):
         self.all_tags_editor.clear_filter_button.clicked.connect(
             self.clear_image_list_filter)
         all_tags_selection_model = (self.all_tags_editor.all_tags_list
                                     .selectionModel())
-        # Set the regular expression of the image list filter to the selected
-        # tag. The tag is not a regular expression, but it has to be set as one
-        # to be able to be retrieved in the `filterAcceptsRow` method of the
-        # proxy image list model. `selectionChanged` must be used and not
-        # `currentChanged` because `currentChanged` is not emitted when the
-        # same tag is deselected and selected again.
+        # `selectionChanged` must be used and not `currentChanged` because
+        # `currentChanged` is not emitted when the same tag is deselected and
+        # selected again.
         all_tags_selection_model.selectionChanged.connect(
-            lambda selected, _:
-            self.proxy_image_list_model.setFilterRegularExpression(
-                selected.indexes()[0].data(role=Qt.EditRole)))
+            self.set_image_list_filter)
         all_tags_selection_model.selectionChanged.connect(
             lambda: self.image_list.list_view.setCurrentIndex(
                 self.proxy_image_list_model.index(0, 0)))
