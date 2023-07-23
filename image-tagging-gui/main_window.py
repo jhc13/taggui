@@ -35,6 +35,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Image Tagging GUI')
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
+        # The font size must be set before creating the widgets to ensure that
+        # everything has the correct font size.
+        self.set_font_size()
         self.image_viewer = ImageViewer(
             proxy_image_list_model=self.proxy_image_list_model)
         self.create_central_widget()
@@ -259,4 +262,3 @@ class MainWindow(QMainWindow):
         if self.settings.contains('directory_path'):
             self.load_directory(Path(self.settings.value('directory_path')),
                                 select_index=image_index)
-        self.set_font_size()
