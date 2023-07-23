@@ -45,7 +45,7 @@ class TagInputBox(QLineEdit):
         self.clear()
 
 
-class ImageTagList(QListView):
+class ImageTagsList(QListView):
     def __init__(self, image_tag_list_model: QStringListModel):
         super().__init__()
         self.image_tag_list_model = image_tag_list_model
@@ -89,22 +89,22 @@ class ImageTagsEditor(QDockWidget):
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.tag_input_box = TagInputBox(self.image_tag_list_model,
                                          tag_counter_model)
-        self.image_tag_list = ImageTagList(self.image_tag_list_model)
+        self.image_tags_list = ImageTagsList(self.image_tag_list_model)
         self.token_count_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.addWidget(self.tag_input_box)
-        layout.addWidget(self.image_tag_list)
+        layout.addWidget(self.image_tags_list)
         layout.addWidget(self.token_count_label)
         self.setWidget(container)
 
         # When a tag is added, select it and scroll to the bottom of the list.
         self.image_tag_list_model.rowsInserted.connect(
-            lambda _, __, last_index: self.image_tag_list.setCurrentIndex(
+            lambda _, __, last_index: self.image_tags_list.setCurrentIndex(
                 self.image_tag_list_model.index(last_index)))
         self.image_tag_list_model.rowsInserted.connect(
-            self.image_tag_list.scrollToBottom)
+            self.image_tags_list.scrollToBottom)
         # `rowsInserted` does not have to be connected because `dataChanged`
         # is emitted when a tag is added.
         self.image_tag_list_model.dataChanged.connect(self.count_tokens)

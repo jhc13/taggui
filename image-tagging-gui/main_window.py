@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
                                QWidget)
 
+from all_tags_editor import AllTagsEditor
 from image_list import ImageList, ImageListModel
 from image_tag_list_model import ImageTagListModel
 from image_tags_editor import ImageTagsEditor
@@ -40,15 +41,19 @@ class MainWindow(QMainWindow):
             tag_counter_model=self.tag_counter_model,
             image_tag_list_model=self.image_tag_list_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
+        self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
         self.toggle_image_list_action = QAction('Image list', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image tags',
                                                        parent=self)
+        self.toggle_all_tags_editor_action = QAction('All tags', parent=self)
         self.create_menus()
 
         self.image_list_selection_model = (self.image_list.list_view
                                            .selectionModel())
         self.connect_image_list_signals()
         self.connect_image_tags_editor_signals()
+        self.connect_all_tags_editor_signals()
 
         self.restore()
 
@@ -109,26 +114,25 @@ class MainWindow(QMainWindow):
         load_directory_action.triggered.connect(self.select_and_load_directory)
         file_menu.addAction(load_directory_action)
         settings_action = QAction('Settings', parent=self)
-        settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
         file_menu.addAction(settings_action)
         exit_action = QAction('Exit', parent=self)
-        exit_action.setShortcut(QKeySequence('Ctrl+Q'))
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)
-        self.toggle_image_list_action.setShortcut(QKeySequence('Ctrl+I'))
         self.toggle_image_list_action.triggered.connect(
             lambda is_checked: self.image_list.setVisible(is_checked))
         view_menu.addAction(self.toggle_image_list_action)
         self.toggle_image_tags_editor_action.setCheckable(True)
-        self.toggle_image_tags_editor_action.setShortcut(
-            QKeySequence('Ctrl+T'))
         self.toggle_image_tags_editor_action.triggered.connect(
             lambda is_checked: self.image_tags_editor.setVisible(is_checked))
         view_menu.addAction(self.toggle_image_tags_editor_action)
+        self.toggle_all_tags_editor_action.setCheckable(True)
+        self.toggle_all_tags_editor_action.triggered.connect(
+            lambda is_checked: self.all_tags_editor.setVisible(is_checked))
+        view_menu.addAction(self.toggle_all_tags_editor_action)
 
         help_menu = menu_bar.addMenu('Help')
         open_github_repository_action = QAction('GitHub', parent=self)
@@ -172,6 +176,10 @@ class MainWindow(QMainWindow):
             self.update_image_list_model_tags)
         self.image_tags_editor.visibilityChanged.connect(
             self.toggle_image_tags_editor_action.setChecked)
+
+    def connect_all_tags_editor_signals(self):
+        self.all_tags_editor.visibilityChanged.connect(
+            self.toggle_all_tags_editor_action.setChecked)
 
     @Slot()
     def set_font_size(self):
