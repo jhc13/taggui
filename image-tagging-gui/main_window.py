@@ -110,6 +110,10 @@ class MainWindow(QMainWindow):
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
         file_menu.addAction(settings_action)
+        exit_action = QAction('Exit', parent=self)
+        exit_action.setShortcut(QKeySequence('Ctrl+Q'))
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)
