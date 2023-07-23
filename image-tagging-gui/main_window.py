@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
+from PySide6.QtCore import QUrl, Qt, Slot
+from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
                                QWidget)
@@ -14,6 +14,8 @@ from key_press_forwarder import KeyPressForwarder
 from settings import get_settings
 from settings_dialog import SettingsDialog
 from tag_counter_model import TagCounterModel
+
+GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/image-tagging-gui'
 
 
 class MainWindow(QMainWindow):
@@ -127,6 +129,12 @@ class MainWindow(QMainWindow):
         self.toggle_image_tags_editor_action.triggered.connect(
             lambda is_checked: self.image_tags_editor.setVisible(is_checked))
         view_menu.addAction(self.toggle_image_tags_editor_action)
+
+        help_menu = menu_bar.addMenu('Help')
+        open_github_repository_action = QAction('GitHub', parent=self)
+        open_github_repository_action.triggered.connect(
+            lambda: QDesktopServices.openUrl(QUrl(GITHUB_REPOSITORY_URL)))
+        help_menu.addAction(open_github_repository_action)
 
     def connect_image_list_signals(self):
         self.image_list_selection_model.currentChanged.connect(
