@@ -43,35 +43,10 @@ class MainWindow(QMainWindow):
                                                        parent=self)
         self.create_menus()
 
-        key_press_forwarder = KeyPressForwarder(
-            parent=self, target=self.image_list.list_view,
-            keys_to_forward=(Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp,
-                             Qt.Key_PageDown))
-        self.image_tags_editor.tag_input_box.installEventFilter(
-            key_press_forwarder)
         self.image_list_selection_model = (self.image_list.list_view
                                            .selectionModel())
-        self.image_list_selection_model.currentChanged.connect(
-            self.image_viewer.load_image)
-        self.image_list_selection_model.currentChanged.connect(
-            self.image_tags_editor.load_image_tags)
-        self.image_list_selection_model.currentChanged.connect(
-            lambda index: self.settings.setValue('image_index', index.row()))
-        self.image_list_model.dataChanged.connect(
-            lambda: self.tag_counter_model.count_tags(
-                self.image_list_model.images))
-        # `rowsInserted` does not have to be connected because `dataChanged`
-        # is emitted when a tag is added.
-        self.image_tag_list_model.dataChanged.connect(
-            self.update_image_list_model_tags)
-        self.image_tag_list_model.rowsRemoved.connect(
-            self.update_image_list_model_tags)
-        self.image_tag_list_model.rowsMoved.connect(
-            self.update_image_list_model_tags)
-        self.image_list.visibilityChanged.connect(
-            self.toggle_image_list_action.setChecked)
-        self.image_tags_editor.visibilityChanged.connect(
-            self.toggle_image_tags_editor_action.setChecked)
+        self.connect_image_list_signals()
+        self.connect_image_tags_editor_signals()
 
         self.restore()
 
@@ -149,11 +124,42 @@ class MainWindow(QMainWindow):
             lambda is_checked: self.image_tags_editor.setVisible(is_checked))
         view_menu.addAction(self.toggle_image_tags_editor_action)
 
+    def connect_image_list_signals(self):
+        self.image_list_selection_model.currentChanged.connect(
+            self.image_viewer.load_image)
+        self.image_list_selection_model.currentChanged.connect(
+            self.image_tags_editor.load_image_tags)
+        self.image_list_selection_model.currentChanged.connect(
+            lambda index: self.settings.setValue('image_index', index.row()))
+        self.image_list_model.dataChanged.connect(
+            lambda: self.tag_counter_model.count_tags(
+                self.image_list_model.images))
+        self.image_list.visibilityChanged.connect(
+            self.toggle_image_list_action.setChecked)
+
     @Slot()
     def update_image_list_model_tags(self):
         self.image_list_model.update_tags(
             self.image_tags_editor.image_index,
             self.image_tag_list_model.stringList())
+
+    def connect_image_tags_editor_signals(self):
+        key_press_forwarder = KeyPressForwarder(
+            parent=self, target=self.image_list.list_view,
+            keys_to_forward=(Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp,
+                             Qt.Key_PageDown))
+        self.image_tags_editor.tag_input_box.installEventFilter(
+            key_press_forwarder)
+        # `rowsInserted` does not have to be connected because `dataChanged`
+        # is emitted when a tag is added.
+        self.image_tag_list_model.dataChanged.connect(
+            self.update_image_list_model_tags)
+        self.image_tag_list_model.rowsRemoved.connect(
+            self.update_image_list_model_tags)
+        self.image_tag_list_model.rowsMoved.connect(
+            self.update_image_list_model_tags)
+        self.image_tags_editor.visibilityChanged.connect(
+            self.toggle_image_tags_editor_action.setChecked)
 
     @Slot()
     def set_font_size(self):
