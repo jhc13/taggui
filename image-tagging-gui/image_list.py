@@ -2,21 +2,22 @@ from PySide6.QtCore import QModelIndex, QSettings, QSize, Qt, Slot
 from PySide6.QtWidgets import (QDockWidget, QLabel, QListView, QVBoxLayout,
                                QWidget)
 
-from image_list_model import ImageListModel
+from proxy_image_list_model import ProxyImageListModel
 
 
 class ImageList(QDockWidget):
-    def __init__(self, settings: QSettings, image_list_model: ImageListModel):
+    def __init__(self, settings: QSettings,
+                 proxy_image_list_model: ProxyImageListModel):
         super().__init__()
         self.settings = settings
-        self.image_list_model = image_list_model
+        self.proxy_image_list_model = proxy_image_list_model
         # Each `QDockWidget` needs a unique object name for saving its state.
         self.setObjectName('image_list')
         self.setWindowTitle('Images')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
         self.list_view = QListView(self)
-        self.list_view.setModel(self.image_list_model)
+        self.list_view.setModel(self.proxy_image_list_model)
         self.list_view.setWordWrap(True)
         self.set_image_width()
         self.image_index_label = QLabel()
@@ -28,9 +29,6 @@ class ImageList(QDockWidget):
         layout.addWidget(self.image_index_label)
         self.setWidget(container)
 
-        self.list_view.selectionModel().currentChanged.connect(
-            self.update_image_index_label)
-
     @Slot()
     def set_image_width(self):
         image_width = int(self.settings.value('image_list_image_width'))
@@ -40,6 +38,6 @@ class ImageList(QDockWidget):
 
     @Slot()
     def update_image_index_label(self, image_index: QModelIndex):
-        image_count = self.image_list_model.rowCount()
+        image_count = self.proxy_image_list_model.rowCount()
         self.image_index_label.setText(
             f'Image {image_index.row() + 1} / {image_count}')

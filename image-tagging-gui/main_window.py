@@ -1,17 +1,19 @@
 from pathlib import Path
 
-from PySide6.QtCore import QUrl, Qt, Slot
+from PySide6.QtCore import QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
                                QWidget)
 
 from all_tags_editor import AllTagsEditor
-from image_list import ImageList, ImageListModel
+from image_list import ImageList
+from image_list_model import ImageListModel
 from image_tag_list_model import ImageTagListModel
 from image_tags_editor import ImageTagsEditor
 from image_viewer import ImageViewer
 from key_press_forwarder import KeyPressForwarder
+from proxy_image_list_model import ProxyImageListModel
 from settings import get_settings
 from settings_dialog import SettingsDialog
 from tag_counter_model import TagCounterModel
@@ -25,19 +27,24 @@ class MainWindow(QMainWindow):
         self.app = app
         self.settings = get_settings()
         self.image_list_model = ImageListModel(self.settings)
+        self.proxy_image_list_model = ProxyImageListModel(
+            self.image_list_model)
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
         self.setWindowTitle('Image Tagging GUI')
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
-        self.image_viewer = ImageViewer(image_list_model=self.image_list_model)
+        self.image_viewer = ImageViewer(
+            proxy_image_list_model=self.proxy_image_list_model)
         self.create_central_widget()
-        self.image_list = ImageList(settings=self.settings,
-                                    image_list_model=self.image_list_model)
+        self.image_list = ImageList(
+            settings=self.settings,
+            proxy_image_list_model=self.proxy_image_list_model)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
         self.image_tags_editor = ImageTagsEditor(
-            settings=self.settings, image_list_model=self.image_list_model,
+            settings=self.settings,
+            proxy_image_list_model=self.proxy_image_list_model,
             tag_counter_model=self.tag_counter_model,
             image_tag_list_model=self.image_tag_list_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
@@ -83,7 +90,7 @@ class MainWindow(QMainWindow):
         # signal is emitted even if the image at the index is already selected.
         self.image_list_selection_model.clearCurrentIndex()
         self.image_list.list_view.setCurrentIndex(
-            self.image_list_model.index(select_index))
+            self.proxy_image_list_model.index(select_index, 0))
         self.centralWidget().setCurrentWidget(self.image_viewer)
 
     @Slot()
@@ -140,13 +147,24 @@ class MainWindow(QMainWindow):
             lambda: QDesktopServices.openUrl(QUrl(GITHUB_REPOSITORY_URL)))
         help_menu.addAction(open_github_repository_action)
 
+    @Slot()
+    def save_image_index(self, image_index: QModelIndex):
+        """
+        Save the index of the currently selected image if the image list is not
+        filtered.
+        """
+        if not self.proxy_image_list_model.filterRegularExpression().pattern():
+            self.settings.setValue('image_index', image_index.row())
+
     def connect_image_list_signals(self):
+        self.image_list_selection_model.currentChanged.connect(
+            self.save_image_index)
+        self.image_list_selection_model.currentChanged.connect(
+            self.image_list.update_image_index_label)
         self.image_list_selection_model.currentChanged.connect(
             self.image_viewer.load_image)
         self.image_list_selection_model.currentChanged.connect(
             self.image_tags_editor.load_image_tags)
-        self.image_list_selection_model.currentChanged.connect(
-            lambda index: self.settings.setValue('image_index', index.row()))
         self.image_list_model.modelReset.connect(
             lambda: self.tag_counter_model.count_tags(
                 self.image_list_model.images))
@@ -180,7 +198,34 @@ class MainWindow(QMainWindow):
         self.image_tags_editor.visibilityChanged.connect(
             self.toggle_image_tags_editor_action.setChecked)
 
+    @Slot()
+    def clear_image_list_filter(self):
+        self.all_tags_editor.all_tags_list.selectionModel().clearSelection()
+        self.proxy_image_list_model.setFilterRegularExpression('')
+        # Select the previously selected image in the unfiltered image list.
+        select_index = self.settings.value('image_index')
+        self.image_list.list_view.setCurrentIndex(
+            self.proxy_image_list_model.index(select_index, 0))
+
     def connect_all_tags_editor_signals(self):
+        self.all_tags_editor.clear_filter_button.clicked.connect(
+            self.clear_image_list_filter)
+        all_tags_selection_model = (self.all_tags_editor.all_tags_list
+                                    .selectionModel())
+        # Set the regular expression of the filter to the selected tag. The
+        # tag is not a regular expression, but it has to be set as one to be
+        # able to be retrieved in the `filterAcceptsRow` method of the proxy
+        # image list model.
+        all_tags_selection_model.currentChanged.connect(
+            lambda index:
+            self.proxy_image_list_model.setFilterRegularExpression(
+                index.data(role=Qt.EditRole)))
+        all_tags_selection_model.currentChanged.connect(
+            lambda: self.image_list.list_view.setCurrentIndex(
+                self.proxy_image_list_model.index(0, 0)))
+        all_tags_selection_model.currentChanged.connect(
+            lambda: self.image_list.update_image_index_label(
+                self.image_list.list_view.currentIndex()))
         self.all_tags_editor.visibilityChanged.connect(
             self.toggle_all_tags_editor_action.setChecked)
 

@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
 from transformers import AutoTokenizer
 
 from image import Image
-from image_list import ImageListModel
+from proxy_image_list_model import ProxyImageListModel
 from settings import get_separator
 from tag_counter_model import TagCounterModel
 
@@ -73,12 +73,13 @@ class ImageTagsList(QListView):
 
 
 class ImageTagsEditor(QDockWidget):
-    def __init__(self, settings: QSettings, image_list_model: ImageListModel,
+    def __init__(self, settings: QSettings,
+                 proxy_image_list_model: ProxyImageListModel,
                  tag_counter_model: TagCounterModel,
                  image_tag_list_model: QStringListModel):
         super().__init__()
         self.settings = settings
-        self.image_list_model = image_list_model
+        self.proxy_image_list_model = proxy_image_list_model
         self.image_tag_list_model = image_tag_list_model
         self.tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_PATH)
         self.image_index = None
@@ -129,6 +130,6 @@ class ImageTagsEditor(QDockWidget):
         # valid even when the image list is updated.
         persistent_index = QPersistentModelIndex(index)
         self.image_index = persistent_index
-        image: Image = self.image_list_model.data(index, Qt.UserRole)
+        image: Image = self.proxy_image_list_model.data(index, Qt.UserRole)
         self.image_tag_list_model.setStringList(image.tags)
         self.count_tokens()

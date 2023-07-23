@@ -1,6 +1,6 @@
 from PySide6.QtCore import QSortFilterProxyModel, Qt, Slot
 from PySide6.QtWidgets import (QDockWidget, QLabel, QLineEdit, QListView,
-                               QVBoxLayout, QWidget)
+                               QPushButton, QVBoxLayout, QWidget)
 
 from tag_counter_model import TagCounterModel
 
@@ -39,13 +39,15 @@ class AllTagsEditor(QDockWidget):
             self.tag_counter_model)
         self.proxy_tag_counter_model.setFilterRole(Qt.EditRole)
         filter_line_edit = FilterLineEdit()
-        all_tags_list = AllTagsList(self.proxy_tag_counter_model)
+        self.clear_filter_button = QPushButton('Clear Filter')
+        self.all_tags_list = AllTagsList(self.proxy_tag_counter_model)
         self.tag_count_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.addWidget(filter_line_edit)
-        layout.addWidget(all_tags_list)
+        layout.addWidget(self.clear_filter_button)
+        layout.addWidget(self.all_tags_list)
         layout.addWidget(self.tag_count_label)
         self.setWidget(container)
 

@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap, QResizeEvent
 from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from image import Image
-from image_list_model import ImageListModel
+from proxy_image_list_model import ProxyImageListModel
 
 
 class ImageLabel(QLabel):
@@ -32,13 +32,13 @@ class ImageLabel(QLabel):
 
 
 class ImageViewer(QWidget):
-    def __init__(self, image_list_model: ImageListModel):
+    def __init__(self, proxy_image_list_model: ProxyImageListModel):
         super().__init__()
-        self.image_list_model = image_list_model
+        self.proxy_image_list_model = proxy_image_list_model
         self.image_label = ImageLabel()
         QVBoxLayout(self).addWidget(self.image_label)
 
     @Slot()
     def load_image(self, index: QModelIndex):
-        image: Image = self.image_list_model.data(index, Qt.UserRole)
+        image: Image = self.proxy_image_list_model.data(index, Qt.UserRole)
         self.image_label.load_image(image.path)
