@@ -220,15 +220,17 @@ class MainWindow(QMainWindow):
             self.clear_image_list_filter)
         all_tags_selection_model = (self.all_tags_editor.all_tags_list
                                     .selectionModel())
-        # Set the regular expression of the filter to the selected tag. The
-        # tag is not a regular expression, but it has to be set as one to be
-        # able to be retrieved in the `filterAcceptsRow` method of the proxy
-        # image list model.
-        all_tags_selection_model.currentChanged.connect(
-            lambda index:
+        # Set the regular expression of the image list filter to the selected
+        # tag. The tag is not a regular expression, but it has to be set as one
+        # to be able to be retrieved in the `filterAcceptsRow` method of the
+        # proxy image list model. `selectionChanged` must be used and not
+        # `currentChanged` because `currentChanged` is not emitted when the
+        # same tag is deselected and selected again.
+        all_tags_selection_model.selectionChanged.connect(
+            lambda selected, _:
             self.proxy_image_list_model.setFilterRegularExpression(
-                index.data(role=Qt.EditRole)))
-        all_tags_selection_model.currentChanged.connect(
+                selected.indexes()[0].data(role=Qt.EditRole)))
+        all_tags_selection_model.selectionChanged.connect(
             lambda: self.image_list.list_view.setCurrentIndex(
                 self.proxy_image_list_model.index(0, 0)))
         self.all_tags_editor.visibilityChanged.connect(
