@@ -147,10 +147,10 @@ class MainWindow(QMainWindow):
             self.image_tags_editor.load_image_tags)
         self.image_list_selection_model.currentChanged.connect(
             lambda index: self.settings.setValue('image_index', index.row()))
-        self.image_list_model.dataChanged.connect(
+        self.image_list_model.modelReset.connect(
             lambda: self.tag_counter_model.count_tags(
                 self.image_list_model.images))
-        self.image_list_model.modelReset.connect(
+        self.image_list_model.dataChanged.connect(
             lambda: self.tag_counter_model.count_tags(
                 self.image_list_model.images))
         self.image_list.visibilityChanged.connect(
