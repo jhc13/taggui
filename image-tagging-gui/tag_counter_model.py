@@ -9,10 +9,10 @@ class TagCounterModel(QAbstractListModel):
     def __init__(self):
         super().__init__()
         self.tag_counter = Counter()
-        self.most_common_tags = None
+        self.most_common_tags = []
 
     def rowCount(self, parent=None):
-        return len(self.tag_counter)
+        return len(self.most_common_tags)
 
     def data(self, index, role=None):
         tag, count = self.most_common_tags[index.row()]
@@ -27,5 +27,4 @@ class TagCounterModel(QAbstractListModel):
         for image in images:
             self.tag_counter.update(image.tags)
         self.most_common_tags = self.tag_counter.most_common()
-        self.dataChanged.emit(self.index(0),
-                              self.index(len(self.most_common_tags) - 1))
+        self.modelReset.emit()

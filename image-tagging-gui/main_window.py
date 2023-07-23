@@ -150,6 +150,9 @@ class MainWindow(QMainWindow):
         self.image_list_model.dataChanged.connect(
             lambda: self.tag_counter_model.count_tags(
                 self.image_list_model.images))
+        self.image_list_model.modelReset.connect(
+            lambda: self.tag_counter_model.count_tags(
+                self.image_list_model.images))
         self.image_list.visibilityChanged.connect(
             self.toggle_image_list_action.setChecked)
 

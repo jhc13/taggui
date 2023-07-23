@@ -64,7 +64,7 @@ class ImageListModel(QAbstractListModel):
                 image = Image(image_path, dimensions)
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path.name)
-        self.dataChanged.emit(self.index(0), self.index(len(self.images) - 1))
+        self.modelReset.emit()
 
     def update_tags(self, image_index: QPersistentModelIndex, tags: list[str]):
         image = self.data(image_index, Qt.UserRole)

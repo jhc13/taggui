@@ -1,13 +1,19 @@
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSortFilterProxyModel, Qt
 from PySide6.QtWidgets import QDockWidget, QListView, QVBoxLayout, QWidget
 
 from tag_counter_model import TagCounterModel
 
 
-class AllTagsList(QListView):
+class ProxyTagCounterModel(QSortFilterProxyModel):
     def __init__(self, tag_counter_model: TagCounterModel):
         super().__init__()
-        self.setModel(tag_counter_model)
+        self.setSourceModel(tag_counter_model)
+
+
+class AllTagsList(QListView):
+    def __init__(self, proxy_tag_counter_model: ProxyTagCounterModel):
+        super().__init__()
+        self.setModel(proxy_tag_counter_model)
         self.setSpacing(4)
         self.setWordWrap(True)
 
@@ -19,7 +25,8 @@ class AllTagsEditor(QDockWidget):
         self.setObjectName('all_tags_editor')
         self.setWindowTitle('All Tags')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-        self.all_tags_list = AllTagsList(tag_counter_model)
+        proxy_tag_counter_model = ProxyTagCounterModel(tag_counter_model)
+        self.all_tags_list = AllTagsList(proxy_tag_counter_model)
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)
