@@ -171,6 +171,14 @@ class MainWindow(QMainWindow):
         self.image_list_model.dataChanged.connect(
             lambda: self.tag_counter_model.count_tags(
                 self.image_list_model.images))
+        # Rows are inserted or removed from the proxy image list model when the
+        # filter is changed.
+        self.proxy_image_list_model.rowsInserted.connect(
+            lambda: self.image_list.update_image_index_label(
+                self.image_list.list_view.currentIndex()))
+        self.proxy_image_list_model.rowsRemoved.connect(
+            lambda: self.image_list.update_image_index_label(
+                self.image_list.list_view.currentIndex()))
         self.image_list.visibilityChanged.connect(
             self.toggle_image_list_action.setChecked)
 
@@ -223,9 +231,6 @@ class MainWindow(QMainWindow):
         all_tags_selection_model.currentChanged.connect(
             lambda: self.image_list.list_view.setCurrentIndex(
                 self.proxy_image_list_model.index(0, 0)))
-        all_tags_selection_model.currentChanged.connect(
-            lambda: self.image_list.update_image_index_label(
-                self.image_list.list_view.currentIndex()))
         self.all_tags_editor.visibilityChanged.connect(
             self.toggle_all_tags_editor_action.setChecked)
 
