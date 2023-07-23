@@ -28,7 +28,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Image Tagging GUI')
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
-        self.create_menus()
         self.image_viewer = ImageViewer(image_list_model=self.image_list_model)
         self.create_central_widget()
         self.image_list = ImageList(settings=self.settings,
@@ -39,6 +38,10 @@ class MainWindow(QMainWindow):
             tag_counter_model=self.tag_counter_model,
             image_tag_list_model=self.image_tag_list_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
+        self.toggle_image_list_action = QAction('Image list', parent=self)
+        self.toggle_image_tags_editor_action = QAction('Image tags',
+                                                       parent=self)
+        self.create_menus()
 
         key_press_forwarder = KeyPressForwarder(
             parent=self, target=self.image_list.list_view,
@@ -65,6 +68,10 @@ class MainWindow(QMainWindow):
             self.update_image_list_model_tags)
         self.image_tag_list_model.rowsMoved.connect(
             self.update_image_list_model_tags)
+        self.image_list.visibilityChanged.connect(
+            self.toggle_image_list_action.setChecked)
+        self.image_tags_editor.visibilityChanged.connect(
+            self.toggle_image_tags_editor_action.setChecked)
 
         self.restore()
 
@@ -73,6 +80,19 @@ class MainWindow(QMainWindow):
         self.settings.setValue('geometry', self.saveGeometry())
         self.settings.setValue('window_state', self.saveState())
         super().closeEvent(event)
+
+    def create_central_widget(self):
+        central_widget = QStackedWidget()
+        # Put the button inside a widget so that it will not fill up the entire
+        # space.
+        load_directory_widget = QWidget()
+        load_directory_button = QPushButton('Load directory')
+        load_directory_button.clicked.connect(self.select_and_load_directory)
+        QVBoxLayout(load_directory_widget).addWidget(load_directory_button,
+                                                     alignment=Qt.AlignCenter)
+        central_widget.addWidget(load_directory_widget)
+        central_widget.addWidget(self.image_viewer)
+        self.setCentralWidget(central_widget)
 
     def load_directory(self, path: Path, select_index: int = 0):
         self.settings.setValue('directory_path', str(path))
@@ -105,28 +125,29 @@ class MainWindow(QMainWindow):
 
     def create_menus(self):
         menu_bar = self.menuBar()
+
         file_menu = menu_bar.addMenu('File')
-        load_directory_action = QAction('Load directory', self)
+        load_directory_action = QAction('Load directory', parent=self)
         load_directory_action.setShortcut(QKeySequence('Ctrl+L'))
         load_directory_action.triggered.connect(self.select_and_load_directory)
         file_menu.addAction(load_directory_action)
-        settings_action = QAction('Settings', self)
+        settings_action = QAction('Settings', parent=self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
         file_menu.addAction(settings_action)
 
-    def create_central_widget(self):
-        central_widget = QStackedWidget()
-        # Put the button inside a widget so that it will not fill up the entire
-        # space.
-        load_directory_widget = QWidget()
-        load_directory_button = QPushButton('Load directory')
-        load_directory_button.clicked.connect(self.select_and_load_directory)
-        QVBoxLayout(load_directory_widget).addWidget(load_directory_button,
-                                                     alignment=Qt.AlignCenter)
-        central_widget.addWidget(load_directory_widget)
-        central_widget.addWidget(self.image_viewer)
-        self.setCentralWidget(central_widget)
+        view_menu = menu_bar.addMenu('View')
+        self.toggle_image_list_action.setCheckable(True)
+        self.toggle_image_list_action.setShortcut(QKeySequence('Ctrl+I'))
+        self.toggle_image_list_action.triggered.connect(
+            lambda is_checked: self.image_list.setVisible(is_checked))
+        view_menu.addAction(self.toggle_image_list_action)
+        self.toggle_image_tags_editor_action.setCheckable(True)
+        self.toggle_image_tags_editor_action.setShortcut(
+            QKeySequence('Ctrl+T'))
+        self.toggle_image_tags_editor_action.triggered.connect(
+            lambda is_checked: self.image_tags_editor.setVisible(is_checked))
+        view_menu.addAction(self.toggle_image_tags_editor_action)
 
     @Slot()
     def update_image_list_model_tags(self):
