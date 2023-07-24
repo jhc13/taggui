@@ -89,6 +89,7 @@ class MainWindow(QMainWindow):
     def load_directory(self, path: Path, select_index: int = 0):
         self.settings.setValue('directory_path', str(path))
         self.image_list_model.load_directory(path)
+        self.clear_image_list_filter()
         # Clear the current index first to make sure that the `currentChanged`
         # signal is emitted even if the image at the index is already selected.
         self.image_list_selection_model.clearCurrentIndex()
@@ -216,7 +217,7 @@ class MainWindow(QMainWindow):
         self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
         self.proxy_image_list_model.setFilterRegularExpression('')
         # Select the previously selected image in the unfiltered image list.
-        select_index = self.settings.value('image_index')
+        select_index = int(self.settings.value('image_index'))
         self.image_list.list_view.setCurrentIndex(
             self.proxy_image_list_model.index(select_index, 0))
 
