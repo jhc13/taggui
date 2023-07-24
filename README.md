@@ -18,7 +18,9 @@ Written in Python using PySide6.
 
 The easiest way to use the application is to download the latest release from
 the [releases page](https://www.github.com/jhc13/image-tagging-gui/releases).
-The executable file can be run directly without any additional dependencies.
+Choose the appropriate executable file for your operating system (Windows users
+should download the `.exe` file).
+The file can be run directly without any additional dependencies.
 
 Alternatively, you can install manually by cloning this repository and
 installing the dependencies in `requirements.txt`.
@@ -56,7 +58,7 @@ Panes can be resized, undocked, and moved around.
 ### All Tags pane
 
 - Show all images containing a tag: Select the tag
-- Go back to showing all images: Click the `Clear Image Filter` button 
+- Go back to showing all images: Click the `Clear Image Filter` button
 - Delete all instances of a tag: Select the tag and press `Delete`
 - Rename all instances of a tag: Double-click the tag, or select the tag and
   press `F2`
