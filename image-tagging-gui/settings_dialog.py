@@ -1,6 +1,6 @@
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import (QCheckBox, QDialog, QGridLayout, QLabel,
-                               QLineEdit, QSpinBox)
+                               QLineEdit, QSpinBox, QVBoxLayout)
 
 
 class SettingsDialog(QDialog):
@@ -8,20 +8,35 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.settings = settings
         self.setWindowTitle('Settings')
-        layout = QGridLayout(self)
-        layout.addWidget(QLabel('Font size (pt)'), 0, 0, Qt.AlignRight)
-        layout.addWidget(QLabel('Image width in image list (px)'), 1, 0,
-                         Qt.AlignRight)
-        layout.addWidget(QLabel('Tag separator'), 2, 0, Qt.AlignRight)
-        layout.addWidget(QLabel('Insert space after tag separator'), 3, 0,
-                         Qt.AlignRight)
-        layout.addWidget(self.get_font_size_spin_box(), 0, 1, Qt.AlignLeft)
-        layout.addWidget(self.get_image_list_image_width_spin_box(), 1, 1,
-                         Qt.AlignLeft)
-        layout.addWidget(self.get_tag_separator_line_edit(), 2, 1,
-                         Qt.AlignLeft)
-        layout.addWidget(self.get_insert_space_after_tag_separator_check_box(),
-                         3, 1, Qt.AlignLeft)
+        self.restart_label = QLabel(
+            'Restart the application to apply all settings.')
+        self.restart_label.setStyleSheet('color: red;')
+        layout = QVBoxLayout(self)
+        grid_layout = QGridLayout()
+        grid_layout.addWidget(QLabel('Font size (pt)'), 0, 0, Qt.AlignRight)
+        grid_layout.addWidget(QLabel('Image width in image list (px)'), 1, 0,
+                              Qt.AlignRight)
+        grid_layout.addWidget(QLabel('Tag separator'), 2, 0, Qt.AlignRight)
+        grid_layout.addWidget(QLabel('Insert space after tag separator'), 3, 0,
+                              Qt.AlignRight)
+        grid_layout.addWidget(self.get_font_size_spin_box(), 0, 1,
+                              Qt.AlignLeft)
+        grid_layout.addWidget(self.get_image_list_image_width_spin_box(), 1, 1,
+                              Qt.AlignLeft)
+        grid_layout.addWidget(self.get_tag_separator_line_edit(), 2, 1,
+                              Qt.AlignLeft)
+        grid_layout.addWidget(
+            self.get_insert_space_after_tag_separator_check_box(), 3, 1,
+            Qt.AlignLeft)
+        layout.addLayout(grid_layout)
+        # Prevent the grid layout from moving to the center when the restart
+        # label is hidden.
+        layout.addStretch()
+        layout.addWidget(self.restart_label)
+        # Fix the size of the dialog to its size when the restart label is
+        # shown.
+        self.setFixedSize(self.sizeHint())
+        self.restart_label.hide()
 
     def get_font_size_spin_box(self) -> QSpinBox:
         font_size_spin_box = QSpinBox()
@@ -29,7 +44,7 @@ class SettingsDialog(QDialog):
         font_size_spin_box.setValue(int(self.settings.value('font_size')))
         font_size_spin_box.valueChanged.connect(
             lambda value: self.settings.setValue('font_size', value))
-        font_size_spin_box.valueChanged.connect(self.parent().set_font_size)
+        font_size_spin_box.valueChanged.connect(self.restart_label.show)
         return font_size_spin_box
 
     def get_image_list_image_width_spin_box(self) -> QSpinBox:
@@ -51,6 +66,7 @@ class SettingsDialog(QDialog):
         tag_separator_line_edit.setMaximumWidth(50)
         tag_separator_line_edit.textChanged.connect(
             lambda text: self.settings.setValue('tag_separator', text))
+        tag_separator_line_edit.textChanged.connect(self.restart_label.show)
         return tag_separator_line_edit
 
     def get_insert_space_after_tag_separator_check_box(self) -> QCheckBox:
@@ -64,4 +80,6 @@ class SettingsDialog(QDialog):
             lambda state: self.settings.setValue(
                 'insert_space_after_tag_separator',
                 state == Qt.CheckState.Checked.value))
+        insert_space_after_tag_separator_check_box.stateChanged.connect(
+            self.restart_label.show)
         return insert_space_after_tag_separator_check_box

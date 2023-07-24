@@ -73,6 +73,12 @@ class MainWindow(QMainWindow):
         self.settings.setValue('window_state', self.saveState())
         super().closeEvent(event)
 
+    def set_font_size(self):
+        font = self.app.font()
+        font_size = int(self.settings.value('font_size'))
+        font.setPointSize(font_size)
+        self.app.setFont(font)
+
     def create_central_widget(self):
         central_widget = QStackedWidget()
         # Put the button inside a widget so that it will not fill up the entire
@@ -259,13 +265,6 @@ class MainWindow(QMainWindow):
             self.clear_image_list_filter)
         self.all_tags_editor.visibilityChanged.connect(
             self.toggle_all_tags_editor_action.setChecked)
-
-    @Slot()
-    def set_font_size(self):
-        font = self.app.font()
-        font_size = int(self.settings.value('font_size'))
-        font.setPointSize(font_size)
-        self.app.setFont(font)
 
     def restore(self):
         # Restore the window geometry and state.
