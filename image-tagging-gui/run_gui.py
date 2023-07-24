@@ -7,6 +7,7 @@ from widgets.main_window import MainWindow
 
 def run_gui():
     app = QApplication([])
+    app.setStyle('Fusion')
     main_window = MainWindow(app)
     main_window.show()
     sys.exit(app.exec())
