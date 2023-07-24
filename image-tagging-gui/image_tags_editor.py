@@ -58,18 +58,18 @@ class ImageTagsList(QListView):
 
     def keyPressEvent(self, event: QKeyEvent):
         """Delete selected tags when the delete key is pressed."""
-        if event.key() == Qt.Key_Delete:
-            # The selected indices must be converted to `QPersistentModelIndex`
-            # objects to properly delete multiple tags.
-            selected_indices = [QPersistentModelIndex(index) for index
-                                in self.selectedIndexes()]
-            for index in selected_indices:
-                self.image_tag_list_model.removeRow(index.row())
-            # The current index is set but not selected automatically after the
-            # tags are deleted, so select it.
-            self.setCurrentIndex(self.currentIndex())
-        else:
+        if event.key() != Qt.Key_Delete:
             super().keyPressEvent(event)
+            return
+        # The selected indices must be converted to `QPersistentModelIndex`
+        # objects to properly delete multiple tags.
+        selected_indices = [QPersistentModelIndex(index) for index
+                            in self.selectedIndexes()]
+        for index in selected_indices:
+            self.image_tag_list_model.removeRow(index.row())
+        # The current index is set but not selected automatically after the
+        # tags are deleted, so select it.
+        self.setCurrentIndex(self.currentIndex())
 
 
 class ImageTagsEditor(QDockWidget):

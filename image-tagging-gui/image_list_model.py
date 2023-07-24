@@ -2,7 +2,7 @@ from pathlib import Path
 
 import imagesize
 from PySide6.QtCore import (QAbstractListModel, QPersistentModelIndex,
-                            QSettings, QSize, Qt)
+                            QSettings, QSize, Qt, Slot)
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
@@ -66,13 +66,10 @@ class ImageListModel(QAbstractListModel):
         self.images.sort(key=lambda image_: image_.path.name)
         self.modelReset.emit()
 
-    def update_tags(self, image_index: QPersistentModelIndex, tags: list[str]):
-        image = self.data(image_index, Qt.UserRole)
-        image.tags = tags
-        self.dataChanged.emit(image_index, image_index)
+    def write_image_tags_to_disk(self, image: Image):
         try:
             image.path.with_suffix('.txt').write_text(
-                get_separator(self.settings).join(tags))
+                get_separator(self.settings).join(image.tags))
         except OSError:
             error_message_box = QMessageBox()
             error_message_box.setWindowTitle('Error')
@@ -80,3 +77,22 @@ class ImageListModel(QAbstractListModel):
             error_message_box.setText(f'An error occurred while saving the '
                                       f'tags for {image.path.name}.')
             error_message_box.exec()
+
+    def update_image_tags(self, image_index: QPersistentModelIndex,
+                          tags: list[str]):
+        image: Image = self.data(image_index, Qt.UserRole)
+        image.tags = tags
+        self.dataChanged.emit(image_index, image_index)
+        self.write_image_tags_to_disk(image)
+
+    @Slot(str)
+    def delete_tag(self, tag: str):
+        """Delete all instances of a tag from all images."""
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            if tag in image.tags:
+                changed_image_indices.append(image_index)
+                image.tags.remove(tag)
+                self.write_image_tags_to_disk(image)
+        self.dataChanged.emit(self.index(changed_image_indices[0]),
+                              self.index(changed_image_indices[-1]))

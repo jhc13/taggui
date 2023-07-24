@@ -1,6 +1,7 @@
-from PySide6.QtCore import QSortFilterProxyModel, Qt, Slot
+from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal, Slot
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (QDockWidget, QLabel, QLineEdit, QListView,
-                               QPushButton, QVBoxLayout, QWidget)
+                               QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 from tag_counter_model import TagCounterModel
 
@@ -19,11 +20,37 @@ class FilterLineEdit(QLineEdit):
 
 
 class AllTagsList(QListView):
+    tag_deletion_requested = Signal(str)
+
     def __init__(self, proxy_tag_counter_model: ProxyTagCounterModel):
         super().__init__()
         self.setModel(proxy_tag_counter_model)
         self.setSpacing(4)
         self.setWordWrap(True)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        """
+        Delete all instances of the selected tag when the delete key is
+        pressed.
+        """
+        if event.key() != Qt.Key_Delete:
+            super().keyPressEvent(event)
+            return
+        selected_indices = self.selectedIndexes()
+        if not selected_indices:
+            return
+        selected_index = selected_indices[0]
+        tag, count = selected_index.data(Qt.UserRole)
+        # Display a confirmation dialog.
+        question = (f'Delete {count} {pluralize("instance", count)} of tag '
+                    f'"{tag}"?')
+        buttons = (QMessageBox.StandardButton.Yes
+                   | QMessageBox.StandardButton.Cancel)
+        reply = QMessageBox.question(
+            self, 'Delete Tag', question, buttons=buttons,
+            defaultButton=QMessageBox.StandardButton.Cancel)
+        if reply == QMessageBox.StandardButton.Yes:
+            self.tag_deletion_requested.emit(tag)
 
 
 class AllTagsEditor(QDockWidget):
@@ -66,3 +93,9 @@ class AllTagsEditor(QDockWidget):
         filtered_tag_count = self.proxy_tag_counter_model.rowCount()
         self.tag_count_label.setText(f'{filtered_tag_count} / '
                                      f'{total_tag_count} Tags')
+
+
+def pluralize(word: str, count: int):
+    if count == 1:
+        return word
+    return f'{word}s'

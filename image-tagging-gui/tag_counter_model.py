@@ -16,6 +16,8 @@ class TagCounterModel(QAbstractListModel):
 
     def data(self, index, role=None):
         tag, count = self.most_common_tags[index.row()]
+        if role == Qt.UserRole:
+            return tag, count
         if role == Qt.DisplayRole:
             return f'{tag} ({count})'
         if role == Qt.EditRole:

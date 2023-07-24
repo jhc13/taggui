@@ -187,7 +187,7 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def update_image_list_model_tags(self):
-        self.image_list_model.update_tags(
+        self.image_list_model.update_image_tags(
             self.image_tags_editor.image_index,
             self.image_tag_list_model.stringList())
 
@@ -212,6 +212,8 @@ class MainWindow(QMainWindow):
     @Slot()
     def clear_image_list_filter(self):
         self.all_tags_editor.all_tags_list.selectionModel().clearSelection()
+        # Clear the current index.
+        self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
         self.proxy_image_list_model.setFilterRegularExpression('')
         # Select the previously selected image in the unfiltered image list.
         select_index = self.settings.value('image_index')
@@ -246,6 +248,10 @@ class MainWindow(QMainWindow):
         all_tags_selection_model.selectionChanged.connect(
             lambda: self.image_list.list_view.setCurrentIndex(
                 self.proxy_image_list_model.index(0, 0)))
+        self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
+            self.image_list_model.delete_tag)
+        self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
+            self.clear_image_list_filter)
         self.all_tags_editor.visibilityChanged.connect(
             self.toggle_all_tags_editor_action.setChecked)
 
