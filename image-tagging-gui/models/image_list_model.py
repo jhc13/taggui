@@ -39,31 +39,43 @@ class ImageListModel(QAbstractListModel):
                 return QSize(image_width, int(image_width * height / width))
             return QSize(image_width, image_width)
 
-    def load_directory(self, path: Path):
+    def get_file_paths(self, directory_path: Path) -> set[Path]:
+        """
+        Recursively get all file paths in a directory, including those in
+        subdirectories.
+        """
+        file_paths = set()
+        for path in directory_path.iterdir():
+            if path.is_file():
+                file_paths.add(path)
+            elif path.is_dir():
+                file_paths.update(self.get_file_paths(path))
+        return file_paths
+
+    def load_directory(self, directory_path: Path):
         self.images.clear()
-        file_paths = set(path.glob('*'))
-        text_file_paths = set(path.glob('*.txt'))
+        file_paths = self.get_file_paths(directory_path)
+        text_file_paths = {path for path in file_paths
+                           if path.suffix == '.txt'}
         image_paths = file_paths - text_file_paths
-        text_file_stems = {path.stem for path in text_file_paths}
-        image_stems = {path.stem for path in image_paths}
-        image_stems_with_captions = image_stems & text_file_stems
+        separator = get_separator(self.settings)
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
             except ValueError:
                 dimensions = None
-            if image_path.stem in image_stems_with_captions:
-                text_file_path = path / f'{image_path.stem}.txt'
+            text_file_path = image_path.with_suffix('.txt')
+            if text_file_path in text_file_paths:
                 caption = text_file_path.read_text()
                 if caption:
-                    tags = caption.split(get_separator(self.settings))
+                    tags = caption.split(separator)
                 else:
                     tags = []
                 image = Image(image_path, dimensions, tags)
             else:
                 image = Image(image_path, dimensions)
             self.images.append(image)
-        self.images.sort(key=lambda image_: image_.path.name)
+        self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
 
     def write_image_tags_to_disk(self, image: Image):
