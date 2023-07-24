@@ -15,7 +15,7 @@ from models.tag_counter_model import TagCounterModel
 from utils.image import Image
 from utils.settings import get_separator
 
-TOKENIZER_DIRECTORY_PATH = Path('../../clip-vit-base-patch32')
+TOKENIZER_DIRECTORY_NAME = 'clip-vit-base-patch32'
 MAX_TOKEN_COUNT = 75
 
 
@@ -96,8 +96,8 @@ def get_tokenizer_directory_path():
     when the program is bundled with PyInstaller.
     """
     # PyInstaller stores the path to its temporary directory in `sys._MEIPASS`.
-    base_path = getattr(sys, '_MEIPASS', Path(__file__).parent)
-    tokenizer_directory_path = (base_path / TOKENIZER_DIRECTORY_PATH).resolve()
+    base_path = getattr(sys, '_MEIPASS', Path(__file__).parent.parent.parent)
+    tokenizer_directory_path = base_path / TOKENIZER_DIRECTORY_NAME
     return tokenizer_directory_path
 
 
