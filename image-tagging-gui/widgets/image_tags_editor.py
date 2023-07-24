@@ -97,7 +97,7 @@ def get_tokenizer_directory_path():
     """
     # PyInstaller stores the path to its temporary directory in `sys._MEIPASS`.
     base_path = getattr(sys, '_MEIPASS', Path(__file__).parent.parent.parent)
-    tokenizer_directory_path = base_path / TOKENIZER_DIRECTORY_NAME
+    tokenizer_directory_path = Path(base_path) / TOKENIZER_DIRECTORY_NAME
     return tokenizer_directory_path
 
 
