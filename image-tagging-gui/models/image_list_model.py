@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import imagesize
-from PySide6.QtCore import (QAbstractListModel, QPersistentModelIndex,
+from PySide6.QtCore import (QAbstractListModel, QModelIndex,
                             QSettings, QSize, Qt, Slot)
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QMessageBox
@@ -90,8 +90,7 @@ class ImageListModel(QAbstractListModel):
                                       f'tags for {image.path.name}.')
             error_message_box.exec()
 
-    def update_image_tags(self, image_index: QPersistentModelIndex,
-                          tags: list[str]):
+    def update_image_tags(self, image_index: QModelIndex, tags: list[str]):
         image: Image = self.data(image_index, Qt.UserRole)
         image.tags = tags
         self.dataChanged.emit(image_index, image_index)

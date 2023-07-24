@@ -37,7 +37,7 @@ class ImageList(QDockWidget):
         self.list_view.setIconSize(QSize(image_width, image_width * 3))
 
     @Slot()
-    def update_image_index_label(self, image_index: QModelIndex):
+    def update_image_index_label(self, proxy_image_index: QModelIndex):
         image_count = self.proxy_image_list_model.rowCount()
         self.image_index_label.setText(
-            f'Image {image_index.row() + 1} / {image_count}')
+            f'Image {proxy_image_index.row() + 1} / {image_count}')

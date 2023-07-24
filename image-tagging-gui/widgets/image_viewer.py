@@ -39,6 +39,7 @@ class ImageViewer(QWidget):
         QVBoxLayout(self).addWidget(self.image_label)
 
     @Slot()
-    def load_image(self, index: QModelIndex):
-        image: Image = self.proxy_image_list_model.data(index, Qt.UserRole)
+    def load_image(self, proxy_image_index: QModelIndex):
+        image: Image = self.proxy_image_list_model.data(proxy_image_index,
+                                                        Qt.UserRole)
         self.image_label.load_image(image.path)

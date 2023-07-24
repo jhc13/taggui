@@ -158,13 +158,13 @@ class MainWindow(QMainWindow):
         help_menu.addAction(open_github_repository_action)
 
     @Slot()
-    def save_image_index(self, image_index: QModelIndex):
+    def save_image_index(self, proxy_image_index: QModelIndex):
         """
         Save the index of the currently selected image if the image list is not
         filtered.
         """
         if not self.proxy_image_list_model.filterRegularExpression().pattern():
-            self.settings.setValue('image_index', image_index.row())
+            self.settings.setValue('image_index', proxy_image_index.row())
 
     def connect_image_list_signals(self):
         self.image_list_selection_model.currentChanged.connect(

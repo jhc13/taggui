@@ -157,11 +157,10 @@ class ImageTagsEditor(QDockWidget):
                                        f'{MAX_TOKEN_COUNT} Tokens')
 
     @Slot()
-    def load_image_tags(self, index: QModelIndex):
-        # Store the index as a `QPersistentModelIndex` to make sure it stays
-        # valid even when the image list is updated.
-        persistent_index = QPersistentModelIndex(index)
-        self.image_index = persistent_index
-        image: Image = self.proxy_image_list_model.data(index, Qt.UserRole)
+    def load_image_tags(self, proxy_image_index: QModelIndex):
+        self.image_index = self.proxy_image_list_model.mapToSource(
+            proxy_image_index)
+        image: Image = self.proxy_image_list_model.data(proxy_image_index,
+                                                        Qt.UserRole)
         self.image_tag_list_model.setStringList(image.tags)
         self.count_tokens()
