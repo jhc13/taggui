@@ -92,7 +92,8 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if tag in image.tags:
                 changed_image_indices.append(image_index)
-                image.tags.remove(tag)
+                image.tags = [image_tag for image_tag in image.tags
+                              if image_tag != tag]
                 self.write_image_tags_to_disk(image)
         self.dataChanged.emit(self.index(changed_image_indices[0]),
                               self.index(changed_image_indices[-1]))
