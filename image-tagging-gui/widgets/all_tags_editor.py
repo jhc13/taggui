@@ -3,8 +3,8 @@ from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (QDockWidget, QLabel, QLineEdit, QListView,
                                QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
-from tag_counter_model import TagCounterModel
-from utils import get_confirmation_dialog_reply, pluralize
+from models.tag_counter_model import TagCounterModel
+from utils.utils import get_confirmation_dialog_reply, pluralize
 
 
 class ProxyTagCounterModel(QSortFilterProxyModel):

@@ -2,7 +2,7 @@ from PySide6.QtCore import QModelIndex, QSettings, QSize, Qt, Slot
 from PySide6.QtWidgets import (QDockWidget, QLabel, QListView, QVBoxLayout,
                                QWidget)
 
-from proxy_image_list_model import ProxyImageListModel
+from models.proxy_image_list_model import ProxyImageListModel
 
 
 class ImageList(QDockWidget):

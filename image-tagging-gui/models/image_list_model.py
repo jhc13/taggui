@@ -6,8 +6,8 @@ from PySide6.QtCore import (QAbstractListModel, QPersistentModelIndex,
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
-from image import Image
-from settings import get_separator
+from utils.image import Image
+from utils.settings import get_separator
 
 
 class ImageListModel(QAbstractListModel):

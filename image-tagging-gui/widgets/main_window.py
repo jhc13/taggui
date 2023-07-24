@@ -6,17 +6,17 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
                                QWidget)
 
-from all_tags_editor import AllTagsEditor
-from image_list import ImageList
-from image_list_model import ImageListModel
-from image_tag_list_model import ImageTagListModel
-from image_tags_editor import ImageTagsEditor
-from image_viewer import ImageViewer
-from key_press_forwarder import KeyPressForwarder
-from proxy_image_list_model import ProxyImageListModel
-from settings import get_settings
-from settings_dialog import SettingsDialog
-from tag_counter_model import TagCounterModel
+from models.image_list_model import ImageListModel
+from models.image_tag_list_model import ImageTagListModel
+from models.proxy_image_list_model import ProxyImageListModel
+from models.tag_counter_model import TagCounterModel
+from utils.key_press_forwarder import KeyPressForwarder
+from utils.settings import get_settings
+from widgets.all_tags_editor import AllTagsEditor
+from widgets.image_list import ImageList
+from widgets.image_tags_editor import ImageTagsEditor
+from widgets.image_viewer import ImageViewer
+from widgets.settings_dialog import SettingsDialog
 
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/image-tagging-gui'
 

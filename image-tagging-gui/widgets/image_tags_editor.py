@@ -9,10 +9,10 @@ from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
                                QWidget)
 from transformers import AutoTokenizer
 
-from image import Image
-from proxy_image_list_model import ProxyImageListModel
-from settings import get_separator
-from tag_counter_model import TagCounterModel
+from models.proxy_image_list_model import ProxyImageListModel
+from models.tag_counter_model import TagCounterModel
+from utils.image import Image
+from utils.settings import get_separator
 
 TOKENIZER_PATH = Path('../clip-vit-base-patch32')
 MAX_TOKEN_COUNT = 75

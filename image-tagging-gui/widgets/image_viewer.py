@@ -4,8 +4,8 @@ from PySide6.QtCore import QModelIndex, QSize, Qt, Slot
 from PySide6.QtGui import QPixmap, QResizeEvent
 from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
-from image import Image
-from proxy_image_list_model import ProxyImageListModel
+from models.proxy_image_list_model import ProxyImageListModel
+from utils.image import Image
 
 
 class ImageLabel(QLabel):

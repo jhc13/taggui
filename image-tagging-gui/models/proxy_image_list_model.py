@@ -1,7 +1,7 @@
 from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt
 
-from image import Image
-from image_list_model import ImageListModel
+from models.image_list_model import ImageListModel
+from utils.image import Image
 
 
 class ProxyImageListModel(QSortFilterProxyModel):
