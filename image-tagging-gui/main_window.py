@@ -249,6 +249,10 @@ class MainWindow(QMainWindow):
         all_tags_selection_model.selectionChanged.connect(
             lambda: self.image_list.list_view.setCurrentIndex(
                 self.proxy_image_list_model.index(0, 0)))
+        self.tag_counter_model.tag_renaming_requested.connect(
+            self.image_list_model.rename_tag)
+        self.tag_counter_model.tag_renaming_requested.connect(
+            self.clear_image_list_filter)
         self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
             self.image_list_model.delete_tag)
         self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(

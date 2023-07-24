@@ -16,10 +16,10 @@ class ImageListModel(QAbstractListModel):
         self.settings = settings
         self.images = []
 
-    def rowCount(self, parent=None):
+    def rowCount(self, parent=None) -> int:
         return len(self.images)
 
-    def data(self, index, role=None):
+    def data(self, index, role=None) -> Image | str | QIcon | QSize:
         image = self.images[index.row()]
         if role == Qt.UserRole:
             return image
@@ -84,6 +84,19 @@ class ImageListModel(QAbstractListModel):
         image.tags = tags
         self.dataChanged.emit(image_index, image_index)
         self.write_image_tags_to_disk(image)
+
+    @Slot(str, str)
+    def rename_tag(self, old_tag: str, new_tag: str):
+        """Rename all instances of a tag in all images."""
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            if old_tag in image.tags:
+                changed_image_indices.append(image_index)
+                image.tags = [new_tag if image_tag == old_tag else image_tag
+                              for image_tag in image.tags]
+                self.write_image_tags_to_disk(image)
+        self.dataChanged.emit(self.index(changed_image_indices[0]),
+                              self.index(changed_image_indices[-1]))
 
     @Slot(str)
     def delete_tag(self, tag: str):

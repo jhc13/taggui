@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (QDockWidget, QLabel, QLineEdit, QListView,
                                QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 from tag_counter_model import TagCounterModel
+from utils import get_confirmation_dialog_reply, pluralize
 
 
 class ProxyTagCounterModel(QSortFilterProxyModel):
@@ -44,11 +45,8 @@ class AllTagsList(QListView):
         # Display a confirmation dialog.
         question = (f'Delete {count} {pluralize("instance", count)} of tag '
                     f'"{tag}"?')
-        buttons = (QMessageBox.StandardButton.Yes
-                   | QMessageBox.StandardButton.Cancel)
-        reply = QMessageBox.question(
-            self, 'Delete Tag', question, buttons=buttons,
-            defaultButton=QMessageBox.StandardButton.Cancel)
+        reply = get_confirmation_dialog_reply(title='Delete Tag',
+                                              question=question)
         if reply == QMessageBox.StandardButton.Yes:
             self.tag_deletion_requested.emit(tag)
 
@@ -93,9 +91,3 @@ class AllTagsEditor(QDockWidget):
         filtered_tag_count = self.proxy_tag_counter_model.rowCount()
         self.tag_count_label.setText(f'{filtered_tag_count} / '
                                      f'{total_tag_count} Tags')
-
-
-def pluralize(word: str, count: int):
-    if count == 1:
-        return word
-    return f'{word}s'
