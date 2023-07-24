@@ -32,7 +32,7 @@ class TagCounterModel(QAbstractListModel):
         return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
 
     def setData(self, index, value: str, role=Qt.EditRole) -> bool:
-        if role != Qt.EditRole:
+        if not value or role != Qt.EditRole:
             return False
         tag, count = self.data(index, Qt.UserRole)
         question = (f'Rename {count} {pluralize("instance", count)} of tag '
