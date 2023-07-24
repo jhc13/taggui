@@ -223,7 +223,7 @@ class MainWindow(QMainWindow):
         self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
         self.proxy_image_list_model.setFilterRegularExpression('')
         # Select the previously selected image in the unfiltered image list.
-        select_index = int(self.settings.value('image_index'))
+        select_index = int(self.settings.value('image_index') or 0)
         self.image_list.list_view.setCurrentIndex(
             self.proxy_image_list_model.index(select_index, 0))
 
