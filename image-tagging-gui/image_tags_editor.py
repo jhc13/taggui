@@ -1,7 +1,8 @@
 from pathlib import Path
 
-from PySide6.QtCore import (QModelIndex, QPersistentModelIndex, QSettings,
-                            QStringListModel, Qt, Slot)
+from PySide6.QtCore import (QItemSelectionModel, QModelIndex,
+                            QPersistentModelIndex, QSettings, QStringListModel,
+                            QTimer, Qt, Slot)
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
                                QLabel, QLineEdit, QListView, QVBoxLayout,
@@ -23,17 +24,34 @@ class TagInputBox(QLineEdit):
         super().__init__()
         self.image_tag_list_model = image_tag_list_model
 
-        completer = QCompleter(tag_counter_model)
-        self.setCompleter(completer)
+        self.completer = QCompleter(tag_counter_model)
+        self.setCompleter(self.completer)
         self.setPlaceholderText('Add Tag')
         self.setStyleSheet('padding: 8px;')
 
-        self.returnPressed.connect(self.add_tag, Qt.QueuedConnection)
-        completer.activated.connect(self.add_tag, Qt.QueuedConnection)
+        self.completer.activated.connect(lambda text: self.add_tag(text))
+        # Clear the input box after the completer inserts the tag into it.
+        self.completer.activated.connect(
+            lambda: QTimer.singleShot(0, self.clear))
 
-    @Slot()
-    def add_tag(self):
-        tag = self.text()
+    def keyPressEvent(self, event: QKeyEvent):
+        if not event.key() == Qt.Key_Return:
+            super().keyPressEvent(event)
+            return
+        # If Ctrl+Enter is pressed and the completer is visible, add the first
+        # tag in the completer popup.
+        if (event.modifiers() == Qt.ControlModifier
+                and self.completer.popup().isVisible()):
+            first_tag = self.completer.popup().model().data(
+                self.completer.model().index(0, 0), Qt.EditRole)
+            self.add_tag(first_tag)
+        # Otherwise, add the tag in the input box.
+        else:
+            self.add_tag(self.text())
+        self.clear()
+        self.completer.popup().hide()
+
+    def add_tag(self, tag: str):
         if not tag:
             return
         # Add an empty tag and set it to the new tag.
@@ -42,7 +60,6 @@ class TagInputBox(QLineEdit):
         new_tag_index = self.image_tag_list_model.index(
             self.image_tag_list_model.rowCount() - 1)
         self.image_tag_list_model.setData(new_tag_index, tag)
-        self.clear()
 
 
 class ImageTagsList(QListView):
@@ -102,8 +119,10 @@ class ImageTagsEditor(QDockWidget):
 
         # When a tag is added, select it and scroll to the bottom of the list.
         self.image_tag_list_model.rowsInserted.connect(
-            lambda _, __, last_index: self.image_tags_list.setCurrentIndex(
-                self.image_tag_list_model.index(last_index)))
+            lambda _, __, last_index:
+            self.image_tags_list.selectionModel().select(
+                self.image_tag_list_model.index(last_index),
+                QItemSelectionModel.SelectionFlag.ClearAndSelect))
         self.image_tag_list_model.rowsInserted.connect(
             self.image_tags_list.scrollToBottom)
         # `rowsInserted` does not have to be connected because `dataChanged`
