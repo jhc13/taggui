@@ -40,7 +40,6 @@ class MainWindow(QMainWindow):
         self.image_tag_list_model = ImageTagListModel()
 
         self.setWindowIcon(QIcon(QPixmap(get_resource_path(ICON_PATH))))
-        self.setWindowTitle('Image Tagging GUI')
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
         # The font size must be set before creating the widgets to ensure that
@@ -108,7 +107,7 @@ class MainWindow(QMainWindow):
 
     def load_directory(self, path: Path, select_index: int = 0):
         self.settings.setValue('directory_path', str(path))
-        self.setWindowTitle(f'Image Tagging GUI - {path.name}')
+        self.setWindowTitle(path.name)
         self.image_list_model.load_directory(path)
         self.clear_image_list_filter()
         # Clear the current index first to make sure that the `currentChanged`
