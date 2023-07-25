@@ -1,5 +1,6 @@
 import sys
 
+from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QApplication
 
 from widgets.main_window import MainWindow
@@ -12,6 +13,8 @@ def run_gui():
     # The application display name is shown in the title bar.
     app.setApplicationDisplayName('Image Tagging GUI')
     app.setStyle('Fusion')
+    # Disable the allocation limit to allow loading large images.
+    QImageReader.setAllocationLimit(0)
     main_window = MainWindow(app)
     main_window.show()
     sys.exit(app.exec())
