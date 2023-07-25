@@ -18,8 +18,7 @@ Written in Python using PySide6.
 
 The easiest way to use the application is to download the latest release from
 the [releases page](https://www.github.com/jhc13/image-tagging-gui/releases).
-Choose the appropriate executable file for your operating system (Windows users
-should download the `.exe` file).
+Choose the appropriate executable file for your operating system.
 The file can be run directly without any additional dependencies.
 
 Alternatively, you can install manually by cloning this repository and
@@ -54,6 +53,7 @@ Panes can be resized, undocked, and moved around.
 - Rename a tag: Double-click the tag, or select the tag and press `F2`
 - Reorder tags: Drag and drop the tags
 - Select multiple tags: Hold `Ctrl` or `Shift` while selecting the tags
+- Previous / next image: `Up` / `Down` arrow keys while in the `Add Tag` box
 
 ### All Tags pane
 
