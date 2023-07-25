@@ -3,7 +3,7 @@
 <img src='images/icon.png' alt='TagGUI icon' width='128'>
 
 Cross-platform desktop application for quickly tagging images, aimed towards
-creators of image datasets for generative AI.
+creators of image datasets for generative AI models like Stable Diffusion.
 Written in Python using PySide6.
 
 <img src='images/screenshot-v1.1.0.png' alt='TagGUI screenshot' width='100%'>
