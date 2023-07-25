@@ -1,4 +1,18 @@
+import sys
+from pathlib import Path
+
 from PySide6.QtWidgets import QMessageBox
+
+
+def get_resource_path(unbundled_resource_path: Path):
+    """
+    Get the path to a resource, ensuring that it is valid even when the program
+    is bundled with PyInstaller.
+    """
+    # PyInstaller stores the path to its temporary directory in `sys._MEIPASS`.
+    base_path = getattr(sys, '_MEIPASS', Path(__file__).parent.parent.parent)
+    resource_path = (Path(base_path) / unbundled_resource_path).resolve()
+    return resource_path
 
 
 def pluralize(word: str, count: int):

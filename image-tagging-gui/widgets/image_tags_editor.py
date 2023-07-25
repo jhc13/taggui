@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 
 from PySide6.QtCore import (QItemSelectionModel, QModelIndex,
@@ -13,8 +12,9 @@ from transformers import AutoTokenizer
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
 from utils.image import Image
+from utils.utils import get_resource_path
 
-TOKENIZER_DIRECTORY_NAME = 'clip-vit-base-patch32'
+TOKENIZER_DIRECTORY_PATH = Path('clip-vit-base-patch32')
 MAX_TOKEN_COUNT = 75
 
 
@@ -89,17 +89,6 @@ class ImageTagsList(QListView):
         self.setCurrentIndex(self.currentIndex())
 
 
-def get_tokenizer_directory_path():
-    """
-    Get the path to the tokenizer directory, ensuring that it is valid even
-    when the program is bundled with PyInstaller.
-    """
-    # PyInstaller stores the path to its temporary directory in `sys._MEIPASS`.
-    base_path = getattr(sys, '_MEIPASS', Path(__file__).parent.parent.parent)
-    tokenizer_directory_path = Path(base_path) / TOKENIZER_DIRECTORY_NAME
-    return tokenizer_directory_path
-
-
 class ImageTagsEditor(QDockWidget):
     def __init__(self, proxy_image_list_model: ProxyImageListModel,
                  tag_counter_model: TagCounterModel,
@@ -109,7 +98,7 @@ class ImageTagsEditor(QDockWidget):
         self.image_tag_list_model = image_tag_list_model
         self.separator = separator
         self.tokenizer = AutoTokenizer.from_pretrained(
-            get_tokenizer_directory_path())
+            get_resource_path(TOKENIZER_DIRECTORY_PATH))
         self.image_index = None
 
         # Each `QDockWidget` needs a unique object name for saving its state.

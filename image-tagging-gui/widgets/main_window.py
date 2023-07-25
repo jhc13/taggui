@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from PySide6.QtCore import QItemSelection, QModelIndex, QUrl, Qt, Slot
-from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QKeySequence
+from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
+                           QKeySequence, QPixmap)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QPushButton, QStackedWidget, QVBoxLayout,
                                QWidget)
@@ -12,12 +13,14 @@ from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
 from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import get_separator, get_settings
+from utils.utils import get_resource_path
 from widgets.all_tags_editor import AllTagsEditor
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer
 from widgets.settings_dialog import SettingsDialog
 
+ICON_PATH = Path('images/icon.ico')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/image-tagging-gui'
 
 
@@ -36,6 +39,7 @@ class MainWindow(QMainWindow):
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
+        self.setWindowIcon(QIcon(QPixmap(get_resource_path(ICON_PATH))))
         self.setWindowTitle('Image Tagging GUI')
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
