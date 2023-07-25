@@ -57,7 +57,7 @@ class SettingsDialog(QDialog):
             lambda value: self.settings.setValue('image_list_image_width',
                                                  value))
         image_list_image_width_spin_box.valueChanged.connect(
-            self.parent().image_list.set_image_width)
+            self.restart_label.show)
         return image_list_image_width_spin_box
 
     def get_tag_separator_line_edit(self) -> QLineEdit:

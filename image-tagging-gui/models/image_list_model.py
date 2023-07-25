@@ -14,6 +14,7 @@ class ImageListModel(QAbstractListModel):
     def __init__(self, settings: QSettings):
         super().__init__()
         self.settings = settings
+        self.image_width = int(self.settings.value('image_list_image_width'))
         self.images = []
 
     def rowCount(self, parent=None) -> int:
@@ -26,14 +27,13 @@ class ImageListModel(QAbstractListModel):
         if role == Qt.DisplayRole:
             # The text shown next to the thumbnail in the image list.
             return image.path.name
-        image_width = int(self.settings.value('image_list_image_width'))
         if role == Qt.DecorationRole:
             # The thumbnail. If the image already has a thumbnail stored, use
             # it. Otherwise, generate a thumbnail and save it to the image.
             if image.thumbnail:
                 return image.thumbnail
             thumbnail = QIcon(
-                QPixmap(str(image.path)).scaledToWidth(image_width))
+                QPixmap(str(image.path)).scaledToWidth(self.image_width))
             image.thumbnail = thumbnail
             return thumbnail
         if role == Qt.SizeHintRole:
@@ -41,8 +41,9 @@ class ImageListModel(QAbstractListModel):
             if dimensions:
                 width, height = dimensions
                 # Scale the dimensions to the image width.
-                return QSize(image_width, int(image_width * height / width))
-            return QSize(image_width, image_width)
+                return QSize(self.image_width,
+                             int(self.image_width * height / width))
+            return QSize(self.image_width, self.image_width)
 
     def get_file_paths(self, directory_path: Path) -> set[Path]:
         """
