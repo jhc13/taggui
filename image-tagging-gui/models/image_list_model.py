@@ -28,9 +28,14 @@ class ImageListModel(QAbstractListModel):
             return image.path.name
         image_width = int(self.settings.value('image_list_image_width'))
         if role == Qt.DecorationRole:
-            # The thumbnail.
-            pixmap = QPixmap(str(image.path)).scaledToWidth(image_width)
-            return QIcon(pixmap)
+            # The thumbnail. If the image already has a thumbnail stored, use
+            # it. Otherwise, generate a thumbnail and save it to the image.
+            if image.thumbnail:
+                return image.thumbnail
+            thumbnail = QIcon(
+                QPixmap(str(image.path)).scaledToWidth(image_width))
+            image.thumbnail = thumbnail
+            return thumbnail
         if role == Qt.SizeHintRole:
             dimensions = image.dimensions
             if dimensions:
@@ -64,16 +69,13 @@ class ImageListModel(QAbstractListModel):
                 dimensions = imagesize.get(image_path)
             except ValueError:
                 dimensions = None
+            tags = []
             text_file_path = image_path.with_suffix('.txt')
             if text_file_path in text_file_paths:
                 caption = text_file_path.read_text()
                 if caption:
                     tags = caption.split(separator)
-                else:
-                    tags = []
-                image = Image(image_path, dimensions, tags)
-            else:
-                image = Image(image_path, dimensions)
+            image = Image(image_path, dimensions, tags)
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
