@@ -290,5 +290,8 @@ class MainWindow(QMainWindow):
             image_index = 0
         # Load the last loaded directory.
         if self.settings.contains('directory_path'):
-            self.load_directory(Path(self.settings.value('directory_path')),
-                                select_index=image_index)
+            directory_path = Path(self.settings.value('directory_path'))
+            if directory_path.is_dir():
+                self.load_directory(
+                    Path(self.settings.value('directory_path')),
+                    select_index=image_index)
