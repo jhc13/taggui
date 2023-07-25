@@ -104,6 +104,7 @@ class MainWindow(QMainWindow):
 
     def load_directory(self, path: Path, select_index: int = 0):
         self.settings.setValue('directory_path', str(path))
+        self.setWindowTitle(f'Image Tagging GUI - {path.name}')
         self.image_list_model.load_directory(path)
         self.clear_image_list_filter()
         # Clear the current index first to make sure that the `currentChanged`
