@@ -1,20 +1,18 @@
 from pathlib import Path
 
 import imagesize
-from PySide6.QtCore import (QAbstractListModel, QModelIndex,
-                            QSettings, QSize, Qt, Slot)
+from PySide6.QtCore import QAbstractListModel, QModelIndex, QSize, Qt, Slot
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
 from utils.image import Image
-from utils.settings import get_separator
 
 
 class ImageListModel(QAbstractListModel):
-    def __init__(self, settings: QSettings):
+    def __init__(self, image_list_image_width: int, separator: str):
         super().__init__()
-        self.settings = settings
-        self.image_width = int(self.settings.value('image_list_image_width'))
+        self.image_list_image_width = image_list_image_width
+        self.separator = separator
         self.images = []
 
     def rowCount(self, parent=None) -> int:
@@ -28,7 +26,7 @@ class ImageListModel(QAbstractListModel):
             # The text shown next to the thumbnail in the image list.
             text = image.path.name
             if image.tags:
-                caption = get_separator(self.settings).join(image.tags)
+                caption = self.separator.join(image.tags)
                 text += f'\n{caption}'
             return text
         if role == Qt.DecorationRole:
@@ -37,7 +35,8 @@ class ImageListModel(QAbstractListModel):
             if image.thumbnail:
                 return image.thumbnail
             thumbnail = QIcon(
-                QPixmap(str(image.path)).scaledToWidth(self.image_width))
+                QPixmap(str(image.path)).scaledToWidth(
+                    self.image_list_image_width))
             image.thumbnail = thumbnail
             return thumbnail
         if role == Qt.SizeHintRole:
@@ -45,9 +44,10 @@ class ImageListModel(QAbstractListModel):
             if dimensions:
                 width, height = dimensions
                 # Scale the dimensions to the image width.
-                return QSize(self.image_width,
-                             int(self.image_width * height / width))
-            return QSize(self.image_width, self.image_width)
+                return QSize(self.image_list_image_width,
+                             int(self.image_list_image_width * height / width))
+            return QSize(self.image_list_image_width,
+                         self.image_list_image_width)
 
     def get_file_paths(self, directory_path: Path) -> set[Path]:
         """
@@ -68,7 +68,6 @@ class ImageListModel(QAbstractListModel):
         text_file_paths = {path for path in file_paths
                            if path.suffix == '.txt'}
         image_paths = file_paths - text_file_paths
-        separator = get_separator(self.settings)
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
@@ -79,7 +78,7 @@ class ImageListModel(QAbstractListModel):
             if text_file_path in text_file_paths:
                 caption = text_file_path.read_text()
                 if caption:
-                    tags = caption.split(separator)
+                    tags = caption.split(self.separator)
             image = Image(image_path, dimensions, tags)
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path)
@@ -88,7 +87,7 @@ class ImageListModel(QAbstractListModel):
     def write_image_tags_to_disk(self, image: Image):
         try:
             image.path.with_suffix('.txt').write_text(
-                get_separator(self.settings).join(image.tags))
+                self.separator.join(image.tags))
         except OSError:
             error_message_box = QMessageBox()
             error_message_box.setWindowTitle('Error')

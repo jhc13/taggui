@@ -1,4 +1,4 @@
-from PySide6.QtCore import QModelIndex, QSettings, QSize, Qt, Slot
+from PySide6.QtCore import QModelIndex, QSize, Qt, Slot
 from PySide6.QtWidgets import (QDockWidget, QLabel, QListView, QVBoxLayout,
                                QWidget)
 
@@ -6,10 +6,9 @@ from models.proxy_image_list_model import ProxyImageListModel
 
 
 class ImageList(QDockWidget):
-    def __init__(self, settings: QSettings,
+    def __init__(self, image_width: int,
                  proxy_image_list_model: ProxyImageListModel):
         super().__init__()
-        self.settings = settings
         self.proxy_image_list_model = proxy_image_list_model
         # Each `QDockWidget` needs a unique object name for saving its state.
         self.setObjectName('image_list')
@@ -19,7 +18,6 @@ class ImageList(QDockWidget):
         self.list_view = QListView(self)
         self.list_view.setModel(self.proxy_image_list_model)
         self.list_view.setWordWrap(True)
-        image_width = int(self.settings.value('image_list_image_width'))
         # If the actual height of the image is greater than 3 times the width,
         # the image will be scaled down to fit.
         self.list_view.setIconSize(QSize(image_width, image_width * 3))

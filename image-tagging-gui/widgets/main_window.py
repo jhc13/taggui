@@ -11,7 +11,7 @@ from models.image_tag_list_model import ImageTagListModel
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
 from utils.key_press_forwarder import KeyPressForwarder
-from utils.settings import get_settings
+from utils.settings import get_separator, get_settings
 from widgets.all_tags_editor import AllTagsEditor
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
@@ -26,7 +26,11 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = get_settings()
-        self.image_list_model = ImageListModel(self.settings)
+        image_list_image_width = int(
+            self.settings.value('image_list_image_width'))
+        separator = get_separator(self.settings)
+        self.image_list_model = ImageListModel(image_list_image_width,
+                                               separator)
         self.proxy_image_list_model = ProxyImageListModel(
             self.image_list_model)
         self.tag_counter_model = TagCounterModel()
@@ -38,18 +42,14 @@ class MainWindow(QMainWindow):
         # The font size must be set before creating the widgets to ensure that
         # everything has the correct font size.
         self.set_font_size()
-        self.image_viewer = ImageViewer(
-            proxy_image_list_model=self.proxy_image_list_model)
+        self.image_viewer = ImageViewer(self.proxy_image_list_model)
         self.create_central_widget()
-        self.image_list = ImageList(
-            settings=self.settings,
-            proxy_image_list_model=self.proxy_image_list_model)
+        self.image_list = ImageList(image_list_image_width,
+                                    self.proxy_image_list_model)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
         self.image_tags_editor = ImageTagsEditor(
-            settings=self.settings,
-            proxy_image_list_model=self.proxy_image_list_model,
-            tag_counter_model=self.tag_counter_model,
-            image_tag_list_model=self.image_tag_list_model)
+            self.proxy_image_list_model, self.tag_counter_model,
+            self.image_tag_list_model, separator)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
@@ -57,8 +57,6 @@ class MainWindow(QMainWindow):
         # Temporarily set a size for the window so that the dock widgets can be
         # expanded to their default widths. If the window geometry was
         # previously saved, it will be restored later.
-        image_list_image_width = int(self.settings.value(
-            'image_list_image_width'))
         self.resize(image_list_image_width * 8,
                     int(image_list_image_width * 4.5))
         self.resizeDocks([self.image_list, self.image_tags_editor,

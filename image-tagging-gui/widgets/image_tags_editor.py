@@ -2,8 +2,8 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import (QItemSelectionModel, QModelIndex,
-                            QPersistentModelIndex, QSettings, QStringListModel,
-                            QTimer, Qt, Slot)
+                            QPersistentModelIndex, QStringListModel, QTimer,
+                            Qt, Slot)
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
                                QLabel, QLineEdit, QListView, QVBoxLayout,
@@ -13,7 +13,6 @@ from transformers import AutoTokenizer
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
 from utils.image import Image
-from utils.settings import get_separator
 
 TOKENIZER_DIRECTORY_NAME = 'clip-vit-base-patch32'
 MAX_TOKEN_COUNT = 75
@@ -102,14 +101,13 @@ def get_tokenizer_directory_path():
 
 
 class ImageTagsEditor(QDockWidget):
-    def __init__(self, settings: QSettings,
-                 proxy_image_list_model: ProxyImageListModel,
+    def __init__(self, proxy_image_list_model: ProxyImageListModel,
                  tag_counter_model: TagCounterModel,
-                 image_tag_list_model: QStringListModel):
+                 image_tag_list_model: QStringListModel, separator: str):
         super().__init__()
-        self.settings = settings
         self.proxy_image_list_model = proxy_image_list_model
         self.image_tag_list_model = image_tag_list_model
+        self.separator = separator
         self.tokenizer = AutoTokenizer.from_pretrained(
             get_tokenizer_directory_path())
         self.image_index = None
@@ -145,8 +143,7 @@ class ImageTagsEditor(QDockWidget):
 
     @Slot()
     def count_tokens(self):
-        caption = get_separator(self.settings).join(
-            self.image_tag_list_model.stringList())
+        caption = self.separator.join(self.image_tag_list_model.stringList())
         # Subtract 2 for the `<|startoftext|>` and `<|endoftext|>` tokens.
         caption_token_count = len(self.tokenizer(caption).input_ids) - 2
         if caption_token_count > MAX_TOKEN_COUNT:
