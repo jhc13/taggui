@@ -21,7 +21,7 @@ from widgets.image_viewer import ImageViewer
 from widgets.settings_dialog import SettingsDialog
 
 ICON_PATH = Path('images/icon.ico')
-GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/image-tagging-gui'
+GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
 
 
 class MainWindow(QMainWindow):

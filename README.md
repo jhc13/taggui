@@ -1,4 +1,4 @@
-# Image Tagging GUI
+# TagGUI
 
 Cross-platform desktop application for quickly tagging images, aimed towards
 creators of image datasets for generative AI.
@@ -17,13 +17,13 @@ Written in Python using PySide6.
 ## Installation
 
 The easiest way to use the application is to download the latest release from
-the [releases page](https://www.github.com/jhc13/image-tagging-gui/releases).
+the [releases page](https://www.github.com/jhc13/taggui/releases).
 Choose the appropriate executable file for your operating system.
 The file can be run directly without any additional dependencies.
 
 Alternatively, you can install manually by cloning this repository and
 installing the dependencies in `requirements.txt`.
-Run `image-tagging-gui/run_gui.py` to start the program.
+Run `taggui/run_gui.py` to start the program.
 Python 3.11 is recommended, but Python 3.10 should also work.
 
 ## Usage

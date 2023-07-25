@@ -9,9 +9,9 @@ from widgets.main_window import MainWindow
 def run_gui():
     app = QApplication([])
     # The application name is shown in the taskbar.
-    app.setApplicationName('Image Tagging GUI')
+    app.setApplicationName('TagGUI')
     # The application display name is shown in the title bar.
-    app.setApplicationDisplayName('Image Tagging GUI')
+    app.setApplicationDisplayName('TagGUI')
     app.setStyle('Fusion')
     # Disable the allocation limit to allow loading large images.
     QImageReader.setAllocationLimit(0)

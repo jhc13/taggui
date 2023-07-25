@@ -9,8 +9,8 @@ block_cipher = None
 
 
 a = Analysis(
-    ['image-tagging-gui/run_gui.py'],
-    pathex=['image-tagging-gui/'],
+    ['taggui/run_gui.py'],
+    pathex=['taggui/'],
     binaries=[],
     datas=datas,
     hiddenimports=[],
@@ -32,7 +32,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='image-tagging-gui',
+    name='taggui',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

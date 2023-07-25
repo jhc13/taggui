@@ -15,7 +15,7 @@ def set_default_settings(settings: QSettings):
 
 
 def get_settings() -> QSettings:
-    settings = QSettings('image-tagging-gui', 'image-tagging-gui')
+    settings = QSettings('taggui', 'taggui')
     set_default_settings(settings)
     return settings
 
