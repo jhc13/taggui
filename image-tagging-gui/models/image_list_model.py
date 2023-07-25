@@ -26,7 +26,11 @@ class ImageListModel(QAbstractListModel):
             return image
         if role == Qt.DisplayRole:
             # The text shown next to the thumbnail in the image list.
-            return image.path.name
+            text = image.path.name
+            if image.tags:
+                caption = get_separator(self.settings).join(image.tags)
+                text += f'\n{caption}'
+            return text
         if role == Qt.DecorationRole:
             # The thumbnail. If the image already has a thumbnail stored, use
             # it. Otherwise, generate a thumbnail and save it to the image.
