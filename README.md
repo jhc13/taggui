@@ -1,5 +1,7 @@
 # TagGUI
 
+<img src='images/icon.png' alt='TagGUI icon' width='128' height='128'>
+
 Cross-platform desktop application for quickly tagging images, aimed towards
 creators of image datasets for generative AI.
 Written in Python using PySide6.
