@@ -53,6 +53,18 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
+        # Set default widths for the dock widgets.
+        # Temporarily set a size for the window so that the dock widgets can be
+        # expanded to their default widths. If the window geometry was
+        # previously saved, it will be restored later.
+        image_list_image_width = int(self.settings.value(
+            'image_list_image_width'))
+        self.resize(image_list_image_width * 8,
+                    int(image_list_image_width * 4.5))
+        self.resizeDocks([self.image_list, self.image_tags_editor,
+                          self.all_tags_editor],
+                         [int(image_list_image_width * 2.5)] * 3,
+                         Qt.Horizontal)
         self.toggle_image_list_action = QAction('Image List', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
