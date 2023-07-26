@@ -15,6 +15,7 @@ from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import get_separator, get_settings
 from utils.utils import get_resource_path
 from widgets.all_tags_editor import AllTagsEditor
+from widgets.blip_2_captioner import Blip2Captioner
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer
@@ -56,6 +57,10 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
+        self.blip_2_captioner = Blip2Captioner()
+        self.addDockWidget(Qt.RightDockWidgetArea, self.blip_2_captioner)
+        self.tabifyDockWidget(self.all_tags_editor, self.blip_2_captioner)
+        self.all_tags_editor.raise_()
         # Set default widths for the dock widgets.
         # Temporarily set a size for the window so that the dock widgets can be
         # expanded to their default widths. If the window geometry was
