@@ -57,7 +57,8 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
-        self.blip_2_captioner = Blip2Captioner()
+        self.blip_2_captioner = Blip2Captioner(self.image_list_model,
+                                               self.image_list)
         self.addDockWidget(Qt.RightDockWidgetArea, self.blip_2_captioner)
         self.tabifyDockWidget(self.all_tags_editor, self.blip_2_captioner)
         self.all_tags_editor.raise_()

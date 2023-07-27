@@ -1,6 +1,6 @@
 from PySide6.QtCore import QModelIndex, QSize, Qt, Slot
-from PySide6.QtWidgets import (QDockWidget, QLabel, QListView, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QDockWidget, QLabel,
+                               QListView, QVBoxLayout, QWidget)
 
 from models.proxy_image_list_model import ProxyImageListModel
 
@@ -17,6 +17,8 @@ class ImageList(QDockWidget):
 
         self.list_view = QListView(self)
         self.list_view.setModel(self.proxy_image_list_model)
+        self.list_view.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection)
         self.list_view.setWordWrap(True)
         # If the actual height of the image is greater than 3 times the width,
         # the image will be scaled down to fit.
