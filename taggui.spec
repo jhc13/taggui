@@ -49,7 +49,7 @@ coll = COLLECT(
     a.binaries,
     a.zipfiles,
     a.datas,
-    strip=True,
+    strip=False,
     upx=True,
     upx_exclude=[],
     name='taggui',
