@@ -1,3 +1,4 @@
+import os
 import sys
 
 import torch
@@ -12,6 +13,9 @@ from transformers import AutoProcessor, Blip2ForConditionalGeneration
 from models.image_list_model import ImageListModel
 from utils.image import Image
 from widgets.image_list import ImageList
+
+# Disable the warning about windows not supporting symlinks.
+os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 
 BLIP_2_HUGGINGFACE_REPOSITORY_ID = 'Salesforce/blip2-opt-2.7b'
 
