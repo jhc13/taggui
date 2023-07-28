@@ -72,8 +72,8 @@ class CaptionThread(QThread):
         model.eval()
         self.clear_text_edit_requested.emit()
         print('Captioning...')
-        for index in self.selected_image_indices:
-            image: Image = self.image_list_model.data(index, Qt.UserRole)
+        for i, image_index in enumerate(self.selected_image_indices):
+            image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             pil_image = PilImage.open(image.path)
             model_inputs = processor(pil_image, return_tensors='pt').to(device)
             caption_token_ids = model.generate(**model_inputs,
@@ -81,9 +81,14 @@ class CaptionThread(QThread):
             caption = processor.batch_decode(
                 caption_token_ids, skip_special_tokens=True)[0].strip()
             tags = add_caption_to_tags(image.tags, caption)
-            self.caption_generated.emit(index, caption, tags)
+            self.caption_generated.emit(image_index, caption, tags)
             self.clear_text_edit_requested.emit()
-            print(caption)
+            selected_image_count = len(self.selected_image_indices)
+            if selected_image_count > 1:
+                captioned_ratio = (i + 1) / selected_image_count
+                print(f'{i + 1} / {selected_image_count} images captioned '
+                      f'({captioned_ratio:.1%})')
+            print(f'{image.path.name}:\n{caption}')
 
     def write(self, text: str):
         self.text_outputted.emit(text)
