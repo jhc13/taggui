@@ -5,13 +5,14 @@ import torch
 from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import (QDockWidget, QPushButton, QTextEdit,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QDockWidget, QMessageBox, QPushButton,
+                               QTextEdit, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
 from models.image_list_model import ImageListModel
 from utils.image import Image
+from utils.utils import get_confirmation_dialog_reply
 from widgets.image_list import ImageList
 
 # Disable the warning about windows not supporting symlinks.
@@ -128,12 +129,19 @@ class Blip2Captioner(QDockWidget):
 
     @Slot()
     def caption_with_blip_2(self):
-        self.caption_button.setEnabled(False)
         selected_proxy_image_indices = (self.image_list.list_view
                                         .selectedIndexes())
         selected_image_indices = [
             self.image_list.proxy_image_list_model.mapToSource(index)
             for index in selected_proxy_image_indices]
+        if len(selected_image_indices) > 1:
+            reply = get_confirmation_dialog_reply(
+                title='Caption with BLIP-2',
+                question=f'Caption {len(selected_image_indices)} selected '
+                         f'images?')
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        self.caption_button.setEnabled(False)
         caption_thread = CaptionThread(self, self.image_list_model,
                                        selected_image_indices)
         caption_thread.text_outputted.connect(self.update_text_edit)
