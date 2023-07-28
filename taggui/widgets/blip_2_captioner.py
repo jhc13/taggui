@@ -28,6 +28,7 @@ class CaptionPosition(Enum):
     AFTER_LAST_TAG = auto()
     OVERWRITE_FIRST_TAG = auto()
     OVERWRITE_ALL_TAGS = auto()
+    DO_NOT_ADD = auto()
 
 
 class Device(Enum):
@@ -46,14 +47,14 @@ class CaptionSettingsForm(QFormLayout):
             'Insert before first tag',
             userData=CaptionPosition.BEFORE_FIRST_TAG)
         self.caption_position_combo_box.addItem(
-            'Insert after last tag',
-            userData=CaptionPosition.AFTER_LAST_TAG)
+            'Insert after last tag', userData=CaptionPosition.AFTER_LAST_TAG)
         self.caption_position_combo_box.addItem(
             'Overwrite first tag',
             userData=CaptionPosition.OVERWRITE_FIRST_TAG)
         self.caption_position_combo_box.addItem(
-            'Overwrite all tags',
-            userData=CaptionPosition.OVERWRITE_ALL_TAGS)
+            'Overwrite all tags', userData=CaptionPosition.OVERWRITE_ALL_TAGS)
+        self.caption_position_combo_box.addItem(
+            'Do not add to tags', userData=CaptionPosition.DO_NOT_ADD)
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItem('GPU if available', userData=Device.GPU)
         self.device_combo_box.addItem('CPU', userData=Device.CPU)
@@ -72,6 +73,8 @@ class CaptionSettingsForm(QFormLayout):
 def add_caption_to_tags(tags: list[str], caption: str,
                         caption_position: CaptionPosition) -> list[str]:
     """Add a caption to a list of tags and return the new list."""
+    if caption_position == CaptionPosition.DO_NOT_ADD:
+        return tags
     # Make a copy of the tags so that the tags in the image list model are not
     # modified.
     tags = tags.copy()
