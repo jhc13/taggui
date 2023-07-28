@@ -1,13 +1,14 @@
 import os
 import sys
+from enum import Enum, auto
 
 import torch
 from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
-from PySide6.QtWidgets import (QDockWidget, QFormLayout, QLabel, QMessageBox,
-                               QPlainTextEdit, QProgressBar, QPushButton,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QComboBox, QDockWidget, QFormLayout, QLineEdit,
+                               QMessageBox, QPlainTextEdit, QProgressBar,
+                               QPushButton, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
@@ -22,12 +23,69 @@ os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 BLIP_2_HUGGINGFACE_REPOSITORY_ID = 'Salesforce/blip2-opt-2.7b'
 
 
-def add_caption_to_tags(tags: list[str], caption: str) -> list[str]:
+class CaptionPosition(Enum):
+    BEFORE_FIRST_TAG = auto()
+    AFTER_LAST_TAG = auto()
+    OVERWRITE_FIRST_TAG = auto()
+    OVERWRITE_ALL_TAGS = auto()
+
+
+class Device(Enum):
+    GPU = auto()
+    CPU = auto()
+
+
+class CaptionSettingsForm(QFormLayout):
+    def __init__(self):
+        super().__init__()
+        self.setLabelAlignment(Qt.AlignRight)
+
+        self.caption_start_line_edit = QLineEdit()
+        self.caption_position_combo_box = QComboBox()
+        self.caption_position_combo_box.addItem(
+            'Insert before first tag',
+            userData=CaptionPosition.BEFORE_FIRST_TAG)
+        self.caption_position_combo_box.addItem(
+            'Insert after last tag',
+            userData=CaptionPosition.AFTER_LAST_TAG)
+        self.caption_position_combo_box.addItem(
+            'Overwrite first tag',
+            userData=CaptionPosition.OVERWRITE_FIRST_TAG)
+        self.caption_position_combo_box.addItem(
+            'Overwrite all tags',
+            userData=CaptionPosition.OVERWRITE_ALL_TAGS)
+        self.device_combo_box = QComboBox()
+        self.device_combo_box.addItem('GPU if available', userData=Device.GPU)
+        self.device_combo_box.addItem('CPU', userData=Device.CPU)
+        self.addRow('Start caption with:', self.caption_start_line_edit)
+        self.addRow('Caption position:', self.caption_position_combo_box)
+        self.addRow('Device:', self.device_combo_box)
+
+    def get_caption_settings(self) -> dict:
+        return {
+            'caption_start': self.caption_start_line_edit.text(),
+            'caption_position': self.caption_position_combo_box.currentData(),
+            'device': self.device_combo_box.currentData()
+        }
+
+
+def add_caption_to_tags(tags: list[str], caption: str,
+                        caption_position: CaptionPosition) -> list[str]:
     """Add a caption to a list of tags and return the new list."""
     # Make a copy of the tags so that the tags in the image list model are not
     # modified.
     tags = tags.copy()
-    tags.insert(0, caption)
+    if caption_position == CaptionPosition.BEFORE_FIRST_TAG:
+        tags.insert(0, caption)
+    elif caption_position == CaptionPosition.AFTER_LAST_TAG:
+        tags.append(caption)
+    elif caption_position == CaptionPosition.OVERWRITE_FIRST_TAG:
+        if tags:
+            tags[0] = caption
+        else:
+            tags.append(caption)
+    elif caption_position == CaptionPosition.OVERWRITE_ALL_TAGS:
+        tags = [caption]
     return tags
 
 
@@ -41,22 +99,23 @@ class CaptionThread(QThread):
     progress_bar_update_requested = Signal(int)
 
     def __init__(self, parent, image_list_model: ImageListModel,
-                 selected_image_indices: list[QModelIndex]):
+                 selected_image_indices: list[QModelIndex],
+                 caption_settings: dict):
         super().__init__(parent)
         self.image_list_model = image_list_model
         self.selected_image_indices = selected_image_indices
+        self.caption_settings = caption_settings
 
     def run(self):
         # Redirect `stdout` and `stderr` so that the outputs are
         # displayed in the text edit.
         sys.stdout = self
         sys.stderr = self
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # If the processor and model were previously loaded, use them.
         processor = self.parent().processor
         model = self.parent().model
         if not processor or not model:
-            print(f'Loading BLIP-2 model... (device: {device})')
+            print(f'Loading BLIP-2 model...')
             # Check if the model is downloaded by checking the cache for the
             # config file. The model might not be fully downloaded even if the
             # config file is in the cache, but it does not matter because the
@@ -70,19 +129,28 @@ class CaptionThread(QThread):
                 BLIP_2_HUGGINGFACE_REPOSITORY_ID)
             self.parent().processor = processor
             self.parent().model = model
+        if self.caption_settings['device'] == Device.CPU:
+            device = torch.device('cpu')
+        else:
+            device = torch.device('cuda' if torch.cuda.is_available()
+                                  else 'cpu')
         model.to(device)
         model.eval()
         self.clear_text_edit_requested.emit()
-        print('Captioning...')
+        print(f'Captioning... (device: {device})')
         for i, image_index in enumerate(self.selected_image_indices):
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             pil_image = PilImage.open(image.path)
-            model_inputs = processor(pil_image, return_tensors='pt').to(device)
-            caption_token_ids = model.generate(**model_inputs,
-                                               max_new_tokens=100)
-            caption = processor.batch_decode(
-                caption_token_ids, skip_special_tokens=True)[0].strip()
-            tags = add_caption_to_tags(image.tags, caption)
+            caption_start = self.caption_settings['caption_start']
+            model_inputs = processor(pil_image, text=caption_start,
+                                     return_tensors='pt').to(device)
+            generated_token_ids = model.generate(**model_inputs,
+                                                 max_new_tokens=50)
+            generated_text = processor.batch_decode(
+                generated_token_ids, skip_special_tokens=True)[0]
+            caption = (caption_start + generated_text).strip()
+            caption_position = self.caption_settings['caption_position']
+            tags = add_caption_to_tags(image.tags, caption, caption_position)
             self.caption_generated.emit(image_index, caption, tags)
             selected_image_count = len(self.selected_image_indices)
             if selected_image_count > 1:
@@ -142,9 +210,8 @@ class Blip2Captioner(QDockWidget):
         layout.addWidget(self.caption_button)
         layout.addWidget(self.progress_bar)
         layout.addWidget(self.text_edit)
-        settings_layout = QFormLayout()
-        settings_layout.addRow('', QLabel(''))
-        layout.addLayout(settings_layout)
+        self.caption_settings_form = CaptionSettingsForm()
+        layout.addLayout(self.caption_settings_form)
         self.setWidget(container)
 
         self.caption_button.clicked.connect(self.caption_with_blip_2)
@@ -188,8 +255,10 @@ class Blip2Captioner(QDockWidget):
             self.progress_bar.setRange(0, selected_image_count)
             self.progress_bar.setValue(0)
             self.progress_bar.show()
+        caption_settings = self.caption_settings_form.get_caption_settings()
         caption_thread = CaptionThread(self, self.image_list_model,
-                                       selected_image_indices)
+                                       selected_image_indices,
+                                       caption_settings)
         caption_thread.text_outputted.connect(self.update_text_edit)
         caption_thread.clear_text_edit_requested.connect(self.text_edit.clear)
         caption_thread.caption_generated.connect(self.caption_generated)
