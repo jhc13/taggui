@@ -24,7 +24,6 @@ class ImageList(QDockWidget):
         # the image will be scaled down to fit.
         self.list_view.setIconSize(QSize(image_width, image_width * 3))
         self.image_index_label = QLabel()
-
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)

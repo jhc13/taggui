@@ -4,9 +4,10 @@ import sys
 import torch
 from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
-from PySide6.QtGui import QTextCursor
-from PySide6.QtWidgets import (QDockWidget, QMessageBox, QPushButton,
-                               QTextEdit, QVBoxLayout, QWidget)
+from PySide6.QtGui import QFontMetrics, QTextCursor
+from PySide6.QtWidgets import (QDockWidget, QFormLayout, QLabel, QMessageBox,
+                               QPlainTextEdit, QProgressBar, QPushButton,
+                               QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
@@ -37,6 +38,7 @@ class CaptionThread(QThread):
     # third parameter must be declared as `list` instead of `list[str]` for it
     # to work.
     caption_generated = Signal(QModelIndex, str, list)
+    progress_bar_update_requested = Signal(int)
 
     def __init__(self, parent, image_list_model: ImageListModel,
                  selected_image_indices: list[QModelIndex]):
@@ -82,12 +84,11 @@ class CaptionThread(QThread):
                 caption_token_ids, skip_special_tokens=True)[0].strip()
             tags = add_caption_to_tags(image.tags, caption)
             self.caption_generated.emit(image_index, caption, tags)
-            self.clear_text_edit_requested.emit()
             selected_image_count = len(self.selected_image_indices)
             if selected_image_count > 1:
-                captioned_ratio = (i + 1) / selected_image_count
-                print(f'{i + 1} / {selected_image_count} images captioned '
-                      f'({captioned_ratio:.1%})')
+                self.progress_bar_update_requested.emit(i + 1)
+            if i == 0:
+                self.clear_text_edit_requested.emit()
             print(f'{image.path.name}:\n{caption}')
 
     def write(self, text: str):
@@ -118,16 +119,35 @@ class Blip2Captioner(QDockWidget):
         self.setObjectName('blip_2_captioner')
         self.setWindowTitle('BLIP-2 Captioner')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+
+        self.caption_button = QPushButton('Caption with BLIP-2')
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setFormat('%v / %m images captioned (%p%)')
+        self.progress_bar.hide()
+        self.text_edit = QPlainTextEdit()
+        # Set the height of the text edit to 4 lines.
+        # From https://stackoverflow.com/a/46997337.
+        document = self.text_edit.document()
+        font_metrics = QFontMetrics(document.defaultFont())
+        margins = self.text_edit.contentsMargins()
+        height = (font_metrics.lineSpacing() * 4
+                  + margins.top() + margins.bottom()
+                  + document.documentMargin() * 2
+                  + self.text_edit.frameWidth() * 2)
+        self.text_edit.setFixedHeight(height)
+        self.text_edit.setReadOnly(True)
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
-        self.caption_button = QPushButton('Caption with BLIP-2')
-        self.caption_button.clicked.connect(self.caption_with_blip_2)
-        self.text_edit = QTextEdit()
-        self.text_edit.setReadOnly(True)
         layout = QVBoxLayout(container)
         layout.addWidget(self.caption_button)
+        layout.addWidget(self.progress_bar)
         layout.addWidget(self.text_edit)
+        settings_layout = QFormLayout()
+        settings_layout.addRow('', QLabel(''))
+        layout.addLayout(settings_layout)
         self.setWidget(container)
+
+        self.caption_button.clicked.connect(self.caption_with_blip_2)
 
     @Slot(str)
     def update_text_edit(self, text: str):
@@ -147,7 +167,7 @@ class Blip2Captioner(QDockWidget):
             self.text_edit.textCursor().removeSelectedText()
             # Delete the newline.
             self.text_edit.textCursor().deletePreviousChar()
-        self.text_edit.append(text)
+        self.text_edit.appendPlainText(text)
 
     @Slot()
     def caption_with_blip_2(self):
@@ -156,20 +176,27 @@ class Blip2Captioner(QDockWidget):
         selected_image_indices = [
             self.image_list.proxy_image_list_model.mapToSource(index)
             for index in selected_proxy_image_indices]
-        if len(selected_image_indices) > 1:
+        selected_image_count = len(selected_image_indices)
+        if selected_image_count > 1:
             reply = get_confirmation_dialog_reply(
                 title='Caption with BLIP-2',
-                question=f'Caption {len(selected_image_indices)} selected '
-                         f'images?')
+                question=f'Caption {selected_image_count} selected images?')
             if reply != QMessageBox.StandardButton.Yes:
                 return
         self.caption_button.setEnabled(False)
+        if selected_image_count > 1:
+            self.progress_bar.setRange(0, selected_image_count)
+            self.progress_bar.setValue(0)
+            self.progress_bar.show()
         caption_thread = CaptionThread(self, self.image_list_model,
                                        selected_image_indices)
         caption_thread.text_outputted.connect(self.update_text_edit)
         caption_thread.clear_text_edit_requested.connect(self.text_edit.clear)
         caption_thread.caption_generated.connect(self.caption_generated)
+        caption_thread.progress_bar_update_requested.connect(
+            self.progress_bar.setValue)
         caption_thread.finished.connect(restore_stdout_and_stderr)
         caption_thread.finished.connect(
             lambda: self.caption_button.setEnabled(True))
+        caption_thread.finished.connect(self.progress_bar.hide)
         caption_thread.start()
