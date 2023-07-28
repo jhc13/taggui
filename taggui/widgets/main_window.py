@@ -299,6 +299,13 @@ class MainWindow(QMainWindow):
                 self.all_tags_editor.isVisible()))
 
     def connect_blip_2_captioner_signals(self):
+        self.blip_2_captioner.caption_generated.connect(
+            lambda image_index, _, tags:
+            self.image_list_model.update_image_tags(image_index, tags))
+        self.blip_2_captioner.caption_generated.connect(
+            lambda image_index, *_:
+            self.image_tags_editor.reload_image_tags_if_index_matches(
+                image_index))
         self.blip_2_captioner.visibilityChanged.connect(
             lambda: self.toggle_blip_2_captioner_action.setChecked(
                 self.blip_2_captioner.isVisible()))

@@ -21,9 +21,22 @@ os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 BLIP_2_HUGGINGFACE_REPOSITORY_ID = 'Salesforce/blip2-opt-2.7b'
 
 
+def add_caption_to_tags(tags: list[str], caption: str) -> list[str]:
+    """Add a caption to a list of tags and return the new list."""
+    # Make a copy of the tags so that the tags in the image list model are not
+    # modified.
+    tags = tags.copy()
+    tags.insert(0, caption)
+    return tags
+
+
 class CaptionThread(QThread):
     text_outputted = Signal(str)
     clear_text_edit_requested = Signal()
+    # The image index, the caption, and the tags with the caption added. The
+    # third parameter must be declared as `list` instead of `list[str]` for it
+    # to work.
+    caption_generated = Signal(QModelIndex, str, list)
 
     def __init__(self, parent, image_list_model: ImageListModel,
                  selected_image_indices: list[QModelIndex]):
@@ -67,6 +80,8 @@ class CaptionThread(QThread):
                                                max_new_tokens=100)
             caption = processor.batch_decode(
                 caption_token_ids, skip_special_tokens=True)[0].strip()
+            tags = add_caption_to_tags(image.tags, caption)
+            self.caption_generated.emit(index, caption, tags)
             self.clear_text_edit_requested.emit()
             print(caption)
 
@@ -81,6 +96,8 @@ def restore_stdout_and_stderr():
 
 
 class Blip2Captioner(QDockWidget):
+    caption_generated = Signal(QModelIndex, str, list)
+
     def __init__(self, image_list_model: ImageListModel,
                  image_list: ImageList):
         super().__init__()
@@ -146,6 +163,7 @@ class Blip2Captioner(QDockWidget):
                                        selected_image_indices)
         caption_thread.text_outputted.connect(self.update_text_edit)
         caption_thread.clear_text_edit_requested.connect(self.text_edit.clear)
+        caption_thread.caption_generated.connect(self.caption_generated)
         caption_thread.finished.connect(restore_stdout_and_stderr)
         caption_thread.finished.connect(
             lambda: self.caption_button.setEnabled(True))
