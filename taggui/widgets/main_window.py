@@ -72,10 +72,12 @@ class MainWindow(QMainWindow):
                           self.all_tags_editor],
                          [int(image_list_image_width * 2.5)] * 3,
                          Qt.Horizontal)
-        self.toggle_image_list_action = QAction('Image List', parent=self)
+        self.toggle_image_list_action = QAction('Images', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
         self.toggle_all_tags_editor_action = QAction('All Tags', parent=self)
+        self.toggle_blip_2_captioner_action = QAction('BLIP-2 Captioner',
+                                                      parent=self)
         self.create_menus()
 
         self.image_list_selection_model = (self.image_list.list_view
@@ -83,6 +85,7 @@ class MainWindow(QMainWindow):
         self.connect_image_list_signals()
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()
+        self.connect_blip_2_captioner_signals()
 
         self.restore()
 
@@ -159,17 +162,21 @@ class MainWindow(QMainWindow):
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)
+        self.toggle_image_tags_editor_action.setCheckable(True)
+        self.toggle_all_tags_editor_action.setCheckable(True)
+        self.toggle_blip_2_captioner_action.setCheckable(True)
         self.toggle_image_list_action.triggered.connect(
             lambda is_checked: self.image_list.setVisible(is_checked))
-        view_menu.addAction(self.toggle_image_list_action)
-        self.toggle_image_tags_editor_action.setCheckable(True)
         self.toggle_image_tags_editor_action.triggered.connect(
             lambda is_checked: self.image_tags_editor.setVisible(is_checked))
-        view_menu.addAction(self.toggle_image_tags_editor_action)
-        self.toggle_all_tags_editor_action.setCheckable(True)
         self.toggle_all_tags_editor_action.triggered.connect(
             lambda is_checked: self.all_tags_editor.setVisible(is_checked))
+        self.toggle_blip_2_captioner_action.triggered.connect(
+            lambda is_checked: self.blip_2_captioner.setVisible(is_checked))
+        view_menu.addAction(self.toggle_image_list_action)
+        view_menu.addAction(self.toggle_image_tags_editor_action)
         view_menu.addAction(self.toggle_all_tags_editor_action)
+        view_menu.addAction(self.toggle_blip_2_captioner_action)
 
         help_menu = menu_bar.addMenu('Help')
         open_github_repository_action = QAction('GitHub', parent=self)
@@ -209,8 +216,11 @@ class MainWindow(QMainWindow):
         self.proxy_image_list_model.rowsRemoved.connect(
             lambda: self.image_list.update_image_index_label(
                 self.image_list.list_view.currentIndex()))
+        # Connecting the signal directly without `isVisible()` causes the menu
+        # item to be unchecked when the widget is an inactive tab.
         self.image_list.visibilityChanged.connect(
-            self.toggle_image_list_action.setChecked)
+            lambda: self.toggle_image_list_action.setChecked(
+                self.image_list.isVisible()))
 
     @Slot()
     def update_image_list_model_tags(self):
@@ -234,7 +244,8 @@ class MainWindow(QMainWindow):
         self.image_tag_list_model.rowsMoved.connect(
             self.update_image_list_model_tags)
         self.image_tags_editor.visibilityChanged.connect(
-            self.toggle_image_tags_editor_action.setChecked)
+            lambda: self.toggle_image_tags_editor_action.setChecked(
+                self.image_tags_editor.isVisible()))
 
     @Slot()
     def clear_image_list_filter(self):
@@ -284,7 +295,13 @@ class MainWindow(QMainWindow):
         self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
             self.clear_image_list_filter)
         self.all_tags_editor.visibilityChanged.connect(
-            self.toggle_all_tags_editor_action.setChecked)
+            lambda: self.toggle_all_tags_editor_action.setChecked(
+                self.all_tags_editor.isVisible()))
+
+    def connect_blip_2_captioner_signals(self):
+        self.blip_2_captioner.visibilityChanged.connect(
+            lambda: self.toggle_blip_2_captioner_action.setChecked(
+                self.blip_2_captioner.isVisible()))
 
     def restore(self):
         # Restore the window geometry and state.
