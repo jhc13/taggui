@@ -7,7 +7,7 @@ from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDockWidget,
-                               QDoubleSpinBox, QFormLayout, QLineEdit,
+                               QDoubleSpinBox, QFormLayout, QFrame, QLineEdit,
                                QMessageBox, QPlainTextEdit, QProgressBar,
                                QPushButton, QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
@@ -38,17 +38,36 @@ class Device(StrEnum):
     CPU = 'CPU'
 
 
-class CaptionSettingsForm(QFormLayout):
+class CaptionSettingsForm(QVBoxLayout):
     def __init__(self):
         super().__init__()
         self.settings = get_settings()
-        self.setLabelAlignment(Qt.AlignRight)
 
+        basic_settings_form = QFormLayout()
+        basic_settings_form.setLabelAlignment(Qt.AlignRight)
         self.caption_start_line_edit = QLineEdit()
         self.caption_position_combo_box = QComboBox()
         self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItems(list(Device))
+        basic_settings_form.addRow('Start caption with:',
+                                   self.caption_start_line_edit)
+        basic_settings_form.addRow('Caption position:',
+                                   self.caption_position_combo_box)
+        basic_settings_form.addRow('Device:', self.device_combo_box)
+
+        horizontal_line = QFrame()
+        horizontal_line.setFrameShape(QFrame.Shape.HLine)
+        horizontal_line.setFrameShadow(QFrame.Shadow.Raised)
+        self.toggle_advanced_settings_form_button = QPushButton(
+            'Show advanced settings')
+
+        # Layouts cannot be hidden, so use a container widget.
+        self.advanced_settings_form_container = QWidget()
+        self.advanced_settings_form_container.hide()
+        advanced_settings_form = QFormLayout(
+            self.advanced_settings_form_container)
+        advanced_settings_form.setLabelAlignment(Qt.AlignRight)
         self.min_new_token_count_spin_box = QSpinBox()
         self.min_new_token_count_spin_box.setRange(1, 99)
         self.max_new_token_count_spin_box = QSpinBox()
@@ -73,22 +92,33 @@ class CaptionSettingsForm(QFormLayout):
         self.repetition_penalty_spin_box.setSingleStep(0.01)
         self.no_repeat_ngram_size_spin_box = QSpinBox()
         self.no_repeat_ngram_size_spin_box.setRange(0, 5)
+        advanced_settings_form.addRow('Minimum tokens:',
+                                      self.min_new_token_count_spin_box)
+        advanced_settings_form.addRow('Maximum tokens:',
+                                      self.max_new_token_count_spin_box)
+        advanced_settings_form.addRow('Number of beams:',
+                                      self.beam_count_spin_box)
+        advanced_settings_form.addRow('Length penalty:',
+                                      self.length_penalty_spin_box)
+        advanced_settings_form.addRow('Use sampling:',
+                                      self.use_sampling_check_box)
+        advanced_settings_form.addRow('Temperature:',
+                                      self.temperature_spin_box)
+        advanced_settings_form.addRow('Top-k:', self.top_k_spin_box)
+        advanced_settings_form.addRow('Top-p:', self.top_p_spin_box)
+        advanced_settings_form.addRow('Repetition penalty:',
+                                      self.repetition_penalty_spin_box)
+        advanced_settings_form.addRow('No repeat n-gram size:',
+                                      self.no_repeat_ngram_size_spin_box)
 
-        self.addRow('Start caption with:', self.caption_start_line_edit)
-        self.addRow('Caption position:', self.caption_position_combo_box)
-        self.addRow('Device:', self.device_combo_box)
-        self.addRow('Minimum tokens:', self.min_new_token_count_spin_box)
-        self.addRow('Maximum tokens:', self.max_new_token_count_spin_box)
-        self.addRow('Number of beams:', self.beam_count_spin_box)
-        self.addRow('Length penalty:', self.length_penalty_spin_box)
-        self.addRow('Use sampling:', self.use_sampling_check_box)
-        self.addRow('Temperature:', self.temperature_spin_box)
-        self.addRow('Top-k:', self.top_k_spin_box)
-        self.addRow('Top-p:', self.top_p_spin_box)
-        self.addRow('Repetition penalty:', self.repetition_penalty_spin_box)
-        self.addRow('No repeat n-gram size:',
-                    self.no_repeat_ngram_size_spin_box)
+        self.addLayout(basic_settings_form)
+        self.addWidget(horizontal_line)
+        self.addWidget(self.toggle_advanced_settings_form_button)
+        self.addWidget(self.advanced_settings_form_container)
+        self.addStretch()
 
+        self.toggle_advanced_settings_form_button.clicked.connect(
+            self.toggle_advanced_settings_form)
         # Make sure the minimum new token count is less than or equal to the
         # maximum new token count.
         self.min_new_token_count_spin_box.valueChanged.connect(
@@ -121,7 +151,19 @@ class CaptionSettingsForm(QFormLayout):
         self.no_repeat_ngram_size_spin_box.valueChanged.connect(
             self.save_caption_settings)
 
+        # Restore previous caption settings.
         self.load_caption_settings()
+
+    @Slot()
+    def toggle_advanced_settings_form(self):
+        if self.advanced_settings_form_container.isHidden():
+            self.advanced_settings_form_container.show()
+            self.toggle_advanced_settings_form_button.setText(
+                'Hide advanced settings')
+        else:
+            self.advanced_settings_form_container.hide()
+            self.toggle_advanced_settings_form_button.setText(
+                'Show advanced settings')
 
     def load_caption_settings(self):
         caption_settings: dict = self.settings.value('caption_settings')
