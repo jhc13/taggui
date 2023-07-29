@@ -11,7 +11,7 @@ class SettingsDialog(QDialog):
         self.settings = settings
         self.setWindowTitle('Settings')
         self.restart_label = QLabel(
-            'Restart the application to apply all settings.')
+            'Restart the application to apply new settings.')
         self.restart_label.setStyleSheet('color: red;')
         layout = QVBoxLayout(self)
         grid_layout = QGridLayout()
