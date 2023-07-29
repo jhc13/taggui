@@ -61,6 +61,9 @@ class CaptionSettingsForm(QVBoxLayout):
         horizontal_line.setFrameShadow(QFrame.Shadow.Raised)
         self.toggle_advanced_settings_form_button = QPushButton(
             'Show advanced settings')
+        self.toggle_advanced_settings_form_button.setFixedHeight(
+            self.toggle_advanced_settings_form_button.sizeHint().height()
+            * 1.5)
 
         # Layouts cannot be hidden, so use a container widget.
         self.advanced_settings_form_container = QWidget()
@@ -347,6 +350,8 @@ class Blip2Captioner(QDockWidget):
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
         self.caption_button = QPushButton('Caption with BLIP-2')
+        self.caption_button.setFixedHeight(
+            self.caption_button.sizeHint().height() * 1.5)
         self.progress_bar = QProgressBar()
         self.progress_bar.setFormat('%v / %m images captioned (%p%)')
         self.progress_bar.hide()
