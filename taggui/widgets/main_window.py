@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QItemSelection, QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
-                           QKeySequence, QPixmap)
+                           QKeySequence, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QStackedWidget, QVBoxLayout, QWidget)
 
@@ -95,6 +95,23 @@ class MainWindow(QMainWindow):
             keys_to_forward=(Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp,
                              Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End))
         self.installEventFilter(key_press_forwarder)
+        # Set keyboard shortcuts.
+        image_list_shortcut = QShortcut(QKeySequence('Alt+L'), self)
+        image_list_shortcut.activated.connect(self.image_list.raise_)
+        image_list_shortcut.activated.connect(
+            self.image_list.list_view.setFocus)
+        add_tag_shortcut = QShortcut(QKeySequence('Alt+A'), self)
+        add_tag_shortcut.activated.connect(self.image_tags_editor.raise_)
+        add_tag_shortcut.activated.connect(
+            self.image_tags_editor.tag_input_box.setFocus)
+        search_tags_shortcut = QShortcut(QKeySequence('Alt+S'), self)
+        search_tags_shortcut.activated.connect(self.all_tags_editor.raise_)
+        search_tags_shortcut.activated.connect(
+            self.all_tags_editor.filter_line_edit.setFocus)
+        caption_shortcut = QShortcut(QKeySequence('Alt+C'), self)
+        caption_shortcut.activated.connect(self.blip_2_captioner.raise_)
+        caption_shortcut.activated.connect(
+            self.blip_2_captioner.caption_button.setFocus)
 
         self.restore()
 

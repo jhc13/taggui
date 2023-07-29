@@ -64,7 +64,7 @@ class AllTagsEditor(QDockWidget):
         self.proxy_tag_counter_model = ProxyTagCounterModel(
             self.tag_counter_model)
         self.proxy_tag_counter_model.setFilterRole(Qt.EditRole)
-        filter_line_edit = FilterLineEdit()
+        self.filter_line_edit = FilterLineEdit()
         self.clear_filter_button = TallPushButton('Clear Image Filter')
         self.clear_filter_button.setFixedHeight(
             self.clear_filter_button.sizeHint().height() * 1.5)
@@ -73,13 +73,13 @@ class AllTagsEditor(QDockWidget):
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.addWidget(filter_line_edit)
+        layout.addWidget(self.filter_line_edit)
         layout.addWidget(self.clear_filter_button)
         layout.addWidget(self.all_tags_list)
         layout.addWidget(self.tag_count_label)
         self.setWidget(container)
 
-        filter_line_edit.textChanged.connect(
+        self.filter_line_edit.textChanged.connect(
             self.proxy_tag_counter_model.setFilterFixedString)
         self.proxy_tag_counter_model.modelReset.connect(
             self.update_tag_count_label)
