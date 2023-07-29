@@ -8,7 +8,7 @@ from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QComboBox, QDockWidget, QFormLayout, QLineEdit,
                                QMessageBox, QPlainTextEdit, QProgressBar,
-                               QPushButton, QVBoxLayout, QWidget)
+                               QPushButton, QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
@@ -58,15 +58,34 @@ class CaptionSettingsForm(QFormLayout):
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItem('GPU if available', userData=Device.GPU)
         self.device_combo_box.addItem('CPU', userData=Device.CPU)
+        self.min_new_token_count_spin_box = QSpinBox()
+        self.min_new_token_count_spin_box.setRange(1, 99)
+        self.max_new_token_count_spin_box = QSpinBox()
+        self.max_new_token_count_spin_box.setRange(1, 99)
+        self.beam_count_spin_box = QSpinBox()
+        self.beam_count_spin_box.setRange(1, 99)
         self.addRow('Start caption with:', self.caption_start_line_edit)
         self.addRow('Caption position:', self.caption_position_combo_box)
         self.addRow('Device:', self.device_combo_box)
+        self.addRow('Minimum tokens:', self.min_new_token_count_spin_box)
+        self.addRow('Maximum tokens:', self.max_new_token_count_spin_box)
+        self.addRow('Number of beams:', self.beam_count_spin_box)
+
+        self.min_new_token_count_spin_box.valueChanged.connect(
+            self.max_new_token_count_spin_box.setMinimum)
+        self.max_new_token_count_spin_box.valueChanged.connect(
+            self.min_new_token_count_spin_box.setMaximum)
 
     def get_caption_settings(self) -> dict:
         return {
             'caption_start': self.caption_start_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentData(),
-            'device': self.device_combo_box.currentData()
+            'device': self.device_combo_box.currentData(),
+            'generation_parameters': {
+                'min_new_tokens': self.min_new_token_count_spin_box.value(),
+                'max_new_tokens': self.max_new_token_count_spin_box.value(),
+                'num_beams': self.beam_count_spin_box.value()
+            }
         }
 
 
@@ -147,8 +166,10 @@ class CaptionThread(QThread):
             caption_start = self.caption_settings['caption_start']
             model_inputs = processor(pil_image, text=caption_start,
                                      return_tensors='pt').to(device)
+            generation_parameters = self.caption_settings[
+                'generation_parameters']
             generated_token_ids = model.generate(**model_inputs,
-                                                 max_new_tokens=50)
+                                                 **generation_parameters)
             generated_text = processor.batch_decode(
                 generated_token_ids, skip_special_tokens=True)[0]
             caption = (caption_start + generated_text).strip()
