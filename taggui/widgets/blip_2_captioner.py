@@ -6,10 +6,11 @@ import torch
 from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QDockWidget,
-                               QDoubleSpinBox, QFormLayout, QFrame, QLineEdit,
-                               QMessageBox, QPlainTextEdit, QProgressBar,
-                               QPushButton, QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractScrollArea, QCheckBox, QComboBox,
+                               QDockWidget, QDoubleSpinBox, QFormLayout,
+                               QFrame, QLineEdit, QMessageBox, QPlainTextEdit,
+                               QProgressBar, QPushButton, QScrollArea,
+                               QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
@@ -65,11 +66,18 @@ class CaptionSettingsForm(QVBoxLayout):
             self.toggle_advanced_settings_form_button.sizeHint().height()
             * 1.5)
 
-        # Layouts cannot be hidden, so use a container widget.
-        self.advanced_settings_form_container = QWidget()
-        self.advanced_settings_form_container.hide()
+        advanced_settings_form_container = QWidget()
+        self.advanced_settings_form_scroll_area = QScrollArea()
+        self.advanced_settings_form_scroll_area.setWidgetResizable(True)
+        self.advanced_settings_form_scroll_area.setSizeAdjustPolicy(
+            QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+        self.advanced_settings_form_scroll_area.setFrameShape(
+            QFrame.Shape.NoFrame)
+        self.advanced_settings_form_scroll_area.setWidget(
+            advanced_settings_form_container)
+        self.advanced_settings_form_scroll_area.hide()
         advanced_settings_form = QFormLayout(
-            self.advanced_settings_form_container)
+            advanced_settings_form_container)
         advanced_settings_form.setLabelAlignment(Qt.AlignRight)
         self.min_new_token_count_spin_box = QSpinBox()
         self.min_new_token_count_spin_box.setRange(1, 99)
@@ -117,7 +125,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.addLayout(basic_settings_form)
         self.addWidget(horizontal_line)
         self.addWidget(self.toggle_advanced_settings_form_button)
-        self.addWidget(self.advanced_settings_form_container)
+        self.addWidget(self.advanced_settings_form_scroll_area)
         self.addStretch()
 
         self.toggle_advanced_settings_form_button.clicked.connect(
@@ -159,12 +167,12 @@ class CaptionSettingsForm(QVBoxLayout):
 
     @Slot()
     def toggle_advanced_settings_form(self):
-        if self.advanced_settings_form_container.isHidden():
-            self.advanced_settings_form_container.show()
+        if self.advanced_settings_form_scroll_area.isHidden():
+            self.advanced_settings_form_scroll_area.show()
             self.toggle_advanced_settings_form_button.setText(
                 'Hide advanced settings')
         else:
-            self.advanced_settings_form_container.hide()
+            self.advanced_settings_form_scroll_area.hide()
             self.toggle_advanced_settings_form_button.setText(
                 'Show advanced settings')
 
