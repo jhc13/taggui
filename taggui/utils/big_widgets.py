@@ -1,5 +1,7 @@
 from PySide6.QtWidgets import QCheckBox, QPushButton
 
+from utils.settings import get_settings
+
 
 class BigPushButton(QPushButton):
     def __init__(self, text: str):
@@ -18,7 +20,9 @@ class TallPushButton(QPushButton):
 class BigCheckBox(QCheckBox):
     def __init__(self):
         super().__init__()
-        new_size = self.sizeHint().height() * 1.5
+        settings = get_settings()
+        font_size = settings.value('font_size', type=int)
+        new_size = font_size * 1.5
         self.setStyleSheet(
             f'QCheckBox::indicator '
             f'{{ width: {new_size}px; height: {new_size}px; }}')
