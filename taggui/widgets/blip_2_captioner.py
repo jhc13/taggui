@@ -1,3 +1,4 @@
+import gc
 import os
 import sys
 from enum import StrEnum
@@ -275,10 +276,23 @@ class CaptionThread(QThread):
         # displayed in the text edit.
         sys.stdout = self
         sys.stderr = self
+        if self.caption_settings['device'] == Device.CPU:
+            device = torch.device('cpu')
+        else:
+            device = torch.device('cuda' if torch.cuda.is_available()
+                                  else 'cpu')
         # If the processor and model were previously loaded, use them.
         processor = self.parent().processor
         model = self.parent().model
-        if not processor or not model:
+        do_device_types_match = (self.parent().model_device_type
+                                 == device.type)
+        if not model or not do_device_types_match:
+            if not do_device_types_match:
+                # Garbage collect the previous model to free up memory.
+                self.parent().model = None
+                del model
+                gc.collect()
+            self.clear_text_edit_requested.emit()
             print(f'Loading BLIP-2 model...')
             # Check if the model is downloaded by checking the cache for the
             # config file. The model might not be fully downloaded even if the
@@ -287,17 +301,17 @@ class CaptionThread(QThread):
             if not try_to_load_from_cache(BLIP_2_HUGGINGFACE_REPOSITORY_ID,
                                           filename='config.json'):
                 print('BLIP-2 model not found. Downloading...')
-            processor = AutoProcessor.from_pretrained(
-                BLIP_2_HUGGINGFACE_REPOSITORY_ID)
+            if not processor:
+                processor = AutoProcessor.from_pretrained(
+                    BLIP_2_HUGGINGFACE_REPOSITORY_ID)
+                self.parent().processor = processor
+            dtype_argument = ({'torch_dtype': torch.float16}
+                              if device.type == 'cuda' else {})
             model = Blip2ForConditionalGeneration.from_pretrained(
-                BLIP_2_HUGGINGFACE_REPOSITORY_ID)
-            self.parent().processor = processor
+                BLIP_2_HUGGINGFACE_REPOSITORY_ID, device_map='auto',
+                **dtype_argument)
             self.parent().model = model
-        if self.caption_settings['device'] == Device.CPU:
-            device = torch.device('cpu')
-        else:
-            device = torch.device('cuda' if torch.cuda.is_available()
-                                  else 'cpu')
+            self.parent().model_device_type = device.type
         model.to(device)
         model.eval()
         self.clear_text_edit_requested.emit()
@@ -306,8 +320,11 @@ class CaptionThread(QThread):
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             pil_image = PilImage.open(image.path)
             caption_start = self.caption_settings['caption_start']
-            model_inputs = processor(pil_image, text=caption_start,
-                                     return_tensors='pt').to(device)
+            dtype_argument = ({'dtype': torch.float16}
+                              if device.type == 'cuda' else {})
+            model_inputs = (processor(pil_image, text=caption_start,
+                                      return_tensors='pt')
+                            .to(device, **dtype_argument))
             generation_parameters = self.caption_settings[
                 'generation_parameters']
             generated_token_ids = model.generate(**model_inputs,
@@ -345,6 +362,7 @@ class Blip2Captioner(QDockWidget):
         self.image_list = image_list
         self.processor = None
         self.model = None
+        self.model_device_type: str | None = None
         # Whether the last block of text in the text edit should be replaced
         # with the next block of text that is outputted.
         self.replace_last_text_edit_block = False
