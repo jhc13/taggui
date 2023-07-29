@@ -30,8 +30,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = get_settings()
-        image_list_image_width = int(
-            self.settings.value('image_list_image_width'))
+        image_list_image_width = self.settings.value('image_list_image_width',
+                                                     type=int)
         separator = get_separator(self.settings)
         self.image_list_model = ImageListModel(image_list_image_width,
                                                separator)
@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
 
     def set_font_size(self):
         font = self.app.font()
-        font_size = int(self.settings.value('font_size'))
+        font_size = self.settings.value('font_size', type=int)
         font.setPointSize(font_size)
         self.app.setFont(font)
 
@@ -254,7 +254,7 @@ class MainWindow(QMainWindow):
         self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
         self.proxy_image_list_model.setFilterRegularExpression('')
         # Select the previously selected image in the unfiltered image list.
-        select_index = int(self.settings.value('image_index') or 0)
+        select_index = self.settings.value('image_index', type=int) or 0
         self.image_list.list_view.setCurrentIndex(
             self.proxy_image_list_model.index(select_index, 0))
 
@@ -319,7 +319,7 @@ class MainWindow(QMainWindow):
         self.restoreState(self.settings.value('window_state'))
         # Get the last index of the last selected image.
         if self.settings.contains('image_index'):
-            image_index = int(self.settings.value('image_index'))
+            image_index = self.settings.value('image_index', type=int)
         else:
             image_index = 0
         # Load the last loaded directory.

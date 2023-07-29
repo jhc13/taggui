@@ -43,7 +43,7 @@ class SettingsDialog(QDialog):
     def get_font_size_spin_box(self) -> QSpinBox:
         font_size_spin_box = QSpinBox()
         font_size_spin_box.setRange(1, 99)
-        font_size_spin_box.setValue(int(self.settings.value('font_size')))
+        font_size_spin_box.setValue(self.settings.value('font_size', type=int))
         font_size_spin_box.valueChanged.connect(
             lambda value: self.settings.setValue('font_size', value))
         font_size_spin_box.valueChanged.connect(self.restart_label.show)
@@ -54,7 +54,7 @@ class SettingsDialog(QDialog):
         # Images that are too small cause lag, so set a minimum width.
         image_list_image_width_spin_box.setRange(16, 9999)
         image_list_image_width_spin_box.setValue(
-            int(self.settings.value('image_list_image_width')))
+            self.settings.value('image_list_image_width', type=int))
         image_list_image_width_spin_box.valueChanged.connect(
             lambda value: self.settings.setValue('image_list_image_width',
                                                  value))
@@ -73,11 +73,8 @@ class SettingsDialog(QDialog):
 
     def get_insert_space_after_tag_separator_check_box(self) -> BigCheckBox:
         insert_space_after_tag_separator_check_box = BigCheckBox()
-        # The value is initially a Boolean, but becomes a string when saved and
-        # loaded.
         insert_space_after_tag_separator_check_box.setChecked(
-            self.settings.value('insert_space_after_tag_separator')
-            in (True, 'true'))
+            self.settings.value('insert_space_after_tag_separator', type=bool))
         insert_space_after_tag_separator_check_box.stateChanged.connect(
             lambda state: self.settings.setValue(
                 'insert_space_after_tag_separator',
