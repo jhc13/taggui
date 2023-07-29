@@ -86,6 +86,12 @@ class MainWindow(QMainWindow):
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()
         self.connect_blip_2_captioner_signals()
+        # Forward any unhandled image changing key presses to the image list.
+        key_press_forwarder = KeyPressForwarder(
+            parent=self, target=self.image_list.list_view,
+            keys_to_forward=(Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp,
+                             Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End))
+        self.installEventFilter(key_press_forwarder)
 
         self.restore()
 
@@ -229,12 +235,6 @@ class MainWindow(QMainWindow):
             self.image_tag_list_model.stringList())
 
     def connect_image_tags_editor_signals(self):
-        key_press_forwarder = KeyPressForwarder(
-            parent=self, target=self.image_list.list_view,
-            keys_to_forward=(Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp,
-                             Qt.Key_PageDown))
-        self.image_tags_editor.tag_input_box.installEventFilter(
-            key_press_forwarder)
         # `rowsInserted` does not have to be connected because `dataChanged`
         # is emitted when a tag is added.
         self.image_tag_list_model.dataChanged.connect(
