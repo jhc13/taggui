@@ -6,15 +6,15 @@ import torch
 from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
-from PySide6.QtWidgets import (QAbstractScrollArea, QCheckBox, QComboBox,
-                               QDockWidget, QDoubleSpinBox, QFormLayout,
-                               QFrame, QLineEdit, QMessageBox, QPlainTextEdit,
-                               QProgressBar, QPushButton, QScrollArea,
-                               QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractScrollArea, QComboBox, QDockWidget,
+                               QDoubleSpinBox, QFormLayout, QFrame, QLineEdit,
+                               QMessageBox, QPlainTextEdit, QProgressBar,
+                               QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
 from models.image_list_model import ImageListModel
+from utils.big_widgets import BigCheckBox, TallPushButton
 from utils.image import Image
 from utils.settings import get_settings
 from utils.utils import get_confirmation_dialog_reply
@@ -60,11 +60,8 @@ class CaptionSettingsForm(QVBoxLayout):
         horizontal_line = QFrame()
         horizontal_line.setFrameShape(QFrame.Shape.HLine)
         horizontal_line.setFrameShadow(QFrame.Shadow.Raised)
-        self.toggle_advanced_settings_form_button = QPushButton(
+        self.toggle_advanced_settings_form_button = TallPushButton(
             'Show advanced settings')
-        self.toggle_advanced_settings_form_button.setFixedHeight(
-            self.toggle_advanced_settings_form_button.sizeHint().height()
-            * 1.5)
 
         advanced_settings_form_container = QWidget()
         self.advanced_settings_form_scroll_area = QScrollArea()
@@ -88,7 +85,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.length_penalty_spin_box = QDoubleSpinBox()
         self.length_penalty_spin_box.setRange(-5, 5)
         self.length_penalty_spin_box.setSingleStep(0.1)
-        self.use_sampling_check_box = QCheckBox()
+        self.use_sampling_check_box = BigCheckBox()
         self.temperature_spin_box = QDoubleSpinBox()
         # The temperature must be positive.
         self.temperature_spin_box.setRange(0.01, 2)
@@ -357,9 +354,7 @@ class Blip2Captioner(QDockWidget):
         self.setWindowTitle('BLIP-2 Captioner')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
-        self.caption_button = QPushButton('Caption with BLIP-2')
-        self.caption_button.setFixedHeight(
-            self.caption_button.sizeHint().height() * 1.5)
+        self.caption_button = TallPushButton('Caption with BLIP-2')
         self.progress_bar = QProgressBar()
         self.progress_bar.setFormat('%v / %m images captioned (%p%)')
         self.progress_bar.hide()

@@ -1,0 +1,24 @@
+from PySide6.QtWidgets import QCheckBox, QPushButton
+
+
+class BigPushButton(QPushButton):
+    def __init__(self, text: str):
+        super().__init__(text)
+        new_size = self.sizeHint() * 1.5
+        self.setFixedSize(new_size)
+
+
+class TallPushButton(QPushButton):
+    def __init__(self, text: str):
+        super().__init__(text)
+        new_height = self.sizeHint().height() * 1.5
+        self.setFixedHeight(new_height)
+
+
+class BigCheckBox(QCheckBox):
+    def __init__(self):
+        super().__init__()
+        new_size = self.sizeHint().height() * 1.5
+        self.setStyleSheet(
+            f'QCheckBox::indicator '
+            f'{{ width: {new_size}px; height: {new_size}px; }}')

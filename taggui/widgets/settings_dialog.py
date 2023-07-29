@@ -1,6 +1,8 @@
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtWidgets import (QCheckBox, QDialog, QGridLayout, QLabel,
-                               QLineEdit, QSpinBox, QVBoxLayout)
+from PySide6.QtWidgets import (QDialog, QGridLayout, QLabel, QLineEdit,
+                               QSpinBox, QVBoxLayout)
+
+from utils.big_widgets import BigCheckBox
 
 
 class SettingsDialog(QDialog):
@@ -69,8 +71,8 @@ class SettingsDialog(QDialog):
         tag_separator_line_edit.textChanged.connect(self.restart_label.show)
         return tag_separator_line_edit
 
-    def get_insert_space_after_tag_separator_check_box(self) -> QCheckBox:
-        insert_space_after_tag_separator_check_box = QCheckBox()
+    def get_insert_space_after_tag_separator_check_box(self) -> BigCheckBox:
+        insert_space_after_tag_separator_check_box = BigCheckBox()
         # The value is initially a Boolean, but becomes a string when saved and
         # loaded.
         insert_space_after_tag_separator_check_box.setChecked(

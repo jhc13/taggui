@@ -4,13 +4,13 @@ from PySide6.QtCore import QItemSelection, QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
                            QKeySequence, QPixmap)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
-                               QPushButton, QStackedWidget, QVBoxLayout,
-                               QWidget)
+                               QStackedWidget, QVBoxLayout, QWidget)
 
 from models.image_list_model import ImageListModel
 from models.image_tag_list_model import ImageTagListModel
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
+from utils.big_widgets import BigPushButton
 from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import get_separator, get_settings
 from utils.utils import get_resource_path
@@ -106,7 +106,7 @@ class MainWindow(QMainWindow):
         # Put the button inside a widget so that it will not fill up the entire
         # space.
         load_directory_widget = QWidget()
-        load_directory_button = QPushButton('Load Directory')
+        load_directory_button = BigPushButton('Load Directory')
         load_directory_button.clicked.connect(self.select_and_load_directory)
         QVBoxLayout(load_directory_widget).addWidget(load_directory_button,
                                                      alignment=Qt.AlignCenter)

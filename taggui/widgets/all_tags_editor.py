@@ -1,9 +1,10 @@
 from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (QDockWidget, QLabel, QLineEdit, QListView,
-                               QMessageBox, QPushButton, QVBoxLayout, QWidget)
+                               QMessageBox, QVBoxLayout, QWidget)
 
 from models.tag_counter_model import TagCounterModel
+from utils.big_widgets import TallPushButton
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
 
@@ -64,7 +65,7 @@ class AllTagsEditor(QDockWidget):
             self.tag_counter_model)
         self.proxy_tag_counter_model.setFilterRole(Qt.EditRole)
         filter_line_edit = FilterLineEdit()
-        self.clear_filter_button = QPushButton('Clear Image Filter')
+        self.clear_filter_button = TallPushButton('Clear Image Filter')
         self.clear_filter_button.setFixedHeight(
             self.clear_filter_button.sizeHint().height() * 1.5)
         self.all_tags_list = AllTagsList(self.proxy_tag_counter_model)
