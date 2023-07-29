@@ -14,6 +14,7 @@ from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
 from models.image_list_model import ImageListModel
 from utils.image import Image
+from utils.settings import get_settings
 from utils.utils import get_confirmation_dialog_reply
 from widgets.image_list import ImageList
 
@@ -39,6 +40,7 @@ class Device(Enum):
 class CaptionSettingsForm(QFormLayout):
     def __init__(self):
         super().__init__()
+        self.settings = get_settings()
         self.setLabelAlignment(Qt.AlignRight)
 
         self.caption_start_line_edit = QLineEdit()
@@ -62,6 +64,7 @@ class CaptionSettingsForm(QFormLayout):
         self.min_new_token_count_spin_box.setRange(1, 99)
         self.max_new_token_count_spin_box = QSpinBox()
         self.max_new_token_count_spin_box.setRange(1, 99)
+        self.max_new_token_count_spin_box.setValue(50)
         self.beam_count_spin_box = QSpinBox()
         self.beam_count_spin_box.setRange(1, 99)
         self.addRow('Start caption with:', self.caption_start_line_edit)
@@ -71,22 +74,62 @@ class CaptionSettingsForm(QFormLayout):
         self.addRow('Maximum tokens:', self.max_new_token_count_spin_box)
         self.addRow('Number of beams:', self.beam_count_spin_box)
 
+        # Make sure the minimum new token count is less than or equal to the
+        # maximum new token count.
         self.min_new_token_count_spin_box.valueChanged.connect(
             self.max_new_token_count_spin_box.setMinimum)
         self.max_new_token_count_spin_box.valueChanged.connect(
             self.min_new_token_count_spin_box.setMaximum)
+        # Save the caption settings when any of them is changed.
+        self.caption_start_line_edit.textChanged.connect(
+            self.save_caption_settings)
+        self.caption_position_combo_box.currentIndexChanged.connect(
+            self.save_caption_settings)
+        self.device_combo_box.currentIndexChanged.connect(
+            self.save_caption_settings)
+        self.min_new_token_count_spin_box.valueChanged.connect(
+            self.save_caption_settings)
+        self.max_new_token_count_spin_box.valueChanged.connect(
+            self.save_caption_settings)
+        self.beam_count_spin_box.valueChanged.connect(
+            self.save_caption_settings)
+
+        self.load_caption_settings()
+
+    def load_caption_settings(self):
+        caption_settings: dict = self.settings.value('caption_settings')
+        if caption_settings is None:
+            return
+        self.caption_start_line_edit.setText(
+            caption_settings['caption_start'])
+        self.caption_position_combo_box.setCurrentIndex(
+            caption_settings['caption_position'])
+        self.device_combo_box.setCurrentIndex(
+            caption_settings['device'])
+        generation_parameters = caption_settings['generation_parameters']
+        self.min_new_token_count_spin_box.setValue(
+            generation_parameters['min_new_tokens'])
+        self.max_new_token_count_spin_box.setValue(
+            generation_parameters['max_new_tokens'])
+        self.beam_count_spin_box.setValue(
+            generation_parameters['num_beams'])
 
     def get_caption_settings(self) -> dict:
         return {
             'caption_start': self.caption_start_line_edit.text(),
-            'caption_position': self.caption_position_combo_box.currentData(),
-            'device': self.device_combo_box.currentData(),
+            'caption_position': self.caption_position_combo_box.currentIndex(),
+            'device': self.device_combo_box.currentIndex(),
             'generation_parameters': {
                 'min_new_tokens': self.min_new_token_count_spin_box.value(),
                 'max_new_tokens': self.max_new_token_count_spin_box.value(),
                 'num_beams': self.beam_count_spin_box.value()
             }
         }
+
+    @Slot()
+    def save_caption_settings(self):
+        caption_settings = self.get_caption_settings()
+        self.settings.setValue('caption_settings', caption_settings)
 
 
 def add_caption_to_tags(tags: list[str], caption: str,
