@@ -204,9 +204,9 @@ class CaptionSettingsForm(QVBoxLayout):
         self.top_k_spin_box.setValue(generation_parameters.get('top_k', 50))
         self.top_p_spin_box.setValue(generation_parameters.get('top_p', 1))
         self.repetition_penalty_spin_box.setValue(
-            generation_parameters.get('repetition_penalty', 1))
+            generation_parameters.get('repetition_penalty', 1.15))
         self.no_repeat_ngram_size_spin_box.setValue(
-            generation_parameters.get('no_repeat_ngram_size', 0))
+            generation_parameters.get('no_repeat_ngram_size', 3))
 
     def get_caption_settings(self) -> dict:
         return {
