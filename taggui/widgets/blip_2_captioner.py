@@ -6,10 +6,10 @@ import torch
 from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QDockWidget, QFormLayout,
-                               QLineEdit, QMessageBox, QPlainTextEdit,
-                               QProgressBar, QPushButton, QSpinBox,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDockWidget,
+                               QDoubleSpinBox, QFormLayout, QLineEdit,
+                               QMessageBox, QPlainTextEdit, QProgressBar,
+                               QPushButton, QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
@@ -55,14 +55,39 @@ class CaptionSettingsForm(QFormLayout):
         self.max_new_token_count_spin_box.setRange(1, 99)
         self.beam_count_spin_box = QSpinBox()
         self.beam_count_spin_box.setRange(1, 99)
+        self.length_penalty_spin_box = QDoubleSpinBox()
+        self.length_penalty_spin_box.setRange(-5, 5)
+        self.length_penalty_spin_box.setSingleStep(0.1)
         self.use_sampling_check_box = QCheckBox()
+        self.temperature_spin_box = QDoubleSpinBox()
+        # The temperature must be positive.
+        self.temperature_spin_box.setRange(0.01, 2)
+        self.temperature_spin_box.setSingleStep(0.01)
+        self.top_k_spin_box = QSpinBox()
+        self.top_k_spin_box.setRange(0, 200)
+        self.top_p_spin_box = QDoubleSpinBox()
+        self.top_p_spin_box.setRange(0, 1)
+        self.top_p_spin_box.setSingleStep(0.01)
+        self.repetition_penalty_spin_box = QDoubleSpinBox()
+        self.repetition_penalty_spin_box.setRange(1, 1.5)
+        self.repetition_penalty_spin_box.setSingleStep(0.01)
+        self.no_repeat_ngram_size_spin_box = QSpinBox()
+        self.no_repeat_ngram_size_spin_box.setRange(0, 5)
+
         self.addRow('Start caption with:', self.caption_start_line_edit)
         self.addRow('Caption position:', self.caption_position_combo_box)
         self.addRow('Device:', self.device_combo_box)
         self.addRow('Minimum tokens:', self.min_new_token_count_spin_box)
         self.addRow('Maximum tokens:', self.max_new_token_count_spin_box)
         self.addRow('Number of beams:', self.beam_count_spin_box)
+        self.addRow('Length penalty:', self.length_penalty_spin_box)
         self.addRow('Use sampling:', self.use_sampling_check_box)
+        self.addRow('Temperature:', self.temperature_spin_box)
+        self.addRow('Top-k:', self.top_k_spin_box)
+        self.addRow('Top-p:', self.top_p_spin_box)
+        self.addRow('Repetition penalty:', self.repetition_penalty_spin_box)
+        self.addRow('No repeat n-gram size:',
+                    self.no_repeat_ngram_size_spin_box)
 
         # Make sure the minimum new token count is less than or equal to the
         # maximum new token count.
@@ -83,7 +108,17 @@ class CaptionSettingsForm(QFormLayout):
             self.save_caption_settings)
         self.beam_count_spin_box.valueChanged.connect(
             self.save_caption_settings)
+        self.length_penalty_spin_box.valueChanged.connect(
+            self.save_caption_settings)
         self.use_sampling_check_box.stateChanged.connect(
+            self.save_caption_settings)
+        self.temperature_spin_box.valueChanged.connect(
+            self.save_caption_settings)
+        self.top_k_spin_box.valueChanged.connect(self.save_caption_settings)
+        self.top_p_spin_box.valueChanged.connect(self.save_caption_settings)
+        self.repetition_penalty_spin_box.valueChanged.connect(
+            self.save_caption_settings)
+        self.no_repeat_ngram_size_spin_box.valueChanged.connect(
             self.save_caption_settings)
 
         self.load_caption_settings()
@@ -107,8 +142,18 @@ class CaptionSettingsForm(QFormLayout):
             generation_parameters.get('max_new_tokens', 50))
         self.beam_count_spin_box.setValue(
             generation_parameters.get('num_beams', 1))
+        self.length_penalty_spin_box.setValue(
+            generation_parameters.get('length_penalty', 1))
         self.use_sampling_check_box.setChecked(
             generation_parameters.get('do_sample', False))
+        self.temperature_spin_box.setValue(
+            generation_parameters.get('temperature', 1))
+        self.top_k_spin_box.setValue(generation_parameters.get('top_k', 50))
+        self.top_p_spin_box.setValue(generation_parameters.get('top_p', 1))
+        self.repetition_penalty_spin_box.setValue(
+            generation_parameters.get('repetition_penalty', 1))
+        self.no_repeat_ngram_size_spin_box.setValue(
+            generation_parameters.get('no_repeat_ngram_size', 0))
 
     def get_caption_settings(self) -> dict:
         return {
@@ -119,7 +164,14 @@ class CaptionSettingsForm(QFormLayout):
                 'min_new_tokens': self.min_new_token_count_spin_box.value(),
                 'max_new_tokens': self.max_new_token_count_spin_box.value(),
                 'num_beams': self.beam_count_spin_box.value(),
-                'do_sample': self.use_sampling_check_box.isChecked()
+                'length_penalty': self.length_penalty_spin_box.value(),
+                'do_sample': self.use_sampling_check_box.isChecked(),
+                'temperature': self.temperature_spin_box.value(),
+                'top_k': self.top_k_spin_box.value(),
+                'top_p': self.top_p_spin_box.value(),
+                'repetition_penalty': self.repetition_penalty_spin_box.value(),
+                'no_repeat_ngram_size':
+                    self.no_repeat_ngram_size_spin_box.value()
             }
         }
 
@@ -257,12 +309,12 @@ class Blip2Captioner(QDockWidget):
         self.progress_bar.setFormat('%v / %m images captioned (%p%)')
         self.progress_bar.hide()
         self.text_edit = QPlainTextEdit()
-        # Set the height of the text edit to 4 lines.
+        # Set the height of the text edit to 5 lines.
         # From https://stackoverflow.com/a/46997337.
         document = self.text_edit.document()
         font_metrics = QFontMetrics(document.defaultFont())
         margins = self.text_edit.contentsMargins()
-        height = (font_metrics.lineSpacing() * 4
+        height = (font_metrics.lineSpacing() * 5
                   + margins.top() + margins.bottom()
                   + document.documentMargin() * 2
                   + self.text_edit.frameWidth() * 2)
