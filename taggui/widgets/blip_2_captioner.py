@@ -1,14 +1,15 @@
 import os
 import sys
-from enum import Enum, auto
+from enum import StrEnum
 
 import torch
 from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
-from PySide6.QtWidgets import (QComboBox, QDockWidget, QFormLayout, QLineEdit,
-                               QMessageBox, QPlainTextEdit, QProgressBar,
-                               QPushButton, QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDockWidget, QFormLayout,
+                               QLineEdit, QMessageBox, QPlainTextEdit,
+                               QProgressBar, QPushButton, QSpinBox,
+                               QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import AutoProcessor, Blip2ForConditionalGeneration
 
@@ -24,17 +25,17 @@ os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 BLIP_2_HUGGINGFACE_REPOSITORY_ID = 'Salesforce/blip2-opt-2.7b'
 
 
-class CaptionPosition(Enum):
-    BEFORE_FIRST_TAG = auto()
-    AFTER_LAST_TAG = auto()
-    OVERWRITE_FIRST_TAG = auto()
-    OVERWRITE_ALL_TAGS = auto()
-    DO_NOT_ADD = auto()
+class CaptionPosition(StrEnum):
+    BEFORE_FIRST_TAG = 'Insert before first tag'
+    AFTER_LAST_TAG = 'Insert after last tag'
+    OVERWRITE_FIRST_TAG = 'Overwrite first tag'
+    OVERWRITE_ALL_TAGS = 'Overwrite all tags'
+    DO_NOT_ADD = 'Do not add to tags'
 
 
-class Device(Enum):
-    GPU = auto()
-    CPU = auto()
+class Device(StrEnum):
+    GPU = 'GPU if available'
+    CPU = 'CPU'
 
 
 class CaptionSettingsForm(QFormLayout):
@@ -45,34 +46,23 @@ class CaptionSettingsForm(QFormLayout):
 
         self.caption_start_line_edit = QLineEdit()
         self.caption_position_combo_box = QComboBox()
-        self.caption_position_combo_box.addItem(
-            'Insert before first tag',
-            userData=CaptionPosition.BEFORE_FIRST_TAG)
-        self.caption_position_combo_box.addItem(
-            'Insert after last tag', userData=CaptionPosition.AFTER_LAST_TAG)
-        self.caption_position_combo_box.addItem(
-            'Overwrite first tag',
-            userData=CaptionPosition.OVERWRITE_FIRST_TAG)
-        self.caption_position_combo_box.addItem(
-            'Overwrite all tags', userData=CaptionPosition.OVERWRITE_ALL_TAGS)
-        self.caption_position_combo_box.addItem(
-            'Do not add to tags', userData=CaptionPosition.DO_NOT_ADD)
+        self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.device_combo_box = QComboBox()
-        self.device_combo_box.addItem('GPU if available', userData=Device.GPU)
-        self.device_combo_box.addItem('CPU', userData=Device.CPU)
+        self.device_combo_box.addItems(list(Device))
         self.min_new_token_count_spin_box = QSpinBox()
         self.min_new_token_count_spin_box.setRange(1, 99)
         self.max_new_token_count_spin_box = QSpinBox()
         self.max_new_token_count_spin_box.setRange(1, 99)
-        self.max_new_token_count_spin_box.setValue(50)
         self.beam_count_spin_box = QSpinBox()
         self.beam_count_spin_box.setRange(1, 99)
+        self.use_sampling_check_box = QCheckBox()
         self.addRow('Start caption with:', self.caption_start_line_edit)
         self.addRow('Caption position:', self.caption_position_combo_box)
         self.addRow('Device:', self.device_combo_box)
         self.addRow('Minimum tokens:', self.min_new_token_count_spin_box)
         self.addRow('Maximum tokens:', self.max_new_token_count_spin_box)
         self.addRow('Number of beams:', self.beam_count_spin_box)
+        self.addRow('Use sampling:', self.use_sampling_check_box)
 
         # Make sure the minimum new token count is less than or equal to the
         # maximum new token count.
@@ -83,9 +73,9 @@ class CaptionSettingsForm(QFormLayout):
         # Save the caption settings when any of them is changed.
         self.caption_start_line_edit.textChanged.connect(
             self.save_caption_settings)
-        self.caption_position_combo_box.currentIndexChanged.connect(
+        self.caption_position_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
-        self.device_combo_box.currentIndexChanged.connect(
+        self.device_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
         self.min_new_token_count_spin_box.valueChanged.connect(
             self.save_caption_settings)
@@ -93,36 +83,43 @@ class CaptionSettingsForm(QFormLayout):
             self.save_caption_settings)
         self.beam_count_spin_box.valueChanged.connect(
             self.save_caption_settings)
+        self.use_sampling_check_box.stateChanged.connect(
+            self.save_caption_settings)
 
         self.load_caption_settings()
 
     def load_caption_settings(self):
         caption_settings: dict = self.settings.value('caption_settings')
         if caption_settings is None:
-            return
+            caption_settings = {}
         self.caption_start_line_edit.setText(
-            caption_settings['caption_start'])
-        self.caption_position_combo_box.setCurrentIndex(
-            caption_settings['caption_position'])
-        self.device_combo_box.setCurrentIndex(
-            caption_settings['device'])
-        generation_parameters = caption_settings['generation_parameters']
+            caption_settings.get('caption_start', ''))
+        self.caption_position_combo_box.setCurrentText(
+            caption_settings.get('caption_position',
+                                 CaptionPosition.BEFORE_FIRST_TAG))
+        self.device_combo_box.setCurrentText(
+            caption_settings.get('device', Device.GPU))
+        generation_parameters = caption_settings.get('generation_parameters',
+                                                     {})
         self.min_new_token_count_spin_box.setValue(
-            generation_parameters['min_new_tokens'])
+            generation_parameters.get('min_new_tokens', 1))
         self.max_new_token_count_spin_box.setValue(
-            generation_parameters['max_new_tokens'])
+            generation_parameters.get('max_new_tokens', 50))
         self.beam_count_spin_box.setValue(
-            generation_parameters['num_beams'])
+            generation_parameters.get('num_beams', 1))
+        self.use_sampling_check_box.setChecked(
+            generation_parameters.get('do_sample', False))
 
     def get_caption_settings(self) -> dict:
         return {
             'caption_start': self.caption_start_line_edit.text(),
-            'caption_position': self.caption_position_combo_box.currentIndex(),
-            'device': self.device_combo_box.currentIndex(),
+            'caption_position': self.caption_position_combo_box.currentText(),
+            'device': self.device_combo_box.currentText(),
             'generation_parameters': {
                 'min_new_tokens': self.min_new_token_count_spin_box.value(),
                 'max_new_tokens': self.max_new_token_count_spin_box.value(),
-                'num_beams': self.beam_count_spin_box.value()
+                'num_beams': self.beam_count_spin_box.value(),
+                'do_sample': self.use_sampling_check_box.isChecked()
             }
         }
 
