@@ -72,6 +72,9 @@ class MainWindow(QMainWindow):
                           self.all_tags_editor],
                          [int(image_list_image_width * 2.5)] * 3,
                          Qt.Horizontal)
+        # Disable some widgets until a directory is loaded.
+        self.image_tags_editor.tag_input_box.setDisabled(True)
+        self.blip_2_captioner.caption_button.setDisabled(True)
         self.toggle_image_list_action = QAction('Images', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
@@ -131,6 +134,9 @@ class MainWindow(QMainWindow):
         self.image_list.list_view.setCurrentIndex(
             self.proxy_image_list_model.index(select_index, 0))
         self.centralWidget().setCurrentWidget(self.image_viewer)
+        # Enable previously disabled widgets.
+        self.image_tags_editor.tag_input_box.setDisabled(False)
+        self.blip_2_captioner.caption_button.setDisabled(False)
 
     @Slot()
     def select_and_load_directory(self):
