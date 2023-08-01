@@ -11,19 +11,19 @@ Written in Python using PySide6.
 ## Features
 
 - Keyboard-friendly interface for fast tagging
-- Tag autocomplete based on your most used tags
-- Integrated token counter
-- Searchable list of all used tags
-- Filter images by tag
-- Rename or delete all instances of a tag
+- Tag autocomplete based on your own most-used tags
+- Integrated Stable Diffusion token counter
+- Batch tag renaming and deleting
+- BLIP-2 caption generation
 - Automatic dark mode based on system settings
 
 ## Installation
 
 The easiest way to use the application is to download the latest release from
 the [releases page](https://www.github.com/jhc13/taggui/releases).
-Choose the appropriate executable file for your operating system.
-The file can be run directly without any additional dependencies.
+Choose the appropriate `.zip` file for your operating system, extract it
+wherever you want, and run the executable file shortcut inside.
+No additional dependencies are required.
 
 Alternatively, you can install manually by cloning this repository and
 installing the dependencies in `requirements.txt`.
@@ -40,9 +40,39 @@ Any changes you make to the tags are also automatically saved to these `.txt`
 files.
 
 You can change the settings in `File` -> `Settings`.
-Panes can be resized, undocked, and moved around.
+Panes can be resized, undocked, moved around, or placed on top of each
+other to create a tabbed interface.
+
+## BLIP-2 Captioning (New in v1.2.0)
+
+In addition to manual tagging, you can use the BLIP-2 model to automatically
+generate captions for your images inside TagGUI.
+GPU generation requires a compatible NVIDIA GPU, and CPU generation is also
+supported.
+
+To use the feature, select the images you want to caption in the image list,
+then click the `Caption With BLIP-2` button in the BLIP-2 Captioner pane.
+You can select a single image to get a caption for that image, or multiple
+images to batch generate captions for all of them.
+It can take up to several minutes to download and load the model when you first
+use it, but subsequent generations will be much faster.
+
+You can put some text inside the `Start caption with:` box to make the model
+generate captions that start with that text.
+For example, you can write `A photo of a person wearing` to get captions that
+describe the clothing of the subject.
+Additional generation parameters such as the minimum number of tokens and the
+repetition penalty can be viewed and changed by clicking the
+`Show Advanced Settings` button.
+If you want to know more about what each parameter does, you can read the
+[Hugging Face documentation](https://huggingface.co/docs/transformers/main/en/main_classes/text_generation#transformers.GenerationConfig).
 
 ## Controls
+
+- Focus the image list: `Alt`+`L`
+- Focus the `Add Tag` box: `Alt`+`A`
+- Focus the `Search Tags` box: `Alt`+`S`
+- Focus the `Caption With BLIP-2` button: `Alt`+`C`
 
 ### Images pane
 
