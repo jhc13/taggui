@@ -6,7 +6,7 @@ Cross-platform desktop application for quickly tagging images, aimed towards
 creators of image datasets for generative AI models like Stable Diffusion.
 Written in Python using PySide6.
 
-<img src='images/screenshot-v1.1.0.png' alt='TagGUI screenshot' width='100%'>
+<img src='images/screenshot-v1.2.0.png' alt='TagGUI screenshot' width='100%'>
 
 ## Features
 
