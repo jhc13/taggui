@@ -62,7 +62,7 @@ class CaptionSettingsForm(QVBoxLayout):
         horizontal_line.setFrameShape(QFrame.Shape.HLine)
         horizontal_line.setFrameShadow(QFrame.Shadow.Raised)
         self.toggle_advanced_settings_form_button = TallPushButton(
-            'Show advanced settings')
+            'Show Advanced Settings')
 
         advanced_settings_form_container = QWidget()
         self.advanced_settings_form_scroll_area = QScrollArea()
@@ -168,11 +168,11 @@ class CaptionSettingsForm(QVBoxLayout):
         if self.advanced_settings_form_scroll_area.isHidden():
             self.advanced_settings_form_scroll_area.show()
             self.toggle_advanced_settings_form_button.setText(
-                'Hide advanced settings')
+                'Hide Advanced Settings')
         else:
             self.advanced_settings_form_scroll_area.hide()
             self.toggle_advanced_settings_form_button.setText(
-                'Show advanced settings')
+                'Show Advanced Settings')
 
     def load_caption_settings(self):
         caption_settings: dict = self.settings.value('caption_settings')
@@ -372,7 +372,7 @@ class Blip2Captioner(QDockWidget):
         self.setWindowTitle('BLIP-2 Captioner')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
-        self.caption_button = TallPushButton('Caption with BLIP-2')
+        self.caption_button = TallPushButton('Caption With BLIP-2')
         self.progress_bar = QProgressBar()
         self.progress_bar.setFormat('%v / %m images captioned (%p%)')
         self.progress_bar.hide()
