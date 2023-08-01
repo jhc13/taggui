@@ -21,8 +21,10 @@ Written in Python using PySide6.
 
 The easiest way to use the application is to download the latest release from
 the [releases page](https://www.github.com/jhc13/taggui/releases).
-Choose the appropriate `.zip` file for your operating system, extract it
-wherever you want, and run the executable file shortcut inside.
+Choose the appropriate file for your operating system, extract it wherever you
+want, and run the executable file shortcut inside.
+You will have to install [7-Zip](https://www.7-zip.org/download.html) to
+extract the files if you don't have it on your system.
 No additional dependencies are required.
 
 Alternatively, you can install manually by cloning this repository and
