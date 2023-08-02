@@ -22,7 +22,7 @@ Written in Python using PySide6.
 The easiest way to use the application is to download the latest release from
 the [releases page](https://www.github.com/jhc13/taggui/releases).
 Choose the appropriate file for your operating system, extract it wherever you
-want, and run the executable file shortcut inside.
+want, and run the executable file inside.
 You will have to install [7-Zip](https://www.7-zip.org/download.html) to
 extract the files if you don't have it on your system.
 No additional dependencies are required.
@@ -45,7 +45,7 @@ You can change the settings in `File` -> `Settings`.
 Panes can be resized, undocked, moved around, or placed on top of each
 other to create a tabbed interface.
 
-## BLIP-2 Captioning (New in v1.2.0)
+## BLIP-2 Captioning (New in v1.2)
 
 In addition to manual tagging, you can use the BLIP-2 model to automatically
 generate captions for your images inside TagGUI.
