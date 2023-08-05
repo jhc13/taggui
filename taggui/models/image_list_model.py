@@ -79,6 +79,8 @@ class ImageListModel(QAbstractListModel):
                 caption = text_file_path.read_text()
                 if caption:
                     tags = caption.split(self.separator)
+                    tags = [tag.strip() for tag in tags]
+                    tags = [tag for tag in tags if tag]
             image = Image(image_path, dimensions, tags)
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path)
