@@ -1,8 +1,7 @@
 from pathlib import Path
 
-from PySide6.QtCore import (QItemSelectionModel, QModelIndex,
-                            QPersistentModelIndex, QStringListModel, QTimer,
-                            Qt, Slot)
+from PySide6.QtCore import (QItemSelectionModel, QModelIndex, QStringListModel,
+                            QTimer, Qt, Slot)
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (QAbstractItemView, QCompleter, QDockWidget,
                                QLabel, QLineEdit, QListView, QVBoxLayout,
@@ -78,15 +77,11 @@ class ImageTagsList(QListView):
         if event.key() != Qt.Key_Delete:
             super().keyPressEvent(event)
             return
-        # The selected indices must be converted to `QPersistentModelIndex`
-        # objects to properly delete multiple tags.
-        selected_indices = [QPersistentModelIndex(index) for index
-                            in self.selectedIndexes()]
-        for index in selected_indices:
-            self.image_tag_list_model.removeRow(index.row())
-        # The current index is set but not selected automatically after the
-        # tags are deleted, so select it.
-        self.setCurrentIndex(self.currentIndex())
+        rows_to_remove = [index.row() for index in self.selectedIndexes()]
+        remaining_tags = [tag for i, tag
+                          in enumerate(self.image_tag_list_model.stringList())
+                          if i not in rows_to_remove]
+        self.image_tag_list_model.setStringList(remaining_tags)
 
 
 class ImageTagsEditor(QDockWidget):
@@ -127,6 +122,7 @@ class ImageTagsEditor(QDockWidget):
             self.image_tags_list.scrollToBottom)
         # `rowsInserted` does not have to be connected because `dataChanged`
         # is emitted when a tag is added.
+        self.image_tag_list_model.modelReset.connect(self.count_tokens)
         self.image_tag_list_model.dataChanged.connect(self.count_tokens)
         self.image_tag_list_model.rowsRemoved.connect(self.count_tokens)
 

@@ -100,6 +100,8 @@ class ImageListModel(QAbstractListModel):
 
     def update_image_tags(self, image_index: QModelIndex, tags: list[str]):
         image: Image = self.data(image_index, Qt.UserRole)
+        if image.tags == tags:
+            return
         image.tags = tags
         self.dataChanged.emit(image_index, image_index)
         self.write_image_tags_to_disk(image)

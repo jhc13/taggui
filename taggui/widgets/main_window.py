@@ -260,6 +260,8 @@ class MainWindow(QMainWindow):
     def connect_image_tags_editor_signals(self):
         # `rowsInserted` does not have to be connected because `dataChanged`
         # is emitted when a tag is added.
+        self.image_tag_list_model.modelReset.connect(
+            self.update_image_list_model_tags)
         self.image_tag_list_model.dataChanged.connect(
             self.update_image_list_model_tags)
         self.image_tag_list_model.rowsRemoved.connect(
