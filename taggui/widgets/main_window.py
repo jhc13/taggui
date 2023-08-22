@@ -186,6 +186,7 @@ class MainWindow(QMainWindow):
         settings_action.triggered.connect(self.show_settings_dialog)
         file_menu.addAction(settings_action)
         exit_action = QAction('Exit', parent=self)
+        exit_action.setShortcut(QKeySequence('Ctrl+W'))
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
