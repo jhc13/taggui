@@ -1,7 +1,7 @@
 import gc
 import os
 import sys
-from enum import StrEnum
+from enum import Enum
 
 import torch
 from PIL import Image as PilImage
@@ -27,7 +27,8 @@ os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 BLIP_2_HUGGINGFACE_REPOSITORY_ID = 'Salesforce/blip2-opt-2.7b'
 
 
-class CaptionPosition(StrEnum):
+# `StrEnum` is a Python 3.11 feature that can be used here.
+class CaptionPosition(str, Enum):
     BEFORE_FIRST_TAG = 'Insert before first tag'
     AFTER_LAST_TAG = 'Insert after last tag'
     OVERWRITE_FIRST_TAG = 'Overwrite first tag'
@@ -35,7 +36,7 @@ class CaptionPosition(StrEnum):
     DO_NOT_ADD = 'Do not add to tags'
 
 
-class Device(StrEnum):
+class Device(str, Enum):
     GPU = 'GPU if available'
     CPU = 'CPU'
 
