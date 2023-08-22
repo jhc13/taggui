@@ -4,7 +4,8 @@ from PySide6.QtCore import QItemSelection, QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
                            QKeySequence, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
-                               QStackedWidget, QVBoxLayout, QWidget)
+                               QMessageBox, QStackedWidget, QVBoxLayout,
+                               QWidget)
 
 from models.image_list_model import ImageListModel
 from models.image_tag_list_model import ImageTagListModel
@@ -13,7 +14,7 @@ from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import BigPushButton
 from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import get_separator, get_settings
-from utils.utils import get_resource_path
+from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
 from widgets.blip_2_captioner import Blip2Captioner
 from widgets.image_list import ImageList
@@ -174,6 +175,20 @@ class MainWindow(QMainWindow):
         settings_dialog = SettingsDialog(parent=self, settings=self.settings)
         settings_dialog.exec()
 
+    @Slot()
+    def remove_duplicate_tags(self):
+        removed_tag_count = self.image_list_model.remove_duplicate_tags()
+        message_box = QMessageBox()
+        message_box.setWindowTitle('Remove Duplicate Tags')
+        message_box.setIcon(QMessageBox.Icon.Information)
+        if not removed_tag_count:
+            text = 'No duplicate tags were found.'
+        else:
+            text = (f'Removed {removed_tag_count} duplicate '
+                    f'{pluralize("tag", removed_tag_count)}.')
+        message_box.setText(text)
+        message_box.exec()
+
     def create_menus(self):
         menu_bar = self.menuBar()
 
@@ -189,6 +204,14 @@ class MainWindow(QMainWindow):
         exit_action.setShortcut(QKeySequence('Ctrl+W'))
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        edit_menu = menu_bar.addMenu('Edit')
+        remove_duplicate_tags_action = QAction('Remove Duplicate Tags',
+                                               parent=self)
+        remove_duplicate_tags_action.setShortcut(QKeySequence('Ctrl+D'))
+        remove_duplicate_tags_action.triggered.connect(
+            self.remove_duplicate_tags)
+        edit_menu.addAction(remove_duplicate_tags_action)
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)
@@ -238,6 +261,8 @@ class MainWindow(QMainWindow):
         self.image_list_model.dataChanged.connect(
             lambda: self.tag_counter_model.count_tags(
                 self.image_list_model.images))
+        self.image_list_model.dataChanged.connect(
+            self.image_tags_editor.reload_image_tags_if_changed)
         # Rows are inserted or removed from the proxy image list model when the
         # filter is changed.
         self.proxy_image_list_model.rowsInserted.connect(
@@ -330,8 +355,8 @@ class MainWindow(QMainWindow):
             self.image_list_model.update_image_tags(image_index, tags))
         self.blip_2_captioner.caption_generated.connect(
             lambda image_index, *_:
-            self.image_tags_editor.reload_image_tags_if_index_matches(
-                image_index))
+            self.image_tags_editor.reload_image_tags_if_changed(image_index,
+                                                                image_index))
         self.blip_2_captioner.visibilityChanged.connect(
             lambda: self.toggle_blip_2_captioner_action.setChecked(
                 self.blip_2_captioner.isVisible()))

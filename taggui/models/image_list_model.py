@@ -106,6 +106,28 @@ class ImageListModel(QAbstractListModel):
         self.dataChanged.emit(image_index, image_index)
         self.write_image_tags_to_disk(image)
 
+    def remove_duplicate_tags(self) -> int:
+        """
+        Remove duplicate tags for each image. Return the number of removed
+        tags.
+        """
+        changed_image_indices = []
+        removed_tag_count = 0
+        for image_index, image in enumerate(self.images):
+            tag_count = len(image.tags)
+            unique_tag_count = len(set(image.tags))
+            if tag_count == unique_tag_count:
+                continue
+            changed_image_indices.append(image_index)
+            removed_tag_count += tag_count - unique_tag_count
+            # Use a dictionary instead of a set to preserve the order.
+            image.tags = list(dict.fromkeys(image.tags))
+            self.write_image_tags_to_disk(image)
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
+        return removed_tag_count
+
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str):
         """Rename all instances of a tag in all images."""

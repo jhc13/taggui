@@ -148,16 +148,18 @@ class ImageTagsEditor(QDockWidget):
         self.count_tokens()
 
     @Slot()
-    def reload_image_tags_if_index_matches(self, image_index: QModelIndex):
+    def reload_image_tags_if_changed(self, first_changed_index: QModelIndex,
+                                     last_changed_index: QModelIndex):
         """
-        Reload the tags for the current image if its index matches the given
-        image index. In order to preserve the functionality of deleting or
+        Reload the tags for the current image if its index is in the range of
+        changed indices. In order to preserve the functionality of deleting or
         reordering multiple tags at once, use this slot instead of connecting
         to the `dataChanged` signal of the image list model. Otherwise, the
         image tags get reloaded after the first tag is deleted or moved,
         preventing the remaining tags from being deleted or moved.
         """
-        if image_index == self.image_index:
+        if (first_changed_index.row() <= self.image_index.row()
+                <= last_changed_index.row()):
             proxy_image_index = self.proxy_image_list_model.mapFromSource(
-                image_index)
+                self.image_index)
             self.load_image_tags(proxy_image_index)
