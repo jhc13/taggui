@@ -108,27 +108,33 @@ class ImageListModel(QAbstractListModel):
         self.dataChanged.emit(image_index, image_index)
         self.write_image_tags_to_disk(image)
 
-    def remove_duplicate_tags(self) -> int:
+    def get_text_match_count(self, text: str) -> int:
+        """Get the number of instances of a text in all captions."""
+        match_count = 0
+        for image in self.images:
+            caption = self.separator.join(image.tags)
+            match_count += caption.count(text)
+        return match_count
+
+    def find_and_replace(self, find_text: str, replace_text: str):
         """
-        Remove duplicate tags for each image. Return the number of removed
-        tags.
+        Find and replace arbitrary text in captions, within and across tag
+        boundaries.
         """
+        if not find_text:
+            return
         changed_image_indices = []
-        removed_tag_count = 0
         for image_index, image in enumerate(self.images):
-            tag_count = len(image.tags)
-            unique_tag_count = len(set(image.tags))
-            if tag_count == unique_tag_count:
+            caption = self.separator.join(image.tags)
+            if find_text not in caption:
                 continue
             changed_image_indices.append(image_index)
-            removed_tag_count += tag_count - unique_tag_count
-            # Use a dictionary instead of a set to preserve the order.
-            image.tags = list(dict.fromkeys(image.tags))
+            caption = caption.replace(find_text, replace_text)
+            image.tags = caption.split(self.separator)
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
-        return removed_tag_count
 
     def sort_tags_alphabetically(self, do_not_reorder_first_tag: bool):
         """Sort the tags for each image in alphabetical order."""
@@ -194,33 +200,48 @@ class ImageListModel(QAbstractListModel):
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
 
-    def get_text_match_count(self, text: str) -> int:
-        """Get the number of instances of a text in all captions."""
-        match_count = 0
-        for image in self.images:
-            caption = self.separator.join(image.tags)
-            match_count += caption.count(text)
-        return match_count
-
-    def find_and_replace(self, find_text: str, replace_text: str):
+    def remove_duplicate_tags(self) -> int:
         """
-        Find and replace arbitrary text in captions, within and across tag
-        boundaries.
+        Remove duplicate tags for each image. Return the number of removed
+        tags.
         """
-        if not find_text:
-            return
         changed_image_indices = []
+        removed_tag_count = 0
         for image_index, image in enumerate(self.images):
-            caption = self.separator.join(image.tags)
-            if find_text not in caption:
+            tag_count = len(image.tags)
+            unique_tag_count = len(set(image.tags))
+            if tag_count == unique_tag_count:
                 continue
             changed_image_indices.append(image_index)
-            caption = caption.replace(find_text, replace_text)
-            image.tags = caption.split(self.separator)
+            removed_tag_count += tag_count - unique_tag_count
+            # Use a dictionary instead of a set to preserve the order.
+            image.tags = list(dict.fromkeys(image.tags))
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
+        return removed_tag_count
+
+    def remove_empty_tags(self) -> int:
+        """
+        Remove empty tags (tags that are empty strings or only contain
+        whitespace) for each image. Return the number of removed tags.
+        """
+        changed_image_indices = []
+        removed_tag_count = 0
+        for image_index, image in enumerate(self.images):
+            old_tag_count = len(image.tags)
+            image.tags = [tag for tag in image.tags if tag.strip()]
+            new_tag_count = len(image.tags)
+            if old_tag_count == new_tag_count:
+                continue
+            changed_image_indices.append(image_index)
+            removed_tag_count += old_tag_count - new_tag_count
+            self.write_image_tags_to_disk(image)
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
+        return removed_tag_count
 
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str):

@@ -178,6 +178,19 @@ class MainWindow(QMainWindow):
         settings_dialog.exec()
 
     @Slot()
+    def show_find_and_replace_dialog(self):
+        find_and_replace_dialog = FindAndReplaceDialog(
+            parent=self, image_list_model=self.image_list_model)
+        find_and_replace_dialog.exec()
+
+    @Slot()
+    def show_batch_reorder_tags_dialog(self):
+        batch_reorder_tags_dialog = BatchReorderTagsDialog(
+            parent=self, image_list_model=self.image_list_model,
+            tag_counter_model=self.tag_counter_model)
+        batch_reorder_tags_dialog.exec()
+
+    @Slot()
     def remove_duplicate_tags(self):
         removed_tag_count = self.image_list_model.remove_duplicate_tags()
         message_box = QMessageBox()
@@ -192,17 +205,18 @@ class MainWindow(QMainWindow):
         message_box.exec()
 
     @Slot()
-    def show_batch_reorder_tags_dialog(self):
-        batch_reorder_tags_dialog = BatchReorderTagsDialog(
-            parent=self, image_list_model=self.image_list_model,
-            tag_counter_model=self.tag_counter_model)
-        batch_reorder_tags_dialog.exec()
-
-    @Slot()
-    def show_find_and_replace_dialog(self):
-        find_and_replace_dialog = FindAndReplaceDialog(
-            parent=self, image_list_model=self.image_list_model)
-        find_and_replace_dialog.exec()
+    def remove_empty_tags(self):
+        removed_tag_count = self.image_list_model.remove_empty_tags()
+        message_box = QMessageBox()
+        message_box.setWindowTitle('Remove Empty Tags')
+        message_box.setIcon(QMessageBox.Icon.Information)
+        if not removed_tag_count:
+            text = 'No empty tags were found.'
+        else:
+            text = (f'Removed {removed_tag_count} empty '
+                    f'{pluralize("tag", removed_tag_count)}.')
+        message_box.setText(text)
+        message_box.exec()
 
     def create_menus(self):
         menu_bar = self.menuBar()
@@ -221,22 +235,27 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         edit_menu = menu_bar.addMenu('Edit')
+        find_and_replace_action = QAction('Find and Replace', parent=self)
+        find_and_replace_action.setShortcut(QKeySequence('Ctrl+R'))
+        find_and_replace_action.triggered.connect(
+            self.show_find_and_replace_dialog)
+        edit_menu.addAction(find_and_replace_action)
+        batch_reorder_tags_action = QAction('Batch Reorder Tags', parent=self)
+        batch_reorder_tags_action.setShortcut(QKeySequence('Ctrl+B'))
+        batch_reorder_tags_action.triggered.connect(
+            self.show_batch_reorder_tags_dialog)
+        edit_menu.addAction(batch_reorder_tags_action)
         remove_duplicate_tags_action = QAction('Remove Duplicate Tags',
                                                parent=self)
         remove_duplicate_tags_action.setShortcut(QKeySequence('Ctrl+D'))
         remove_duplicate_tags_action.triggered.connect(
             self.remove_duplicate_tags)
         edit_menu.addAction(remove_duplicate_tags_action)
-        batch_reorder_tags_action = QAction('Batch Reorder Tags', parent=self)
-        batch_reorder_tags_action.setShortcut(QKeySequence('Ctrl+B'))
-        batch_reorder_tags_action.triggered.connect(
-            self.show_batch_reorder_tags_dialog)
-        edit_menu.addAction(batch_reorder_tags_action)
-        find_and_replace_action = QAction('Find and Replace', parent=self)
-        find_and_replace_action.setShortcut(QKeySequence('Ctrl+R'))
-        find_and_replace_action.triggered.connect(
-            self.show_find_and_replace_dialog)
-        edit_menu.addAction(find_and_replace_action)
+        remove_empty_tags_action = QAction('Remove Empty Tags', parent=self)
+        remove_empty_tags_action.setShortcut(QKeySequence('Ctrl+E'))
+        remove_empty_tags_action.triggered.connect(
+            self.remove_empty_tags)
+        edit_menu.addAction(remove_empty_tags_action)
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)
