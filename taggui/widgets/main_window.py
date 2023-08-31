@@ -16,6 +16,7 @@ from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import get_separator, get_settings
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
+from widgets.batch_reorder_tags_dialog import BatchReorderTagsDialog
 from widgets.blip_2_captioner import Blip2Captioner
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
@@ -189,6 +190,13 @@ class MainWindow(QMainWindow):
         message_box.setText(text)
         message_box.exec()
 
+    @Slot()
+    def show_batch_reorder_tags_dialog(self):
+        batch_reorder_tags_dialog = BatchReorderTagsDialog(
+            parent=self, image_list_model=self.image_list_model,
+            tag_counter_model=self.tag_counter_model)
+        batch_reorder_tags_dialog.exec()
+
     def create_menus(self):
         menu_bar = self.menuBar()
 
@@ -212,6 +220,11 @@ class MainWindow(QMainWindow):
         remove_duplicate_tags_action.triggered.connect(
             self.remove_duplicate_tags)
         edit_menu.addAction(remove_duplicate_tags_action)
+        batch_reorder_tags_action = QAction('Batch Reorder Tags', parent=self)
+        batch_reorder_tags_action.setShortcut(QKeySequence('Ctrl+B'))
+        batch_reorder_tags_action.triggered.connect(
+            self.show_batch_reorder_tags_dialog)
+        edit_menu.addAction(batch_reorder_tags_action)
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)

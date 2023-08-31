@@ -1,3 +1,5 @@
+import random
+from collections import Counter
 from pathlib import Path
 
 import imagesize
@@ -127,6 +129,67 @@ class ImageListModel(QAbstractListModel):
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
         return removed_tag_count
+
+    def sort_tags_alphabetically(self, do_not_reorder_first_tag: bool):
+        """Sort the tags for each image in alphabetical order."""
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            if len(image.tags) < 2:
+                continue
+            old_caption = self.separator.join(image.tags)
+            if do_not_reorder_first_tag:
+                first_tag = image.tags[0]
+                image.tags = [first_tag] + sorted(image.tags[1:])
+            else:
+                image.tags.sort()
+            new_caption = self.separator.join(image.tags)
+            if new_caption != old_caption:
+                changed_image_indices.append(image_index)
+                self.write_image_tags_to_disk(image)
+        self.dataChanged.emit(self.index(changed_image_indices[0]),
+                              self.index(changed_image_indices[-1]))
+
+    def sort_tags_by_frequency(self, tag_counter: Counter,
+                               do_not_reorder_first_tag: bool):
+        """
+        Sort the tags for each image by the total number of times a tag appears
+        across all images.
+        """
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            if len(image.tags) < 2:
+                continue
+            old_caption = self.separator.join(image.tags)
+            if do_not_reorder_first_tag:
+                first_tag = image.tags[0]
+                image.tags = [first_tag] + sorted(
+                    image.tags[1:], key=lambda tag: tag_counter[tag],
+                    reverse=True)
+            else:
+                image.tags.sort(key=lambda tag: tag_counter[tag], reverse=True)
+            new_caption = self.separator.join(image.tags)
+            if new_caption != old_caption:
+                changed_image_indices.append(image_index)
+                self.write_image_tags_to_disk(image)
+        self.dataChanged.emit(self.index(changed_image_indices[0]),
+                              self.index(changed_image_indices[-1]))
+
+    def shuffle_tags(self, do_not_reorder_first_tag: bool):
+        """Shuffle the tags for each image randomly."""
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            if len(image.tags) < 2:
+                continue
+            changed_image_indices.append(image_index)
+            if do_not_reorder_first_tag:
+                first_tag, *remaining_tags = image.tags
+                random.shuffle(remaining_tags)
+                image.tags = [first_tag] + remaining_tags
+            else:
+                random.shuffle(image.tags)
+            self.write_image_tags_to_disk(image)
+        self.dataChanged.emit(self.index(changed_image_indices[0]),
+                              self.index(changed_image_indices[-1]))
 
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str):
