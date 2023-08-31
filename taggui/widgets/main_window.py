@@ -7,6 +7,9 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QMessageBox, QStackedWidget, QVBoxLayout,
                                QWidget)
 
+from dialogs.batch_reorder_tags_dialog import BatchReorderTagsDialog
+from dialogs.find_and_replace_dialog import FindAndReplaceDialog
+from dialogs.settings_dialog import SettingsDialog
 from models.image_list_model import ImageListModel
 from models.image_tag_list_model import ImageTagListModel
 from models.proxy_image_list_model import ProxyImageListModel
@@ -16,12 +19,10 @@ from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import get_separator, get_settings
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
-from widgets.batch_reorder_tags_dialog import BatchReorderTagsDialog
 from widgets.blip_2_captioner import Blip2Captioner
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer
-from widgets.settings_dialog import SettingsDialog
 
 ICON_PATH = Path('images/icon.ico')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
@@ -197,6 +198,12 @@ class MainWindow(QMainWindow):
             tag_counter_model=self.tag_counter_model)
         batch_reorder_tags_dialog.exec()
 
+    @Slot()
+    def show_find_and_replace_dialog(self):
+        find_and_replace_dialog = FindAndReplaceDialog(
+            parent=self, image_list_model=self.image_list_model)
+        find_and_replace_dialog.exec()
+
     def create_menus(self):
         menu_bar = self.menuBar()
 
@@ -225,6 +232,11 @@ class MainWindow(QMainWindow):
         batch_reorder_tags_action.triggered.connect(
             self.show_batch_reorder_tags_dialog)
         edit_menu.addAction(batch_reorder_tags_action)
+        find_and_replace_action = QAction('Find and Replace', parent=self)
+        find_and_replace_action.setShortcut(QKeySequence('Ctrl+R'))
+        find_and_replace_action.triggered.connect(
+            self.show_find_and_replace_dialog)
+        edit_menu.addAction(find_and_replace_action)
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)

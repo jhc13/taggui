@@ -146,8 +146,9 @@ class ImageListModel(QAbstractListModel):
             if new_caption != old_caption:
                 changed_image_indices.append(image_index)
                 self.write_image_tags_to_disk(image)
-        self.dataChanged.emit(self.index(changed_image_indices[0]),
-                              self.index(changed_image_indices[-1]))
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
 
     def sort_tags_by_frequency(self, tag_counter: Counter,
                                do_not_reorder_first_tag: bool):
@@ -171,8 +172,9 @@ class ImageListModel(QAbstractListModel):
             if new_caption != old_caption:
                 changed_image_indices.append(image_index)
                 self.write_image_tags_to_disk(image)
-        self.dataChanged.emit(self.index(changed_image_indices[0]),
-                              self.index(changed_image_indices[-1]))
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
 
     def shuffle_tags(self, do_not_reorder_first_tag: bool):
         """Shuffle the tags for each image randomly."""
@@ -188,8 +190,37 @@ class ImageListModel(QAbstractListModel):
             else:
                 random.shuffle(image.tags)
             self.write_image_tags_to_disk(image)
-        self.dataChanged.emit(self.index(changed_image_indices[0]),
-                              self.index(changed_image_indices[-1]))
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
+
+    def get_text_match_count(self, text: str) -> int:
+        """Get the number of instances of a text in all captions."""
+        match_count = 0
+        for image in self.images:
+            caption = self.separator.join(image.tags)
+            match_count += caption.count(text)
+        return match_count
+
+    def find_and_replace(self, find_text: str, replace_text: str):
+        """
+        Find and replace arbitrary text in captions, within and across tag
+        boundaries.
+        """
+        if not find_text:
+            return
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            caption = self.separator.join(image.tags)
+            if find_text not in caption:
+                continue
+            changed_image_indices.append(image_index)
+            caption = caption.replace(find_text, replace_text)
+            image.tags = caption.split(self.separator)
+            self.write_image_tags_to_disk(image)
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
 
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str):

@@ -15,6 +15,7 @@ class SettingsDialog(QDialog):
         self.restart_label.setStyleSheet('color: red;')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
         grid_layout = QGridLayout()
         grid_layout.addWidget(QLabel('Font size (pt)'), 0, 0, Qt.AlignRight)
         grid_layout.addWidget(QLabel('Image width in image list (px)'), 1, 0,
