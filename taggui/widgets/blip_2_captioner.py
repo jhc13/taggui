@@ -98,7 +98,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.top_p_spin_box.setRange(0, 1)
         self.top_p_spin_box.setSingleStep(0.01)
         self.repetition_penalty_spin_box = QDoubleSpinBox()
-        self.repetition_penalty_spin_box.setRange(1, 1.5)
+        self.repetition_penalty_spin_box.setRange(1, 2)
         self.repetition_penalty_spin_box.setSingleStep(0.01)
         self.no_repeat_ngram_size_spin_box = QSpinBox()
         self.no_repeat_ngram_size_spin_box.setRange(0, 5)
