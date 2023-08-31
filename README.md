@@ -25,7 +25,9 @@ Choose the appropriate file for your operating system, extract it wherever you
 want, and run the executable file inside.
 You will have to install [7-Zip](https://www.7-zip.org/download.html) to
 extract the files if you don't have it on your system.
-No additional dependencies are required.
+No additional dependencies are required. (Linux users may need to
+install `libxcb-cursor0`;
+see [this Stack Overflow answer](https://stackoverflow.com/a/75941575).)
 
 Alternatively, you can install manually by cloning this repository and
 installing the dependencies in `requirements.txt`.
@@ -45,7 +47,7 @@ You can change the settings in `File` -> `Settings`.
 Panes can be resized, undocked, moved around, or placed on top of each
 other to create a tabbed interface.
 
-## BLIP-2 Captioning (New in v1.2)
+## BLIP-2 Captioning
 
 In addition to manual tagging, you can use the BLIP-2 model to automatically
 generate captions for your images inside TagGUI.
