@@ -423,11 +423,7 @@ class Blip2Captioner(QDockWidget):
 
     @Slot()
     def caption_with_blip_2(self):
-        selected_proxy_image_indices = (self.image_list.list_view
-                                        .selectedIndexes())
-        selected_image_indices = [
-            self.image_list.proxy_image_list_model.mapToSource(index)
-            for index in selected_proxy_image_indices]
+        selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
         if selected_image_count > 1:
             reply = get_confirmation_dialog_reply(

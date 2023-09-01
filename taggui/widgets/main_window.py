@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
         self.image_tags_editor = ImageTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
-            self.image_tag_list_model, separator)
+            self.image_tag_list_model, self.image_list, separator)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
@@ -341,6 +341,9 @@ class MainWindow(QMainWindow):
         self.image_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_image_tags_editor_action.setChecked(
                 self.image_tags_editor.isVisible()))
+        tag_input_box = self.image_tags_editor.tag_input_box
+        tag_input_box.tag_addition_to_multiple_images_requested.connect(
+            self.image_list_model.add_tag_to_multiple_images)
 
     @Slot()
     def clear_image_list_filter(self):

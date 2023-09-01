@@ -243,6 +243,16 @@ class ImageListModel(QAbstractListModel):
                                   self.index(changed_image_indices[-1]))
         return removed_tag_count
 
+    @Slot(str, list)
+    def add_tag_to_multiple_images(self, tag: str,
+                                   image_indices: list[QModelIndex]):
+        """Add a tag to multiple images."""
+        for image_index in image_indices:
+            image: Image = self.data(image_index, Qt.UserRole)
+            image.tags.append(tag)
+            self.write_image_tags_to_disk(image)
+        self.dataChanged.emit(image_indices[0], image_indices[-1])
+
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str):
         """Rename all instances of a tag in all images."""
