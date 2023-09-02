@@ -30,5 +30,5 @@ def get_confirmation_dialog_reply(title: str,
     confirmation_dialog.setText(question)
     confirmation_dialog.setStandardButtons(QMessageBox.StandardButton.Yes
                                            | QMessageBox.StandardButton.Cancel)
-    confirmation_dialog.setDefaultButton(QMessageBox.StandardButton.Cancel)
+    confirmation_dialog.setDefaultButton(QMessageBox.StandardButton.Yes)
     return confirmation_dialog.exec()
