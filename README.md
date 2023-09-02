@@ -83,12 +83,12 @@ If you want to know more about what each parameter does, you can read the
 
 - First / last image: `Home` / `End`
 - Select multiple images: Hold `Ctrl` or `Shift` and click the images
-- **Select all images: `Ctrl`+`A`**
+- ⭐ Select all images: `Ctrl`+`A`
 
 ### Image Tags pane
 
 - Add a tag: Type the tag into the `Add Tag` box and press `Enter`
-- **Add the first tag suggested by autocomplete: `Ctrl`+`Enter`**
+- ⭐ Add the first tag suggested by autocomplete: `Ctrl`+`Enter`
 - Add a tag to multiple images: Select the images in the image list add
   the tag
 - Delete a tag: Select the tag and press `Delete`
