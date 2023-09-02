@@ -104,12 +104,13 @@ class MainWindow(QMainWindow):
         # Remove the Ctrl+Z shortcut from text input boxes to prevent it from
         # conflicting with the undo action.
         ctrl_z = QKeyCombination(Qt.ControlModifier, key=Qt.Key_Z)
-        ctrl_z_shortcut_remover = ShortcutRemover(parent=self,
-                                                  shortcuts=(ctrl_z,))
+        ctrl_y = QKeyCombination(Qt.ControlModifier, key=Qt.Key_Y)
+        shortcut_remover = ShortcutRemover(parent=self,
+                                           shortcuts=(ctrl_z, ctrl_y))
         self.image_tags_editor.tag_input_box.installEventFilter(
-            ctrl_z_shortcut_remover)
+            shortcut_remover)
         self.all_tags_editor.filter_line_edit.installEventFilter(
-            ctrl_z_shortcut_remover)
+            shortcut_remover)
         # Set keyboard shortcuts.
         image_list_shortcut = QShortcut(QKeySequence('Alt+L'), self)
         image_list_shortcut.activated.connect(self.image_list.raise_)
