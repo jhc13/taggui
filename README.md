@@ -73,6 +73,7 @@ If you want to know more about what each parameter does, you can read the
 
 ## Controls
 
+- Previous / next image: `Up` / `Down` arrow keys
 - Focus the image list: `Alt`+`L`
 - Focus the `Add Tag` box: `Alt`+`A`
 - Focus the `Search Tags` box: `Alt`+`S`
@@ -80,18 +81,20 @@ If you want to know more about what each parameter does, you can read the
 
 ### Images pane
 
-- Previous / next image: `Up` / `Down` arrow keys
 - First / last image: `Home` / `End`
+- Select multiple images: Hold `Ctrl` or `Shift` and click the images
+- **Select all images: `Ctrl`+`A`**
 
 ### Image Tags pane
 
 - Add a tag: Type the tag into the `Add Tag` box and press `Enter`
-- Add the first tag suggested by autocomplete: Press `Ctrl`+`Enter`
+- **Add the first tag suggested by autocomplete: `Ctrl`+`Enter`**
+- Add a tag to multiple images: Select the images in the image list add
+  the tag
 - Delete a tag: Select the tag and press `Delete`
 - Rename a tag: Double-click the tag, or select the tag and press `F2`
 - Reorder tags: Drag and drop the tags
-- Select multiple tags: Hold `Ctrl` or `Shift` while selecting the tags
-- Previous / next image: `Up` / `Down` arrow keys while in the `Add Tag` box
+- Select multiple tags: Hold `Ctrl` or `Shift` and click the tags
 
 ### All Tags pane
 
