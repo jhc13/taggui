@@ -109,8 +109,6 @@ class ImageListModel(QAbstractListModel):
         tags = [image.tags.copy() for image in self.images]
         self.undo_stack.append(HistoryItem(action_name, tags,
                                            should_ask_for_confirmation))
-        import pickle
-        print(len(pickle.dumps(self.undo_stack)))
         self.redo_stack.clear()
 
     def write_image_tags_to_disk(self, image: Image):
