@@ -432,11 +432,15 @@ class Blip2Captioner(QDockWidget):
             if reply != QMessageBox.StandardButton.Yes:
                 return
         self.caption_button.setEnabled(False)
+        caption_settings = self.caption_settings_form.get_caption_settings()
+        if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Caption with BLIP-2',
+                should_ask_for_confirmation=selected_image_count > 1)
         if selected_image_count > 1:
             self.progress_bar.setRange(0, selected_image_count)
             self.progress_bar.setValue(0)
             self.progress_bar.show()
-        caption_settings = self.caption_settings_form.get_caption_settings()
         caption_thread = CaptionThread(self, self.image_list_model,
                                        selected_image_indices,
                                        caption_settings)

@@ -1,5 +1,6 @@
 import random
-from collections import Counter
+from collections import Counter, deque
+from dataclasses import dataclass
 from pathlib import Path
 
 import imagesize
@@ -8,6 +9,16 @@ from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
 from utils.image import Image
+from utils.utils import get_confirmation_dialog_reply
+
+UNDO_STACK_SIZE = 10
+
+
+@dataclass
+class HistoryItem:
+    action_name: str
+    tags: list[list[str]]
+    should_ask_for_confirmation: bool
 
 
 class ImageListModel(QAbstractListModel):
@@ -16,6 +27,8 @@ class ImageListModel(QAbstractListModel):
         self.image_list_image_width = image_list_image_width
         self.separator = separator
         self.images = []
+        self.undo_stack = deque(maxlen=UNDO_STACK_SIZE)
+        self.redo_stack = []
 
     def rowCount(self, parent=None) -> int:
         return len(self.images)
@@ -66,6 +79,8 @@ class ImageListModel(QAbstractListModel):
 
     def load_directory(self, directory_path: Path):
         self.images.clear()
+        self.undo_stack.clear()
+        self.redo_stack.clear()
         file_paths = self.get_file_paths(directory_path)
         text_file_paths = {path for path in file_paths
                            if path.suffix == '.txt'}
@@ -88,6 +103,14 @@ class ImageListModel(QAbstractListModel):
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
 
+    def add_to_undo_stack(self, action_name: str,
+                          should_ask_for_confirmation: bool):
+        """Add the current state of the image tags to the undo stack."""
+        tags = [image.tags.copy() for image in self.images]
+        self.undo_stack.append(HistoryItem(action_name, tags,
+                                           should_ask_for_confirmation))
+        self.redo_stack.clear()
+
     def write_image_tags_to_disk(self, image: Image):
         try:
             image.path.with_suffix('.txt').write_text(
@@ -108,6 +131,52 @@ class ImageListModel(QAbstractListModel):
         self.dataChanged.emit(image_index, image_index)
         self.write_image_tags_to_disk(image)
 
+    def restore_history_tags(self, is_undo: bool):
+        if is_undo:
+            source_stack = self.undo_stack
+            destination_stack = self.redo_stack
+        else:
+            # Redo.
+            source_stack = self.redo_stack
+            destination_stack = self.undo_stack
+        if not source_stack:
+            return
+        history_item = source_stack[-1]
+        if history_item.should_ask_for_confirmation:
+            undo_or_restore_string = 'Undo' if is_undo else 'Restore'
+            reply = get_confirmation_dialog_reply(
+                title=undo_or_restore_string,
+                question=f'{undo_or_restore_string} '
+                         f'"{history_item.action_name}"?')
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        source_stack.pop()
+        tags = [image.tags for image in self.images]
+        destination_stack.append(HistoryItem(
+            history_item.action_name, tags,
+            history_item.should_ask_for_confirmation))
+        changed_image_indices = []
+        for image_index, (image, history_image_tags) in enumerate(
+                zip(self.images, history_item.tags)):
+            if image.tags == history_image_tags:
+                continue
+            changed_image_indices.append(image_index)
+            image.tags = history_image_tags
+            self.write_image_tags_to_disk(image)
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
+
+    @Slot()
+    def undo(self):
+        """Undo the last action."""
+        self.restore_history_tags(is_undo=True)
+
+    @Slot()
+    def redo(self):
+        """Redo the last undone action."""
+        self.restore_history_tags(is_undo=False)
+
     def get_text_match_count(self, text: str) -> int:
         """Get the number of instances of a text in all captions."""
         match_count = 0
@@ -123,6 +192,8 @@ class ImageListModel(QAbstractListModel):
         """
         if not find_text:
             return
+        self.add_to_undo_stack(action_name='Find and Replace',
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             caption = self.separator.join(image.tags)
@@ -138,6 +209,8 @@ class ImageListModel(QAbstractListModel):
 
     def sort_tags_alphabetically(self, do_not_reorder_first_tag: bool):
         """Sort the tags for each image in alphabetical order."""
+        self.add_to_undo_stack(action_name='Sort Tags',
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
@@ -162,6 +235,8 @@ class ImageListModel(QAbstractListModel):
         Sort the tags for each image by the total number of times a tag appears
         across all images.
         """
+        self.add_to_undo_stack(action_name='Sort Tags',
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
@@ -184,6 +259,8 @@ class ImageListModel(QAbstractListModel):
 
     def shuffle_tags(self, do_not_reorder_first_tag: bool):
         """Shuffle the tags for each image randomly."""
+        self.add_to_undo_stack(action_name='Shuffle Tags',
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
@@ -205,6 +282,8 @@ class ImageListModel(QAbstractListModel):
         Remove duplicate tags for each image. Return the number of removed
         tags.
         """
+        self.add_to_undo_stack(action_name='Remove Duplicate Tags',
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         removed_tag_count = 0
         for image_index, image in enumerate(self.images):
@@ -227,6 +306,8 @@ class ImageListModel(QAbstractListModel):
         Remove empty tags (tags that are empty strings or only contain
         whitespace) for each image. Return the number of removed tags.
         """
+        self.add_to_undo_stack(action_name='Remove Empty Tags',
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         removed_tag_count = 0
         for image_index, image in enumerate(self.images):
@@ -247,6 +328,8 @@ class ImageListModel(QAbstractListModel):
     def add_tag_to_multiple_images(self, tag: str,
                                    image_indices: list[QModelIndex]):
         """Add a tag to multiple images."""
+        self.add_to_undo_stack(action_name='Add Tag',
+                               should_ask_for_confirmation=True)
         for image_index in image_indices:
             image: Image = self.data(image_index, Qt.UserRole)
             image.tags.append(tag)
@@ -256,6 +339,8 @@ class ImageListModel(QAbstractListModel):
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str):
         """Rename all instances of a tag in all images."""
+        self.add_to_undo_stack(action_name='Rename Tag',
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if old_tag in image.tags:
@@ -269,6 +354,8 @@ class ImageListModel(QAbstractListModel):
     @Slot(str)
     def delete_tag(self, tag: str):
         """Delete all instances of a tag from all images."""
+        self.add_to_undo_stack(action_name='Delete Tag',
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if tag in image.tags:

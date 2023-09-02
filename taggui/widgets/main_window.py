@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from PySide6.QtCore import QItemSelection, QModelIndex, QUrl, Qt, Slot
+from PySide6.QtCore import (QItemSelection, QKeyCombination, QModelIndex, QUrl,
+                            Qt, Slot)
 from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
                            QKeySequence, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
@@ -15,8 +16,10 @@ from models.image_tag_list_model import ImageTagListModel
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import BigPushButton
+from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import get_separator, get_settings
+from utils.shortcut_remover import ShortcutRemover
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
 from widgets.blip_2_captioner import Blip2Captioner
@@ -98,6 +101,15 @@ class MainWindow(QMainWindow):
             keys_to_forward=(Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp,
                              Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End))
         self.installEventFilter(key_press_forwarder)
+        # Remove the Ctrl+Z shortcut from text input boxes to prevent it from
+        # conflicting with the undo action.
+        ctrl_z = QKeyCombination(Qt.ControlModifier, key=Qt.Key_Z)
+        ctrl_z_shortcut_remover = ShortcutRemover(parent=self,
+                                                  shortcuts=(ctrl_z,))
+        self.image_tags_editor.tag_input_box.installEventFilter(
+            ctrl_z_shortcut_remover)
+        self.all_tags_editor.filter_line_edit.installEventFilter(
+            ctrl_z_shortcut_remover)
         # Set keyboard shortcuts.
         image_list_shortcut = QShortcut(QKeySequence('Alt+L'), self)
         image_list_shortcut.activated.connect(self.image_list.raise_)
@@ -178,6 +190,24 @@ class MainWindow(QMainWindow):
         settings_dialog.exec()
 
     @Slot()
+    def update_undo_and_redo_actions(self, undo_action: QAction,
+                                     redo_action: QAction):
+        if self.image_list_model.undo_stack:
+            undo_action.setEnabled(True)
+            undo_action_name = self.image_list_model.undo_stack[-1].action_name
+            undo_action.setText(f'Undo "{undo_action_name}"')
+        else:
+            undo_action.setEnabled(False)
+            undo_action.setText('Undo')
+        if self.image_list_model.redo_stack:
+            redo_action.setEnabled(True)
+            redo_action_name = self.image_list_model.redo_stack[-1].action_name
+            redo_action.setText(f'Redo "{redo_action_name}"')
+        else:
+            redo_action.setEnabled(False)
+            redo_action.setText('Redo')
+
+    @Slot()
     def show_find_and_replace_dialog(self):
         find_and_replace_dialog = FindAndReplaceDialog(
             parent=self, image_list_model=self.image_list_model)
@@ -235,6 +265,17 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         edit_menu = menu_bar.addMenu('Edit')
+        undo_action = QAction('Undo', parent=self)
+        undo_action.setShortcut(QKeySequence('Ctrl+Z'))
+        undo_action.triggered.connect(self.image_list_model.undo)
+        edit_menu.addAction(undo_action)
+        redo_action = QAction('Redo', parent=self)
+        redo_action.setShortcut(QKeySequence('Ctrl+Y'))
+        redo_action.triggered.connect(self.image_list_model.redo)
+        edit_menu.addAction(redo_action)
+        edit_menu.aboutToShow.connect(
+            lambda: self.update_undo_and_redo_actions(undo_action,
+                                                      redo_action))
         find_and_replace_action = QAction('Find and Replace', parent=self)
         find_and_replace_action.setShortcut(QKeySequence('Ctrl+R'))
         find_and_replace_action.triggered.connect(
@@ -322,22 +363,41 @@ class MainWindow(QMainWindow):
                 self.image_list.isVisible()))
 
     @Slot()
-    def update_image_list_model_tags(self):
-        self.image_list_model.update_image_tags(
-            self.image_tags_editor.image_index,
-            self.image_tag_list_model.stringList())
+    def update_image_tags(self):
+        image_index = self.image_tags_editor.image_index
+        image: Image = self.image_list_model.data(image_index, Qt.UserRole)
+        old_tags = image.tags
+        new_tags = self.image_tag_list_model.stringList()
+        if old_tags == new_tags:
+            return
+        old_tags_count = len(old_tags)
+        new_tags_count = len(new_tags)
+        if new_tags_count > old_tags_count:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Add Tag', should_ask_for_confirmation=False)
+        elif new_tags_count == old_tags_count:
+            if set(new_tags) == set(old_tags):
+                self.image_list_model.add_to_undo_stack(
+                    action_name='Reorder Tags',
+                    should_ask_for_confirmation=False)
+            else:
+                self.image_list_model.add_to_undo_stack(
+                    action_name='Rename Tag',
+                    should_ask_for_confirmation=False)
+        elif old_tags_count - new_tags_count == 1:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Delete Tag', should_ask_for_confirmation=False)
+        else:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Delete Tags', should_ask_for_confirmation=False)
+        self.image_list_model.update_image_tags(image_index, new_tags)
 
     def connect_image_tags_editor_signals(self):
         # `rowsInserted` does not have to be connected because `dataChanged`
         # is emitted when a tag is added.
-        self.image_tag_list_model.modelReset.connect(
-            self.update_image_list_model_tags)
-        self.image_tag_list_model.dataChanged.connect(
-            self.update_image_list_model_tags)
-        self.image_tag_list_model.rowsRemoved.connect(
-            self.update_image_list_model_tags)
-        self.image_tag_list_model.rowsMoved.connect(
-            self.update_image_list_model_tags)
+        self.image_tag_list_model.modelReset.connect(self.update_image_tags)
+        self.image_tag_list_model.dataChanged.connect(self.update_image_tags)
+        self.image_tag_list_model.rowsMoved.connect(self.update_image_tags)
         self.image_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_image_tags_editor_action.setChecked(
                 self.image_tags_editor.isVisible()))

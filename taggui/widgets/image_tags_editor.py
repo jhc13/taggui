@@ -140,7 +140,6 @@ class ImageTagsEditor(QDockWidget):
         # is emitted when a tag is added.
         self.image_tag_list_model.modelReset.connect(self.count_tokens)
         self.image_tag_list_model.dataChanged.connect(self.count_tokens)
-        self.image_tag_list_model.rowsRemoved.connect(self.count_tokens)
 
     @Slot()
     def count_tokens(self):
