@@ -143,10 +143,10 @@ class ImageListModel(QAbstractListModel):
             return
         history_item = source_stack[-1]
         if history_item.should_ask_for_confirmation:
-            undo_or_restore_string = 'Undo' if is_undo else 'Restore'
+            undo_or_redo_string = 'Undo' if is_undo else 'Redo'
             reply = get_confirmation_dialog_reply(
-                title=undo_or_restore_string,
-                question=f'{undo_or_restore_string} '
+                title=undo_or_redo_string,
+                question=f'{undo_or_redo_string} '
                          f'"{history_item.action_name}"?')
             if reply != QMessageBox.StandardButton.Yes:
                 return

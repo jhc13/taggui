@@ -193,18 +193,14 @@ class MainWindow(QMainWindow):
     def update_undo_and_redo_actions(self, undo_action: QAction,
                                      redo_action: QAction):
         if self.image_list_model.undo_stack:
-            undo_action.setEnabled(True)
             undo_action_name = self.image_list_model.undo_stack[-1].action_name
             undo_action.setText(f'Undo "{undo_action_name}"')
         else:
-            undo_action.setEnabled(False)
             undo_action.setText('Undo')
         if self.image_list_model.redo_stack:
-            redo_action.setEnabled(True)
             redo_action_name = self.image_list_model.redo_stack[-1].action_name
             redo_action.setText(f'Redo "{redo_action_name}"')
         else:
-            redo_action.setEnabled(False)
             redo_action.setText('Redo')
 
     @Slot()
