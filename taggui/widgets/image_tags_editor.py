@@ -19,13 +19,15 @@ MAX_TOKEN_COUNT = 75
 
 
 class TagInputBox(QLineEdit):
-    tag_addition_to_multiple_images_requested = Signal(str, list)
+    tags_addition_requested = Signal(list, list)
 
     def __init__(self, image_tag_list_model: QStringListModel,
-                 tag_counter_model: TagCounterModel, image_list: ImageList):
+                 tag_counter_model: TagCounterModel, image_list: ImageList,
+                 separator: str):
         super().__init__()
         self.image_tag_list_model = image_tag_list_model
         self.image_list = image_list
+        self.separator = separator
 
         self.completer = QCompleter(tag_counter_model)
         self.setCompleter(self.completer)
@@ -57,23 +59,29 @@ class TagInputBox(QLineEdit):
     def add_tag(self, tag: str):
         if not tag:
             return
+        tags = tag.split(self.separator)
         selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
+        if len(tags) == 1 and selected_image_count == 1:
+            # Add an empty tag and set it to the new tag.
+            self.image_tag_list_model.insertRow(
+                self.image_tag_list_model.rowCount())
+            new_tag_index = self.image_tag_list_model.index(
+                self.image_tag_list_model.rowCount() - 1)
+            self.image_tag_list_model.setData(new_tag_index, tag)
+            return
         if selected_image_count > 1:
-            question = (f'Add tag "{tag}" to {selected_image_count} selected '
-                        f'images?')
+            if len(tags) > 1:
+                question = (f'Add tags to {selected_image_count} selected '
+                            f'images?')
+            else:
+                question = (f'Add tag "{tags[0]}" to {selected_image_count} '
+                            f'selected images?')
             reply = get_confirmation_dialog_reply(title='Add Tag',
                                                   question=question)
-            if reply == QMessageBox.StandardButton.Yes:
-                self.tag_addition_to_multiple_images_requested.emit(
-                    tag, selected_image_indices)
-            return
-        # Add an empty tag and set it to the new tag.
-        self.image_tag_list_model.insertRow(
-            self.image_tag_list_model.rowCount())
-        new_tag_index = self.image_tag_list_model.index(
-            self.image_tag_list_model.rowCount() - 1)
-        self.image_tag_list_model.setData(new_tag_index, tag)
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        self.tags_addition_requested.emit(tags, selected_image_indices)
 
 
 class ImageTagsList(QListView):
@@ -117,7 +125,8 @@ class ImageTagsEditor(QDockWidget):
         self.setWindowTitle('Image Tags')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.tag_input_box = TagInputBox(self.image_tag_list_model,
-                                         tag_counter_model, image_list)
+                                         tag_counter_model, image_list,
+                                         separator)
         self.image_tags_list = ImageTagsList(self.image_tag_list_model)
         self.token_count_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.

@@ -137,8 +137,4 @@ class ImageList(QDockWidget):
             f'Image {proxy_image_index.row() + 1} / {image_count}')
 
     def get_selected_image_indices(self) -> list[QModelIndex]:
-        selected_proxy_image_indices = self.list_view.selectedIndexes()
-        selected_image_indices = [
-            self.proxy_image_list_model.mapToSource(index)
-            for index in selected_proxy_image_indices]
-        return selected_image_indices
+        return self.list_view.get_selected_image_indices()

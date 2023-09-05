@@ -401,10 +401,8 @@ class MainWindow(QMainWindow):
         self.image_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_image_tags_editor_action.setChecked(
                 self.image_tags_editor.isVisible()))
-        tag_input_box = self.image_tags_editor.tag_input_box
-        tag_input_box.tag_addition_to_multiple_images_requested.connect(
-            lambda tag, image_indices:
-            self.image_list_model.add_tags([tag], image_indices))
+        self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
+            self.image_list_model.add_tags)
 
     @Slot()
     def clear_image_list_filter(self):
