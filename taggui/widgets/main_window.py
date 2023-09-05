@@ -160,6 +160,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue('directory_path', str(path))
         self.setWindowTitle(path.name)
         self.image_list_model.load_directory(path)
+        self.all_tags_editor.filter_line_edit.clear()
         self.clear_image_list_filter()
         # Clear the current index first to make sure that the `currentChanged`
         # signal is emitted even if the image at the index is already selected.
