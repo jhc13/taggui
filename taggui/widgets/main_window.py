@@ -354,6 +354,8 @@ class MainWindow(QMainWindow):
         self.proxy_image_list_model.rowsRemoved.connect(
             lambda: self.image_list.update_image_index_label(
                 self.image_list.list_view.currentIndex()))
+        self.image_list.list_view.tags_paste_requested.connect(
+            self.image_list_model.add_tags)
         # Connecting the signal directly without `isVisible()` causes the menu
         # item to be unchecked when the widget is an inactive tab.
         self.image_list.visibilityChanged.connect(
@@ -401,7 +403,8 @@ class MainWindow(QMainWindow):
                 self.image_tags_editor.isVisible()))
         tag_input_box = self.image_tags_editor.tag_input_box
         tag_input_box.tag_addition_to_multiple_images_requested.connect(
-            self.image_list_model.add_tag_to_multiple_images)
+            lambda tag, image_indices:
+            self.image_list_model.add_tags([tag], image_indices))
 
     @Slot()
     def clear_image_list_filter(self):

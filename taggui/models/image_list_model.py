@@ -123,14 +123,6 @@ class ImageListModel(QAbstractListModel):
                                       f'tags for {image.path.name}.')
             error_message_box.exec()
 
-    def update_image_tags(self, image_index: QModelIndex, tags: list[str]):
-        image: Image = self.data(image_index, Qt.UserRole)
-        if image.tags == tags:
-            return
-        image.tags = tags
-        self.dataChanged.emit(image_index, image_index)
-        self.write_image_tags_to_disk(image)
-
     def restore_history_tags(self, is_undo: bool):
         if is_undo:
             source_stack = self.undo_stack
@@ -324,15 +316,23 @@ class ImageListModel(QAbstractListModel):
                                   self.index(changed_image_indices[-1]))
         return removed_tag_count
 
-    @Slot(str, list)
-    def add_tag_to_multiple_images(self, tag: str,
-                                   image_indices: list[QModelIndex]):
-        """Add a tag to multiple images."""
-        self.add_to_undo_stack(action_name='Add Tag',
-                               should_ask_for_confirmation=True)
+    def update_image_tags(self, image_index: QModelIndex, tags: list[str]):
+        image: Image = self.data(image_index, Qt.UserRole)
+        if image.tags == tags:
+            return
+        image.tags = tags
+        self.dataChanged.emit(image_index, image_index)
+        self.write_image_tags_to_disk(image)
+
+    @Slot(list, list)
+    def add_tags(self, tags: list[str], image_indices: list[QModelIndex]):
+        """Add one or more tags to one or more images."""
+        action_name = 'Add Tag' if len(tags) == 1 else 'Add Tags'
+        should_ask_for_confirmation = len(image_indices) > 1
+        self.add_to_undo_stack(action_name, should_ask_for_confirmation)
         for image_index in image_indices:
             image: Image = self.data(image_index, Qt.UserRole)
-            image.tags.append(tag)
+            image.tags.extend(tags)
             self.write_image_tags_to_disk(image)
         self.dataChanged.emit(image_indices[0], image_indices[-1])
 

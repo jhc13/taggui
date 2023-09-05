@@ -1,15 +1,20 @@
-from PySide6.QtCore import QModelIndex, QSize, Qt, Slot
+from PySide6.QtCore import QModelIndex, QSize, Qt, Signal, Slot
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
-                               QLabel, QListView, QMenu, QVBoxLayout, QWidget)
+                               QLabel, QListView, QMenu, QMessageBox,
+                               QVBoxLayout, QWidget)
 
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
+from utils.utils import get_confirmation_dialog_reply
 
 
 class ImageListView(QListView):
+    tags_paste_requested = Signal(list, list)
+
     def __init__(self, parent, proxy_image_list_model: ProxyImageListModel,
                  separator: str, image_width: int):
         super().__init__(parent)
+        self.proxy_image_list_model = proxy_image_list_model
         self.separator = separator
         self.setModel(proxy_image_list_model)
         self.setSelectionMode(
@@ -24,6 +29,11 @@ class ImageListView(QListView):
         copy_tags_action.triggered.connect(
             self.copy_selected_image_tags)
         self.addAction(copy_tags_action)
+        paste_tags_action = self.addAction('Paste Tags')
+        paste_tags_action.setShortcut('Ctrl+V')
+        paste_tags_action.triggered.connect(
+            self.paste_tags)
+        self.addAction(paste_tags_action)
         self.copy_file_names_action = self.addAction('Copy File Name')
         self.copy_file_names_action.setShortcut('Ctrl+Alt+C')
         self.copy_file_names_action.triggered.connect(
@@ -38,6 +48,7 @@ class ImageListView(QListView):
         self.context_menu.addAction(copy_tags_action)
         self.context_menu.addAction(self.copy_file_names_action)
         self.context_menu.addAction(self.copy_paths_action)
+        self.context_menu.addAction(paste_tags_action)
         self.selectionModel().selectionChanged.connect(
             self.update_context_menu_action_names)
 
@@ -55,6 +66,26 @@ class ImageListView(QListView):
         selected_image_captions = [self.separator.join(image.tags)
                                    for image in selected_images]
         QApplication.clipboard().setText('\n'.join(selected_image_captions))
+
+    def get_selected_image_indices(self) -> list[QModelIndex]:
+        selected_image_proxy_indices = self.selectedIndexes()
+        selected_image_indices = [
+            self.proxy_image_list_model.mapToSource(proxy_index)
+            for proxy_index in selected_image_proxy_indices]
+        return selected_image_indices
+
+    def paste_tags(self):
+        selected_image_count = len(self.selectedIndexes())
+        if selected_image_count > 1:
+            reply = get_confirmation_dialog_reply(
+                title='Paste Tags',
+                question=f'Paste tags to {selected_image_count} selected '
+                         f'images?')
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        tags = QApplication.clipboard().text().split(self.separator)
+        selected_image_indices = self.get_selected_image_indices()
+        self.tags_paste_requested.emit(tags, selected_image_indices)
 
     def copy_selected_image_file_names(self):
         selected_images = self.get_selected_images()
