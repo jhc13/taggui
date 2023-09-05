@@ -81,6 +81,8 @@ class MainWindow(QMainWindow):
         # Disable some widgets until a directory is loaded.
         self.image_tags_editor.tag_input_box.setDisabled(True)
         self.blip_2_captioner.caption_button.setDisabled(True)
+        self.undo_action = QAction('Undo', parent=self)
+        self.redo_action = QAction('Redo', parent=self)
         self.toggle_image_list_action = QAction('Images', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
@@ -192,18 +194,21 @@ class MainWindow(QMainWindow):
         settings_dialog.exec()
 
     @Slot()
-    def update_undo_and_redo_actions(self, undo_action: QAction,
-                                     redo_action: QAction):
+    def update_undo_and_redo_actions(self):
         if self.image_list_model.undo_stack:
             undo_action_name = self.image_list_model.undo_stack[-1].action_name
-            undo_action.setText(f'Undo "{undo_action_name}"')
+            self.undo_action.setText(f'Undo "{undo_action_name}"')
+            self.undo_action.setDisabled(False)
         else:
-            undo_action.setText('Undo')
+            self.undo_action.setText('Undo')
+            self.undo_action.setDisabled(True)
         if self.image_list_model.redo_stack:
             redo_action_name = self.image_list_model.redo_stack[-1].action_name
-            redo_action.setText(f'Redo "{redo_action_name}"')
+            self.redo_action.setText(f'Redo "{redo_action_name}"')
+            self.redo_action.setDisabled(False)
         else:
-            redo_action.setText('Redo')
+            self.redo_action.setText('Redo')
+            self.redo_action.setDisabled(True)
 
     @Slot()
     def show_find_and_replace_dialog(self):
@@ -263,17 +268,14 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         edit_menu = menu_bar.addMenu('Edit')
-        undo_action = QAction('Undo', parent=self)
-        undo_action.setShortcut(QKeySequence('Ctrl+Z'))
-        undo_action.triggered.connect(self.image_list_model.undo)
-        edit_menu.addAction(undo_action)
-        redo_action = QAction('Redo', parent=self)
-        redo_action.setShortcut(QKeySequence('Ctrl+Y'))
-        redo_action.triggered.connect(self.image_list_model.redo)
-        edit_menu.addAction(redo_action)
-        edit_menu.aboutToShow.connect(
-            lambda: self.update_undo_and_redo_actions(undo_action,
-                                                      redo_action))
+        self.undo_action.setShortcut(QKeySequence('Ctrl+Z'))
+        self.undo_action.triggered.connect(self.image_list_model.undo)
+        self.undo_action.setDisabled(True)
+        edit_menu.addAction(self.undo_action)
+        self.redo_action.setShortcut(QKeySequence('Ctrl+Y'))
+        self.redo_action.triggered.connect(self.image_list_model.redo)
+        self.redo_action.setDisabled(True)
+        edit_menu.addAction(self.redo_action)
         find_and_replace_action = QAction('Find and Replace', parent=self)
         find_and_replace_action.setShortcut(QKeySequence('Ctrl+R'))
         find_and_replace_action.triggered.connect(
@@ -346,6 +348,8 @@ class MainWindow(QMainWindow):
                 self.image_list_model.images))
         self.image_list_model.dataChanged.connect(
             self.image_tags_editor.reload_image_tags_if_changed)
+        self.image_list_model.update_undo_and_redo_actions_requested.connect(
+            self.update_undo_and_redo_actions)
         # Rows are inserted or removed from the proxy image list model when the
         # filter is changed.
         self.proxy_image_list_model.rowsInserted.connect(

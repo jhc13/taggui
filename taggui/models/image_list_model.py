@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import imagesize
-from PySide6.QtCore import QAbstractListModel, QModelIndex, QSize, Qt, Slot
+from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
+                            Slot)
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
@@ -22,6 +23,8 @@ class HistoryItem:
 
 
 class ImageListModel(QAbstractListModel):
+    update_undo_and_redo_actions_requested = Signal()
+
     def __init__(self, image_list_image_width: int, separator: str):
         super().__init__()
         self.image_list_image_width = image_list_image_width
@@ -81,6 +84,7 @@ class ImageListModel(QAbstractListModel):
         self.images.clear()
         self.undo_stack.clear()
         self.redo_stack.clear()
+        self.update_undo_and_redo_actions_requested.emit()
         file_paths = self.get_file_paths(directory_path)
         text_file_paths = {path for path in file_paths
                            if path.suffix == '.txt'}
@@ -110,6 +114,7 @@ class ImageListModel(QAbstractListModel):
         self.undo_stack.append(HistoryItem(action_name, tags,
                                            should_ask_for_confirmation))
         self.redo_stack.clear()
+        self.update_undo_and_redo_actions_requested.emit()
 
     def write_image_tags_to_disk(self, image: Image):
         try:
@@ -158,6 +163,7 @@ class ImageListModel(QAbstractListModel):
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
+        self.update_undo_and_redo_actions_requested.emit()
 
     @Slot()
     def undo(self):
