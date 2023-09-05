@@ -84,6 +84,11 @@ If you want to know more about what each parameter does, you can read the
 - First / last image: `Home` / `End`
 - Select multiple images: Hold `Ctrl` or `Shift` and click the images
 - ⭐ Select all images: `Ctrl`+`A`
+- Copy tags/file names/paths of selected images: Right-click and select the
+  action from the context menu (or use the keyboard
+  shortcuts: `Ctrl`+`C`, `Ctrl`+`Alt`+`C`, `Ctrl`+`Shift`+`C`)
+- Paste copied tags to selected images: Right-click and select the action from
+  the context menu (or press `Ctrl`+`V`)
 
 ### Image Tags pane
 
