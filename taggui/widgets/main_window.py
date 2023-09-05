@@ -54,8 +54,8 @@ class MainWindow(QMainWindow):
         self.set_font_size()
         self.image_viewer = ImageViewer(self.proxy_image_list_model)
         self.create_central_widget()
-        self.image_list = ImageList(image_list_image_width,
-                                    self.proxy_image_list_model)
+        self.image_list = ImageList(self.proxy_image_list_model,
+                                    separator, image_list_image_width)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
         self.image_tags_editor = ImageTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
