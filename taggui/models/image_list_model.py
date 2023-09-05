@@ -340,7 +340,9 @@ class ImageListModel(QAbstractListModel):
             image: Image = self.data(image_index, Qt.UserRole)
             image.tags.extend(tags)
             self.write_image_tags_to_disk(image)
-        self.dataChanged.emit(image_indices[0], image_indices[-1])
+        min_image_index = min(image_indices, key=lambda index: index.row())
+        max_image_index = max(image_indices, key=lambda index: index.row())
+        self.dataChanged.emit(min_image_index, max_image_index)
 
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str):
