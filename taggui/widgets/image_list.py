@@ -46,9 +46,9 @@ class ImageListView(QListView):
         self.addAction(self.copy_paths_action)
         self.context_menu = QMenu(self)
         self.context_menu.addAction(copy_tags_action)
+        self.context_menu.addAction(paste_tags_action)
         self.context_menu.addAction(self.copy_file_names_action)
         self.context_menu.addAction(self.copy_paths_action)
-        self.context_menu.addAction(paste_tags_action)
         self.selectionModel().selectionChanged.connect(
             self.update_context_menu_action_names)
 
