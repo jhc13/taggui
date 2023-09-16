@@ -115,6 +115,12 @@ class MainWindow(QMainWindow):
         self.all_tags_editor.filter_line_edit.installEventFilter(
             shortcut_remover)
         # Set keyboard shortcuts.
+        focus_filter_images_box_shortcut = QShortcut(
+            QKeySequence('Alt+F'), self)
+        focus_filter_images_box_shortcut.activated.connect(
+            self.image_list.raise_)
+        focus_filter_images_box_shortcut.activated.connect(
+            self.image_list.filter_line_edit.setFocus)
         focus_image_list_shortcut = QShortcut(QKeySequence('Alt+L'), self)
         focus_image_list_shortcut.activated.connect(self.image_list.raise_)
         focus_image_list_shortcut.activated.connect(
