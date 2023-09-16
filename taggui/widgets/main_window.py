@@ -114,23 +114,29 @@ class MainWindow(QMainWindow):
         self.all_tags_editor.filter_line_edit.installEventFilter(
             shortcut_remover)
         # Set keyboard shortcuts.
-        image_list_shortcut = QShortcut(QKeySequence('Alt+L'), self)
-        image_list_shortcut.activated.connect(self.image_list.raise_)
-        image_list_shortcut.activated.connect(
+        focus_image_list_shortcut = QShortcut(QKeySequence('Alt+L'), self)
+        focus_image_list_shortcut.activated.connect(self.image_list.raise_)
+        focus_image_list_shortcut.activated.connect(
             self.image_list.list_view.setFocus)
-        add_tag_shortcut = QShortcut(QKeySequence('Alt+A'), self)
-        add_tag_shortcut.activated.connect(self.image_tags_editor.raise_)
-        add_tag_shortcut.activated.connect(
+        focus_add_tag_box_shortcut = QShortcut(QKeySequence('Alt+A'), self)
+        focus_add_tag_box_shortcut.activated.connect(
+            self.image_tags_editor.raise_)
+        focus_add_tag_box_shortcut.activated.connect(
             self.image_tags_editor.tag_input_box.setFocus)
-        search_tags_shortcut = QShortcut(QKeySequence('Alt+S'), self)
-        search_tags_shortcut.activated.connect(self.all_tags_editor.raise_)
-        search_tags_shortcut.activated.connect(
+        focus_search_tags_box_shortcut = QShortcut(QKeySequence('Alt+S'), self)
+        focus_search_tags_box_shortcut.activated.connect(
+            self.all_tags_editor.raise_)
+        focus_search_tags_box_shortcut.activated.connect(
             self.all_tags_editor.filter_line_edit.setFocus)
-        caption_shortcut = QShortcut(QKeySequence('Alt+C'), self)
-        caption_shortcut.activated.connect(self.blip_2_captioner.raise_)
-        caption_shortcut.activated.connect(
+        focus_caption_button_shortcut = QShortcut(QKeySequence('Alt+C'), self)
+        focus_caption_button_shortcut.activated.connect(
+            self.blip_2_captioner.raise_)
+        focus_caption_button_shortcut.activated.connect(
             self.blip_2_captioner.caption_button.setFocus)
-
+        jump_to_first_untagged_image_shortcut = QShortcut(
+            QKeySequence('Ctrl+J'), self)
+        jump_to_first_untagged_image_shortcut.activated.connect(
+            self.image_list.jump_to_first_untagged_image)
         self.restore()
 
     def closeEvent(self, event: QCloseEvent):

@@ -136,5 +136,24 @@ class ImageList(QDockWidget):
         self.image_index_label.setText(
             f'Image {proxy_image_index.row() + 1} / {image_count}')
 
+    @Slot()
+    def jump_to_first_untagged_image(self):
+        """
+        Select the first image that has no tags, or the last image if all
+        images are tagged.
+        """
+        proxy_image_index = None
+        for proxy_image_index in range(self.proxy_image_list_model.rowCount()):
+            image: Image = self.proxy_image_list_model.data(
+                self.proxy_image_list_model.index(proxy_image_index, 0),
+                Qt.UserRole)
+            if not image.tags:
+                break
+        if proxy_image_index is None:
+            return
+        self.list_view.clearSelection()
+        self.list_view.setCurrentIndex(
+            self.proxy_image_list_model.index(proxy_image_index, 0))
+
     def get_selected_image_indices(self) -> list[QModelIndex]:
         return self.list_view.get_selected_image_indices()
