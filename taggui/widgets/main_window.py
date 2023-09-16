@@ -139,6 +139,7 @@ class MainWindow(QMainWindow):
         jump_to_first_untagged_image_shortcut.activated.connect(
             self.image_list.jump_to_first_untagged_image)
         self.restore()
+        self.image_tags_editor.tag_input_box.setFocus()
 
     def closeEvent(self, event: QCloseEvent):
         """Save the window geometry and state before closing."""
