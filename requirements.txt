@@ -1,6 +1,6 @@
-accelerate==0.22.0
+accelerate==0.23.0
 imagesize==1.4.1
-Pillow==10.0.0
+Pillow==10.0.1
 PySide6==6.5.2
 torch==2.0.1
-transformers==4.32.1
+transformers==4.33.2
