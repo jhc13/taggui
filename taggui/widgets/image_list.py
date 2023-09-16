@@ -1,11 +1,53 @@
+from functools import reduce
+from operator import or_
+
 from PySide6.QtCore import QModelIndex, QSize, Qt, Signal, Slot
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
-                               QLabel, QListView, QMenu, QMessageBox,
-                               QVBoxLayout, QWidget)
+                               QLabel, QLineEdit, QListView, QMenu,
+                               QMessageBox, QVBoxLayout, QWidget)
+from pyparsing import (CaselessKeyword, CaselessLiteral, Group, OpAssoc,
+                       ParseException, QuotedString, Suppress, Word,
+                       infix_notation, printables)
 
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
 from utils.utils import get_confirmation_dialog_reply
+
+
+class FilterLineEdit(QLineEdit):
+    def __init__(self):
+        super().__init__()
+        self.setPlaceholderText('Filter Images')
+        self.setStyleSheet('padding: 8px;')
+        self.setClearButtonEnabled(True)
+        # Exclude the right parenthesis to correctly detect closing
+        # parentheses.
+        optionally_quoted_string = (QuotedString(quote_char='"', esc_char='\\')
+                                    | QuotedString(quote_char="'",
+                                                   esc_char='\\')
+                                    | Word(printables, exclude_chars=')'))
+        filter_keys = ['tag', 'caption', 'name', 'path']
+        filter_expressions = [Group(CaselessLiteral(key) + Suppress(':')
+                                    + optionally_quoted_string)
+                              for key in filter_keys]
+        filter_expressions = reduce(or_, filter_expressions)
+        filter_expressions |= optionally_quoted_string
+        self.filter_text_parser = infix_notation(
+            filter_expressions,
+            # Operator, number of operands, associativity.
+            [(CaselessKeyword('NOT'), 1, OpAssoc.RIGHT),
+             (CaselessKeyword('AND'), 2, OpAssoc.LEFT),
+             (CaselessKeyword('OR'), 2, OpAssoc.LEFT)])
+
+    def parse_filter_text(self) -> list | str | None:
+        filter_text = self.text()
+        if not filter_text:
+            return None
+        try:
+            return self.filter_text_parser.parse_string(
+                filter_text, parse_all=True).as_list()[0]
+        except ParseException:
+            return None
 
 
 class ImageListView(QListView):
@@ -120,12 +162,14 @@ class ImageList(QDockWidget):
         self.setWindowTitle('Images')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
+        self.filter_line_edit = FilterLineEdit()
         self.list_view = ImageListView(self, proxy_image_list_model,
                                        separator, image_width)
         self.image_index_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)
+        layout.addWidget(self.filter_line_edit)
         layout.addWidget(self.list_view)
         layout.addWidget(self.image_index_label)
         self.setWidget(container)

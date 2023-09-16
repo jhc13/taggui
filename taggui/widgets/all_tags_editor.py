@@ -19,6 +19,7 @@ class FilterLineEdit(QLineEdit):
         super().__init__()
         self.setPlaceholderText('Search Tags')
         self.setStyleSheet('padding: 8px;')
+        self.setClearButtonEnabled(True)
 
 
 class AllTagsList(QListView):
@@ -65,7 +66,6 @@ class AllTagsEditor(QDockWidget):
             self.tag_counter_model)
         self.proxy_tag_counter_model.setFilterRole(Qt.EditRole)
         self.filter_line_edit = FilterLineEdit()
-        self.filter_line_edit.setClearButtonEnabled(True)
         self.clear_filter_button = TallPushButton('Clear Image Filter')
         self.clear_filter_button.setFixedHeight(
             self.clear_filter_button.sizeHint().height() * 1.5)

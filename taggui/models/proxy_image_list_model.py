@@ -5,19 +5,42 @@ from utils.image import Image
 
 
 class ProxyImageListModel(QSortFilterProxyModel):
-    def __init__(self, image_list_model: ImageListModel):
+    def __init__(self, image_list_model: ImageListModel, separator: str):
         super().__init__()
         self.setSourceModel(image_list_model)
+        self.separator = separator
+        self.filter: list | None = None
+
+    def does_image_match_filter(self, image: Image,
+                                filter_: list | str) -> bool:
+        if isinstance(filter_, str):
+            return (filter_ in self.separator.join(image.tags) or
+                    filter_ in str(image.path))
+        if len(filter_) == 1:
+            return self.does_image_match_filter(image, filter_[0])
+        if len(filter_) == 2:
+            if filter_[0] == 'NOT':
+                return not self.does_image_match_filter(image, filter_[1])
+            if filter_[0] == 'tag':
+                return filter_[1] in image.tags
+            if filter_[0] == 'caption':
+                return filter_[1] in self.separator.join(image.tags)
+            if filter_[0] == 'name':
+                return filter_[1] in image.path.name
+            if filter_[0] == 'path':
+                return filter_[1] in str(image.path)
+        if filter_[1] == 'AND':
+            return (self.does_image_match_filter(image, filter_[0])
+                    and self.does_image_match_filter(image, filter_[2:]))
+        if filter_[1] == 'OR':
+            return (self.does_image_match_filter(image, filter_[0])
+                    or self.does_image_match_filter(image, filter_[2:]))
 
     def filterAcceptsRow(self, source_row: int,
                          source_parent: QModelIndex) -> bool:
-        """Only show images that have the filter tag."""
-        # The filter tag is just a tag and not a regular expression, but it has
-        # to be stored as one to be able to be retrieved here.
-        filter_tag = self.filterRegularExpression().pattern()
-        # If the filter tag is an empty string, all images should be shown.
-        if not filter_tag:
+        # Show all images if there is no filter.
+        if self.filter is None:
             return True
-        index = self.sourceModel().index(source_row, 0)
-        image: Image = self.sourceModel().data(index, Qt.UserRole)
-        return filter_tag in image.tags
+        image_index = self.sourceModel().index(source_row, 0)
+        image: Image = self.sourceModel().data(image_index, Qt.UserRole)
+        return self.does_image_match_filter(image, self.filter)

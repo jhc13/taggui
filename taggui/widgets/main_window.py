@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         self.image_list_model = ImageListModel(image_list_image_width,
                                                separator)
         self.proxy_image_list_model = ProxyImageListModel(
-            self.image_list_model)
+            self.image_list_model, separator)
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
@@ -109,6 +109,7 @@ class MainWindow(QMainWindow):
         ctrl_y = QKeyCombination(Qt.ControlModifier, key=Qt.Key_Y)
         shortcut_remover = ShortcutRemover(parent=self,
                                            shortcuts=(ctrl_z, ctrl_y))
+        self.image_list.filter_line_edit.installEventFilter(shortcut_remover)
         self.image_tags_editor.tag_input_box.installEventFilter(
             shortcut_remover)
         self.all_tags_editor.filter_line_edit.installEventFilter(
@@ -168,8 +169,8 @@ class MainWindow(QMainWindow):
         self.settings.setValue('directory_path', str(path))
         self.setWindowTitle(path.name)
         self.image_list_model.load_directory(path)
+        self.image_list.filter_line_edit.clear()
         self.all_tags_editor.filter_line_edit.clear()
-        self.clear_image_list_filter()
         # Clear the current index first to make sure that the `currentChanged`
         # signal is emitted even if the image at the index is already selected.
         self.image_list_selection_model.clearCurrentIndex()
@@ -329,15 +330,37 @@ class MainWindow(QMainWindow):
         help_menu.addAction(open_github_repository_action)
 
     @Slot()
+    def set_image_list_filter(self):
+        filter_ = self.image_list.filter_line_edit.parse_filter_text()
+        self.proxy_image_list_model.filter = filter_
+        # Apply the new filter.
+        self.proxy_image_list_model.invalidateFilter()
+        if filter_ is None:
+            self.all_tags_editor.all_tags_list.selectionModel().clearSelection()
+            # Clear the current index.
+            self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
+            # Select the previously selected image in the unfiltered image
+            # list.
+            select_index = self.settings.value('image_index', type=int) or 0
+            self.image_list.list_view.setCurrentIndex(
+                self.proxy_image_list_model.index(select_index, 0))
+        else:
+            # Select the first image.
+            self.image_list.list_view.setCurrentIndex(
+                self.proxy_image_list_model.index(0, 0))
+
+    @Slot()
     def save_image_index(self, proxy_image_index: QModelIndex):
         """
         Save the index of the currently selected image if the image list is not
         filtered.
         """
-        if not self.proxy_image_list_model.filterRegularExpression().pattern():
+        if self.proxy_image_list_model.filter is None:
             self.settings.setValue('image_index', proxy_image_index.row())
 
     def connect_image_list_signals(self):
+        self.image_list.filter_line_edit.textChanged.connect(
+            self.set_image_list_filter)
         self.image_list_selection_model.currentChanged.connect(
             self.save_image_index)
         self.image_list_selection_model.currentChanged.connect(
@@ -415,52 +438,41 @@ class MainWindow(QMainWindow):
             self.image_list_model.add_tags)
 
     @Slot()
-    def clear_image_list_filter(self):
-        self.all_tags_editor.all_tags_list.selectionModel().clearSelection()
-        # Clear the current index.
-        self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
-        self.proxy_image_list_model.setFilterRegularExpression('')
-        # Select the previously selected image in the unfiltered image list.
-        select_index = self.settings.value('image_index', type=int) or 0
-        self.image_list.list_view.setCurrentIndex(
-            self.proxy_image_list_model.index(select_index, 0))
-
-    @Slot()
-    def set_image_list_filter(self, selected: QItemSelection,
-                              _deselected: QItemSelection):
+    def set_image_list_filter_text(self, selected: QItemSelection, _):
         """
-        Set the regular expression of the image list filter to the selected
-        tag. The tag is not a regular expression, but it has to be set as one
-        to be able to be retrieved in the `filterAcceptsRow` method of the
-        proxy image list model.
+        Construct and set the image list filter text from the selected tag in
+        the all tags list.
         """
         selected_indices = selected.indexes()
         if not selected_indices:
             return
-        self.proxy_image_list_model.setFilterRegularExpression(
-            selected_indices[0].data(role=Qt.EditRole))
+        selected_tag = selected_indices[0].data(role=Qt.EditRole)
+        escaped_selected_tag = (selected_tag.replace('"', r'\"')
+                                .replace("'", r"\'"))
+        self.image_list.filter_line_edit.setText(
+            f'tag:"{escaped_selected_tag}"')
 
     def connect_all_tags_editor_signals(self):
         self.all_tags_editor.clear_filter_button.clicked.connect(
-            self.clear_image_list_filter)
+            self.image_list.filter_line_edit.clear)
         all_tags_selection_model = (self.all_tags_editor.all_tags_list
                                     .selectionModel())
         # `selectionChanged` must be used and not `currentChanged` because
         # `currentChanged` is not emitted when the same tag is deselected and
         # selected again.
         all_tags_selection_model.selectionChanged.connect(
-            self.set_image_list_filter)
+            self.set_image_list_filter_text)
         all_tags_selection_model.selectionChanged.connect(
             lambda: self.image_list.list_view.setCurrentIndex(
                 self.proxy_image_list_model.index(0, 0)))
         self.tag_counter_model.tag_renaming_requested.connect(
             self.image_list_model.rename_tag)
         self.tag_counter_model.tag_renaming_requested.connect(
-            self.clear_image_list_filter)
+            self.image_list.filter_line_edit.clear)
         self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
             self.image_list_model.delete_tag)
         self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
-            self.clear_image_list_filter)
+            self.image_list.filter_line_edit.clear)
         self.all_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_all_tags_editor_action.setChecked(
                 self.all_tags_editor.isVisible()))
