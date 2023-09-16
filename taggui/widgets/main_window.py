@@ -343,7 +343,9 @@ class MainWindow(QMainWindow):
         # Apply the new filter.
         self.proxy_image_list_model.invalidateFilter()
         if filter_ is None:
-            self.all_tags_editor.all_tags_list.selectionModel().clearSelection()
+            all_tags_list_selection_model = (self.all_tags_editor
+                                             .all_tags_list.selectionModel())
+            all_tags_list_selection_model.clearSelection()
             # Clear the current index.
             self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
             # Select the previously selected image in the unfiltered image
@@ -462,16 +464,13 @@ class MainWindow(QMainWindow):
     def connect_all_tags_editor_signals(self):
         self.all_tags_editor.clear_filter_button.clicked.connect(
             self.image_list.filter_line_edit.clear)
-        all_tags_selection_model = (self.all_tags_editor.all_tags_list
-                                    .selectionModel())
+        all_tags_list_selection_model = (self.all_tags_editor.all_tags_list
+                                         .selectionModel())
         # `selectionChanged` must be used and not `currentChanged` because
         # `currentChanged` is not emitted when the same tag is deselected and
         # selected again.
-        all_tags_selection_model.selectionChanged.connect(
+        all_tags_list_selection_model.selectionChanged.connect(
             self.set_image_list_filter_text)
-        all_tags_selection_model.selectionChanged.connect(
-            lambda: self.image_list.list_view.setCurrentIndex(
-                self.proxy_image_list_model.index(0, 0)))
         self.tag_counter_model.tag_renaming_requested.connect(
             self.image_list_model.rename_tag)
         self.tag_counter_model.tag_renaming_requested.connect(
