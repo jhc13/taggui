@@ -42,11 +42,21 @@ class FilterLineEdit(QLineEdit):
     def parse_filter_text(self) -> list | str | None:
         filter_text = self.text()
         if not filter_text:
+            self.setStyleSheet('padding: 8px;')
             return None
         try:
-            return self.filter_text_parser.parse_string(
+            filter_ = self.filter_text_parser.parse_string(
                 filter_text, parse_all=True).as_list()[0]
+            self.setStyleSheet('padding: 8px;')
+            return filter_
         except ParseException:
+            # Change the background color when the filter text is invalid.
+            if self.palette().color(self.backgroundRole()).lightness() < 128:
+                # Dark red for dark mode.
+                self.setStyleSheet('padding: 8px; background-color: #442222;')
+            else:
+                # Light red for light mode.
+                self.setStyleSheet('padding: 8px; background-color: #ffdddd;')
             return None
 
 
