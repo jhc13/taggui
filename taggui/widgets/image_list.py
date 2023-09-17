@@ -185,8 +185,12 @@ class ImageList(QDockWidget):
     @Slot()
     def update_image_index_label(self, proxy_image_index: QModelIndex):
         image_count = self.proxy_image_list_model.rowCount()
-        self.image_index_label.setText(
-            f'Image {proxy_image_index.row() + 1} / {image_count}')
+        unfiltered_image_count = (self.proxy_image_list_model.sourceModel()
+                                  .rowCount())
+        label_text = f'Image {proxy_image_index.row() + 1} / {image_count}'
+        if image_count != unfiltered_image_count:
+            label_text += f' ({unfiltered_image_count} total)'
+        self.image_index_label.setText(label_text)
 
     @Slot()
     def jump_to_first_untagged_image(self):
