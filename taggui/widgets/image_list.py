@@ -20,12 +20,10 @@ class FilterLineEdit(QLineEdit):
         self.setPlaceholderText('Filter Images')
         self.setStyleSheet('padding: 8px;')
         self.setClearButtonEnabled(True)
-        # Exclude the right parenthesis to correctly detect closing
-        # parentheses.
         optionally_quoted_string = (QuotedString(quote_char='"', esc_char='\\')
                                     | QuotedString(quote_char="'",
                                                    esc_char='\\')
-                                    | Word(printables, exclude_chars=')'))
+                                    | Word(printables, exclude_chars='()'))
         filter_keys = ['tag', 'caption', 'name', 'path']
         filter_expressions = [Group(CaselessLiteral(key) + Suppress(':')
                                     + optionally_quoted_string)
