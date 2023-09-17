@@ -6,7 +6,7 @@ Cross-platform desktop application for quickly tagging images, aimed towards
 creators of image datasets for generative AI models like Stable Diffusion.
 Written in Python using PySide6.
 
-<img src='images/screenshot-v1.4.0.png' alt='TagGUI screenshot' width='100%'>
+<img src='images/screenshot-v1.6.0.png' alt='TagGUI screenshot' width='100%'>
 
 ## Features
 
@@ -71,9 +71,76 @@ repetition penalty can be viewed and changed by clicking the
 If you want to know more about what each parameter does, you can read the
 [Hugging Face documentation](https://huggingface.co/docs/transformers/main/en/main_classes/text_generation#transformers.GenerationConfig).
 
+## Advanced Image List Filtering (New in v1.6)
+
+The basic functionality of filtering for images that contain a certain tag is
+available by clicking on the tag in the `All Tags` pane.
+In addition to this, you can construct more complex filters in
+the `Filter Images` box at the top of the `Images` pane.
+
+### Filter criteria
+
+There are four prefixes you can use before a filter term to specify the type of
+filter you want to apply:
+
+- `tag:`: Images that have the filter term as a tag
+    - `tag:cat` will match images with the tag `cat`.
+- `caption`: Images that contain the filter term in the caption
+    - The caption is the list of tags as a single string, as it appears in the
+      `.txt` file.
+    - `caption:cat` will match images that have `cat` anywhere in the
+      caption. For example, images with the tag `orange cat` or the
+      tag `catastrophe`.
+- `name`: Images that contain the filter term in the file name
+    - `name:cat` will match images such as `cat-1.jpg` or `large_cat.png`.
+- `path`: Images that contain the filter term in the full file path
+    - `path:cat` will match images such as `C:\Users\cats\dog.jpg` or
+      `/home/dogs/cat.jpg`.
+- You can also use a filter term with no prefix to filter for images that
+  contain the term in either the caption or the file path.
+    - `cat` will match images containing `cat` in the caption or file path.
+
+### Spaces and quotes
+
+If the filter term contains spaces, you must enclose it in quotes (either
+single or double quotes).
+For example, to find images with the tag `orange cat`, you must
+use `tag:"orange cat"` or `tag:'orange cat'`.
+If you have both spaces and quotes in the filter term, you can escape the
+quotes with backslashes.
+For example, you can use `tag:"orange \"cat\""` for the tag `orange "cat"`.
+An alternative is to use different types of quotes for the outer and inner
+quotes, like so: `tag:'orange "cat"'`.
+
+### Combining filters
+
+Logical operators can be used to combine multiple filters:
+
+- `NOT`: Images that do not match the filter
+    - `NOT tag:cat` will match images that do not have the tag `cat`.
+- `AND`: Images that match both filters before and after the operator
+    - `tag:cat AND tag:orange` will match images that have both the tag `cat`
+      and the tag `orange`.
+- `OR`: Images that match either filter before or after the operator
+    - `tag:cat OR tag:dog` will match images that have either the tag `cat` or
+      the tag `dog`, or both.
+
+The lowercase versions of these operators will also work: `not`, `and`,
+and `or`.
+
+The operator precedence is `NOT` > `AND` > `OR`, so by default, `NOT` will be
+evaluated first, then `AND`, then `OR`.
+You can use parentheses to change this order.
+For example, in `tag:cat AND (tag:orange OR tag:white)`, the `OR` will be
+evaluated first, matching images that have the tag `cat` and either the
+tag `orange` or the tag `white`.
+You can nest parentheses and operators to create arbitrarily complex filters.
+
 ## Controls
 
 - Previous / next image: `Up` / `Down` arrow keys
+- Jump to first untagged image: `Ctrl`+`J`
+- Focus the `Filter Images` box: `Alt`+`F`
 - Focus the image list: `Alt`+`L`
 - Focus the `Add Tag` box: `Alt`+`A`
 - Focus the `Search Tags` box: `Alt`+`S`
