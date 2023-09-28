@@ -278,6 +278,7 @@ class MainWindow(QMainWindow):
         load_directory_action.triggered.connect(self.select_and_load_directory)
         file_menu.addAction(load_directory_action)
         settings_action = QAction('Settings', parent=self)
+        settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
         file_menu.addAction(settings_action)
         exit_action = QAction('Exit', parent=self)
