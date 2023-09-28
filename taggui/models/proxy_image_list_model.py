@@ -1,3 +1,5 @@
+import operator
+
 from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt
 
 from models.image_list_model import ImageListModel
@@ -35,6 +37,23 @@ class ProxyImageListModel(QSortFilterProxyModel):
         if filter_[1] == 'OR':
             return (self.does_image_match_filter(image, filter_[0])
                     or self.does_image_match_filter(image, filter_[2:]))
+        comparison_operators = {
+            '=': operator.eq,
+            '==': operator.eq,
+            '!=': operator.ne,
+            '<': operator.lt,
+            '>': operator.gt,
+            '<=': operator.le,
+            '>=': operator.ge
+        }
+        comparison_operator = comparison_operators[filter_[1]]
+        number_to_compare = None
+        if filter_[0] == 'tags':
+            number_to_compare = len(image.tags)
+        elif filter_[0] == 'chars':
+            caption = self.separator.join(image.tags)
+            number_to_compare = len(caption)
+        return comparison_operator(number_to_compare, int(filter_[2]))
 
     def filterAcceptsRow(self, source_row: int,
                          source_parent: QModelIndex) -> bool:

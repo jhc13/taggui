@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
                                QMessageBox, QVBoxLayout, QWidget)
 from pyparsing import (CaselessKeyword, CaselessLiteral, Group, OpAssoc,
                        ParseException, QuotedString, Suppress, Word,
-                       infix_notation, printables)
+                       infix_notation, nums, one_of, printables)
 
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
@@ -24,12 +24,20 @@ class FilterLineEdit(QLineEdit):
                                     | QuotedString(quote_char="'",
                                                    esc_char='\\')
                                     | Word(printables, exclude_chars='()'))
-        filter_keys = ['tag', 'caption', 'name', 'path']
-        filter_expressions = [Group(CaselessLiteral(key) + Suppress(':')
-                                    + optionally_quoted_string)
-                              for key in filter_keys]
-        filter_expressions = reduce(or_, filter_expressions)
-        filter_expressions |= optionally_quoted_string
+        string_filter_keys = ['tag', 'caption', 'name', 'path']
+        string_filter_expressions = [Group(CaselessLiteral(key) + Suppress(':')
+                                           + optionally_quoted_string)
+                                     for key in string_filter_keys]
+        comparison_operator = one_of('= == != < > <= >=')
+        number_filter_keys = ['tags', 'chars']
+        number_filter_expressions = [Group(CaselessLiteral(key) + Suppress(':')
+                                           + comparison_operator + Word(nums))
+                                     for key in number_filter_keys]
+        string_filter_expressions = reduce(or_, string_filter_expressions)
+        number_filter_expressions = reduce(or_, number_filter_expressions)
+        filter_expressions = (string_filter_expressions
+                              | number_filter_expressions
+                              | optionally_quoted_string)
         self.filter_text_parser = infix_notation(
             filter_expressions,
             # Operator, number of operands, associativity.
