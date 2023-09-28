@@ -29,7 +29,7 @@ class FilterLineEdit(QLineEdit):
                                            + optionally_quoted_string)
                                      for key in string_filter_keys]
         comparison_operator = one_of('= == != < > <= >=')
-        number_filter_keys = ['tags', 'chars']
+        number_filter_keys = ['tags', 'chars', 'tokens']
         number_filter_expressions = [Group(CaselessLiteral(key) + Suppress(':')
                                            + comparison_operator + Word(nums))
                                      for key in number_filter_keys]

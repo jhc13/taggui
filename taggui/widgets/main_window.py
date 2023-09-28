@@ -7,6 +7,7 @@ from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QMessageBox, QStackedWidget, QVBoxLayout,
                                QWidget)
+from transformers import AutoTokenizer
 
 from dialogs.batch_reorder_tags_dialog import BatchReorderTagsDialog
 from dialogs.find_and_replace_dialog import FindAndReplaceDialog
@@ -29,6 +30,7 @@ from widgets.image_viewer import ImageViewer
 
 ICON_PATH = Path('images/icon.ico')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
+TOKENIZER_DIRECTORY_PATH = Path('clip-vit-base-patch32')
 
 
 class MainWindow(QMainWindow):
@@ -41,8 +43,10 @@ class MainWindow(QMainWindow):
         separator = get_separator(self.settings)
         self.image_list_model = ImageListModel(image_list_image_width,
                                                separator)
+        tokenizer = AutoTokenizer.from_pretrained(
+            get_resource_path(TOKENIZER_DIRECTORY_PATH))
         self.proxy_image_list_model = ProxyImageListModel(
-            self.image_list_model, separator)
+            self.image_list_model, tokenizer, separator)
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
@@ -59,7 +63,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
         self.image_tags_editor = ImageTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
-            self.image_tag_list_model, self.image_list, separator)
+            self.image_tag_list_model, self.image_list, tokenizer, separator)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
