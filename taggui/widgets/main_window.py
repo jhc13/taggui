@@ -277,6 +277,12 @@ class MainWindow(QMainWindow):
         load_directory_action.setShortcut(QKeySequence('Ctrl+L'))
         load_directory_action.triggered.connect(self.select_and_load_directory)
         file_menu.addAction(load_directory_action)
+        reload_directory_action = QAction('Reload Directory', parent=self)
+        reload_directory_action.setShortcut(QKeySequence('Ctrl+Shift+L'))
+        reload_directory_action.triggered.connect(
+            lambda: self.load_directory(
+                Path(self.settings.value('directory_path'))))
+        file_menu.addAction(reload_directory_action)
         settings_action = QAction('Settings', parent=self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
