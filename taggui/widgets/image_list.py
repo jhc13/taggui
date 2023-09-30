@@ -1,7 +1,7 @@
 from functools import reduce
 from operator import or_
 
-from PySide6.QtCore import QModelIndex, QSize, Qt, Signal, Slot
+from PySide6.QtCore import QFile, QModelIndex, QSize, Qt, Signal, Slot
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
                                QLabel, QLineEdit, QListView, QMenu,
                                QMessageBox, QVBoxLayout, QWidget)
@@ -11,7 +11,7 @@ from pyparsing import (CaselessKeyword, CaselessLiteral, Group, OpAssoc,
 
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
-from utils.utils import get_confirmation_dialog_reply
+from utils.utils import get_confirmation_dialog_reply, pluralize
 
 
 class FilterLineEdit(QLineEdit):
@@ -68,6 +68,7 @@ class FilterLineEdit(QLineEdit):
 
 class ImageListView(QListView):
     tags_paste_requested = Signal(list, list)
+    directory_reload_requested = Signal()
 
     def __init__(self, parent, proxy_image_list_model: ProxyImageListModel,
                  separator: str, image_width: int):
@@ -102,6 +103,12 @@ class ImageListView(QListView):
         self.copy_paths_action.triggered.connect(
             self.copy_selected_image_paths)
         self.addAction(self.copy_paths_action)
+        self.delete_images_action = self.addAction('Delete Images')
+        self.delete_images_action.setShortcut('Delete')
+        self.delete_images_action.triggered.connect(
+            self.delete_selected_images)
+        self.addAction(self.delete_images_action)
+
         self.context_menu = QMenu(self)
         self.context_menu.addAction('Select All Images', self.selectAll,
                                     shortcut='Ctrl+A')
@@ -110,6 +117,8 @@ class ImageListView(QListView):
         self.context_menu.addAction(paste_tags_action)
         self.context_menu.addAction(self.copy_file_names_action)
         self.context_menu.addAction(self.copy_paths_action)
+        self.context_menu.addSeparator()
+        self.context_menu.addAction(self.delete_images_action)
         self.selectionModel().selectionChanged.connect(
             self.update_context_menu_action_names)
 
@@ -122,6 +131,7 @@ class ImageListView(QListView):
                            for index in selected_image_proxy_indices]
         return selected_images
 
+    @Slot()
     def copy_selected_image_tags(self):
         selected_images = self.get_selected_images()
         selected_image_captions = [self.separator.join(image.tags)
@@ -135,6 +145,7 @@ class ImageListView(QListView):
             for proxy_index in selected_image_proxy_indices]
         return selected_image_indices
 
+    @Slot()
     def paste_tags(self):
         selected_image_count = len(self.selectedIndexes())
         if selected_image_count > 1:
@@ -148,27 +159,57 @@ class ImageListView(QListView):
         selected_image_indices = self.get_selected_image_indices()
         self.tags_paste_requested.emit(tags, selected_image_indices)
 
+    @Slot()
     def copy_selected_image_file_names(self):
         selected_images = self.get_selected_images()
         selected_image_file_names = [image.path.name
                                      for image in selected_images]
         QApplication.clipboard().setText('\n'.join(selected_image_file_names))
 
+    @Slot()
     def copy_selected_image_paths(self):
         selected_images = self.get_selected_images()
         selected_image_paths = [str(image.path) for image in selected_images]
         QApplication.clipboard().setText('\n'.join(selected_image_paths))
 
+    @Slot()
+    def delete_selected_images(self):
+        selected_images = self.get_selected_images()
+        selected_image_count = len(selected_images)
+        title = f'Delete {pluralize("Image", selected_image_count)}'
+        question = (f'Delete {selected_image_count} selected '
+                    f'{pluralize("image", selected_image_count)} and '
+                    f'{"its" if selected_image_count == 1 else "their"} '
+                    f'{pluralize("caption", selected_image_count)}?')
+        reply = get_confirmation_dialog_reply(title, question)
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        for image in selected_images:
+            image_file = QFile(image.path)
+            if not image_file.moveToTrash():
+                QMessageBox.critical(self, 'Error',
+                                     f'Failed to delete {image.path}.')
+            caption_file_path = image.path.with_suffix('.txt')
+            caption_file = QFile(caption_file_path)
+            if caption_file.exists():
+                if not caption_file.moveToTrash():
+                    QMessageBox.critical(self, 'Error',
+                                         f'Failed to delete '
+                                         f'{caption_file_path}.')
+        self.directory_reload_requested.emit()
+
+    @Slot()
     def update_context_menu_action_names(self):
         selected_image_count = len(self.selectedIndexes())
-        if selected_image_count == 1:
-            copy_file_names_action_name = 'Copy File Name'
-            copy_paths_action_name = 'Copy Path'
-        else:
-            copy_file_names_action_name = 'Copy File Names'
-            copy_paths_action_name = 'Copy Paths'
+        copy_file_names_action_name = (
+            f'Copy File {pluralize("Name", selected_image_count)}')
+        copy_paths_action_name = (f'Copy '
+                                  f'{pluralize("Path", selected_image_count)}')
+        delete_images_action_name = (
+            f'Delete {pluralize("Image", selected_image_count)}')
         self.copy_file_names_action.setText(copy_file_names_action_name)
         self.copy_paths_action.setText(copy_paths_action_name)
+        self.delete_images_action.setText(delete_images_action_name)
 
 
 class ImageList(QDockWidget):

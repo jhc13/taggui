@@ -410,6 +410,8 @@ class MainWindow(QMainWindow):
         self.proxy_image_list_model.rowsRemoved.connect(
             lambda: self.image_list.update_image_index_label(
                 self.image_list.list_view.currentIndex()))
+        self.image_list.list_view.directory_reload_requested.connect(
+            self.reload_directory)
         self.image_list.list_view.tags_paste_requested.connect(
             self.image_list_model.add_tags)
         # Connecting the signal directly without `isVisible()` causes the menu
