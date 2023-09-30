@@ -1,3 +1,4 @@
+import shutil
 from functools import reduce
 from operator import or_
 from pathlib import Path
@@ -89,31 +90,30 @@ class ImageListView(QListView):
         copy_tags_action.setShortcut('Ctrl+C')
         copy_tags_action.triggered.connect(
             self.copy_selected_image_tags)
-        self.addAction(copy_tags_action)
         paste_tags_action = self.addAction('Paste Tags')
         paste_tags_action.setShortcut('Ctrl+V')
         paste_tags_action.triggered.connect(
             self.paste_tags)
-        self.addAction(paste_tags_action)
         self.copy_file_names_action = self.addAction('Copy File Name')
         self.copy_file_names_action.setShortcut('Ctrl+Alt+C')
         self.copy_file_names_action.triggered.connect(
             self.copy_selected_image_file_names)
-        self.addAction(self.copy_file_names_action)
         self.copy_paths_action = self.addAction('Copy Path')
         self.copy_paths_action.setShortcut('Ctrl+Shift+C')
         self.copy_paths_action.triggered.connect(
             self.copy_selected_image_paths)
-        self.addAction(self.copy_paths_action)
         self.move_images_action = self.addAction('Move Images To...')
         self.move_images_action.setShortcut('Ctrl+M')
         self.move_images_action.triggered.connect(
             self.move_selected_images)
+        self.copy_images_action = self.addAction('Copy Images To...')
+        self.copy_images_action.setShortcut('Ctrl+Shift+M')
+        self.copy_images_action.triggered.connect(
+            self.copy_selected_images)
         self.delete_images_action = self.addAction('Delete Images')
         self.delete_images_action.setShortcut('Delete')
         self.delete_images_action.triggered.connect(
             self.delete_selected_images)
-        self.addAction(self.delete_images_action)
 
         self.context_menu = QMenu(self)
         self.context_menu.addAction('Select All Images', self.selectAll,
@@ -125,6 +125,7 @@ class ImageListView(QListView):
         self.context_menu.addAction(self.copy_paths_action)
         self.context_menu.addSeparator()
         self.context_menu.addAction(self.move_images_action)
+        self.context_menu.addAction(self.copy_images_action)
         self.context_menu.addAction(self.delete_images_action)
         self.selectionModel().selectionChanged.connect(
             self.update_context_menu_action_names)
@@ -194,20 +195,40 @@ class ImageListView(QListView):
         move_directory_path = Path(move_directory_path)
         for image in selected_images:
             try:
-                image.path.rename(move_directory_path / image.path.name)
+                image.path.replace(move_directory_path / image.path.name)
                 caption_file_path = image.path.with_suffix('.txt')
                 if caption_file_path.exists():
-                    caption_file_path.rename(
+                    caption_file_path.replace(
                         move_directory_path / caption_file_path.name)
-            except FileExistsError:
-                QMessageBox.critical(
-                    self, 'Error', f'{move_directory_path / image.path.name} '
-                                   f'already exists.')
             except OSError:
                 QMessageBox.critical(self, 'Error',
                                      f'Failed to move {image.path} to '
                                      f'{move_directory_path}.')
         self.directory_reload_requested.emit()
+
+    @Slot()
+    def copy_selected_images(self):
+        selected_images = self.get_selected_images()
+        selected_image_count = len(selected_images)
+        caption = (f'Select directory to copy {selected_image_count} selected '
+                   f'{pluralize("Image", selected_image_count)} and '
+                   f'{pluralize("caption", selected_image_count)} to')
+        settings = get_settings()
+        copy_directory_path = QFileDialog.getExistingDirectory(
+            parent=self, caption=caption, dir=settings.value('directory_path'))
+        if not copy_directory_path:
+            return
+        copy_directory_path = Path(copy_directory_path)
+        for image in selected_images:
+            try:
+                shutil.copy(image.path, copy_directory_path)
+                caption_file_path = image.path.with_suffix('.txt')
+                if caption_file_path.exists():
+                    shutil.copy(caption_file_path, copy_directory_path)
+            except OSError:
+                QMessageBox.critical(self, 'Error',
+                                     f'Failed to move {image.path} to '
+                                     f'{copy_directory_path}.')
 
     @Slot()
     def delete_selected_images(self):
@@ -244,11 +265,14 @@ class ImageListView(QListView):
                                   f'{pluralize("Path", selected_image_count)}')
         move_images_action_name = (
             f'Move {pluralize("Image", selected_image_count)} To...')
+        copy_images_action_name = (
+            f'Copy {pluralize("Image", selected_image_count)} To...')
         delete_images_action_name = (
             f'Delete {pluralize("Image", selected_image_count)}')
         self.copy_file_names_action.setText(copy_file_names_action_name)
         self.copy_paths_action.setText(copy_paths_action_name)
         self.move_images_action.setText(move_images_action_name)
+        self.copy_images_action.setText(copy_images_action_name)
         self.delete_images_action.setText(delete_images_action_name)
 
 
