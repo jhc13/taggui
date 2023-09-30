@@ -85,6 +85,8 @@ class MainWindow(QMainWindow):
         # Disable some widgets until a directory is loaded.
         self.image_tags_editor.tag_input_box.setDisabled(True)
         self.blip_2_captioner.caption_button.setDisabled(True)
+        self.reload_directory_action = QAction('Reload Directory', parent=self)
+        self.reload_directory_action.setDisabled(True)
         self.undo_action = QAction('Undo', parent=self)
         self.redo_action = QAction('Redo', parent=self)
         self.toggle_image_list_action = QAction('Images', parent=self)
@@ -188,7 +190,7 @@ class MainWindow(QMainWindow):
         self.image_list.list_view.setCurrentIndex(
             self.proxy_image_list_model.index(select_index, 0))
         self.centralWidget().setCurrentWidget(self.image_viewer)
-        # Enable previously disabled widgets.
+        self.reload_directory_action.setDisabled(False)
         self.image_tags_editor.tag_input_box.setDisabled(False)
         self.blip_2_captioner.caption_button.setDisabled(False)
 
@@ -207,26 +209,13 @@ class MainWindow(QMainWindow):
         self.load_directory(Path(load_directory_path))
 
     @Slot()
+    def reload_directory(self):
+        self.load_directory(Path(self.settings.value('directory_path')))
+
+    @Slot()
     def show_settings_dialog(self):
         settings_dialog = SettingsDialog(parent=self, settings=self.settings)
         settings_dialog.exec()
-
-    @Slot()
-    def update_undo_and_redo_actions(self):
-        if self.image_list_model.undo_stack:
-            undo_action_name = self.image_list_model.undo_stack[-1].action_name
-            self.undo_action.setText(f'Undo "{undo_action_name}"')
-            self.undo_action.setDisabled(False)
-        else:
-            self.undo_action.setText('Undo')
-            self.undo_action.setDisabled(True)
-        if self.image_list_model.redo_stack:
-            redo_action_name = self.image_list_model.redo_stack[-1].action_name
-            self.redo_action.setText(f'Redo "{redo_action_name}"')
-            self.redo_action.setDisabled(False)
-        else:
-            self.redo_action.setText('Redo')
-            self.redo_action.setDisabled(True)
 
     @Slot()
     def show_find_and_replace_dialog(self):
@@ -277,12 +266,9 @@ class MainWindow(QMainWindow):
         load_directory_action.setShortcut(QKeySequence('Ctrl+L'))
         load_directory_action.triggered.connect(self.select_and_load_directory)
         file_menu.addAction(load_directory_action)
-        reload_directory_action = QAction('Reload Directory', parent=self)
-        reload_directory_action.setShortcut(QKeySequence('Ctrl+Shift+L'))
-        reload_directory_action.triggered.connect(
-            lambda: self.load_directory(
-                Path(self.settings.value('directory_path'))))
-        file_menu.addAction(reload_directory_action)
+        self.reload_directory_action.setShortcut(QKeySequence('Ctrl+Shift+L'))
+        self.reload_directory_action.triggered.connect(self.reload_directory)
+        file_menu.addAction(self.reload_directory_action)
         settings_action = QAction('Settings', parent=self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
@@ -346,6 +332,23 @@ class MainWindow(QMainWindow):
         open_github_repository_action.triggered.connect(
             lambda: QDesktopServices.openUrl(QUrl(GITHUB_REPOSITORY_URL)))
         help_menu.addAction(open_github_repository_action)
+
+    @Slot()
+    def update_undo_and_redo_actions(self):
+        if self.image_list_model.undo_stack:
+            undo_action_name = self.image_list_model.undo_stack[-1].action_name
+            self.undo_action.setText(f'Undo "{undo_action_name}"')
+            self.undo_action.setDisabled(False)
+        else:
+            self.undo_action.setText('Undo')
+            self.undo_action.setDisabled(True)
+        if self.image_list_model.redo_stack:
+            redo_action_name = self.image_list_model.redo_stack[-1].action_name
+            self.redo_action.setText(f'Redo "{redo_action_name}"')
+            self.redo_action.setDisabled(False)
+        else:
+            self.redo_action.setText('Redo')
+            self.redo_action.setDisabled(True)
 
     @Slot()
     def set_image_list_filter(self):
