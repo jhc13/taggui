@@ -124,8 +124,7 @@ class ImageListModel(QAbstractListModel):
             error_message_box = QMessageBox()
             error_message_box.setWindowTitle('Error')
             error_message_box.setIcon(QMessageBox.Icon.Critical)
-            error_message_box.setText(f'An error occurred while saving the '
-                                      f'tags for {image.path.name}.')
+            error_message_box.setText(f'Failed to save tags for {image.path}.')
             error_message_box.exec()
 
     def restore_history_tags(self, is_undo: bool):
