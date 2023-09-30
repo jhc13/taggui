@@ -103,6 +103,9 @@ class ImageListView(QListView):
             self.copy_selected_image_paths)
         self.addAction(self.copy_paths_action)
         self.context_menu = QMenu(self)
+        self.context_menu.addAction('Select All Images', self.selectAll,
+                                    shortcut='Ctrl+A')
+        self.context_menu.addSeparator()
         self.context_menu.addAction(copy_tags_action)
         self.context_menu.addAction(paste_tags_action)
         self.context_menu.addAction(self.copy_file_names_action)
