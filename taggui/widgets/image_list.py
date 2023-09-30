@@ -1,16 +1,18 @@
 from functools import reduce
 from operator import or_
+from pathlib import Path
 
 from PySide6.QtCore import QFile, QModelIndex, QSize, Qt, Signal, Slot
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
-                               QLabel, QLineEdit, QListView, QMenu,
-                               QMessageBox, QVBoxLayout, QWidget)
+                               QFileDialog, QLabel, QLineEdit, QListView,
+                               QMenu, QMessageBox, QVBoxLayout, QWidget)
 from pyparsing import (CaselessKeyword, CaselessLiteral, Group, OpAssoc,
                        ParseException, QuotedString, Suppress, Word,
                        infix_notation, nums, one_of, printables)
 
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
+from utils.settings import get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
 
@@ -103,6 +105,10 @@ class ImageListView(QListView):
         self.copy_paths_action.triggered.connect(
             self.copy_selected_image_paths)
         self.addAction(self.copy_paths_action)
+        self.move_images_action = self.addAction('Move Images To...')
+        self.move_images_action.setShortcut('Ctrl+M')
+        self.move_images_action.triggered.connect(
+            self.move_selected_images)
         self.delete_images_action = self.addAction('Delete Images')
         self.delete_images_action.setShortcut('Delete')
         self.delete_images_action.triggered.connect(
@@ -118,6 +124,7 @@ class ImageListView(QListView):
         self.context_menu.addAction(self.copy_file_names_action)
         self.context_menu.addAction(self.copy_paths_action)
         self.context_menu.addSeparator()
+        self.context_menu.addAction(self.move_images_action)
         self.context_menu.addAction(self.delete_images_action)
         self.selectionModel().selectionChanged.connect(
             self.update_context_menu_action_names)
@@ -173,6 +180,36 @@ class ImageListView(QListView):
         QApplication.clipboard().setText('\n'.join(selected_image_paths))
 
     @Slot()
+    def move_selected_images(self):
+        selected_images = self.get_selected_images()
+        selected_image_count = len(selected_images)
+        caption = (f'Select directory to move {selected_image_count} selected '
+                   f'{pluralize("Image", selected_image_count)} and '
+                   f'{pluralize("caption", selected_image_count)} to')
+        settings = get_settings()
+        move_directory_path = QFileDialog.getExistingDirectory(
+            parent=self, caption=caption, dir=settings.value('directory_path'))
+        if not move_directory_path:
+            return
+        move_directory_path = Path(move_directory_path)
+        for image in selected_images:
+            try:
+                image.path.rename(move_directory_path / image.path.name)
+                caption_file_path = image.path.with_suffix('.txt')
+                if caption_file_path.exists():
+                    caption_file_path.rename(
+                        move_directory_path / caption_file_path.name)
+            except FileExistsError:
+                QMessageBox.critical(
+                    self, 'Error', f'{move_directory_path / image.path.name} '
+                                   f'already exists.')
+            except OSError:
+                QMessageBox.critical(self, 'Error',
+                                     f'Failed to move {image.path} to '
+                                     f'{move_directory_path}.')
+        self.directory_reload_requested.emit()
+
+    @Slot()
     def delete_selected_images(self):
         selected_images = self.get_selected_images()
         selected_image_count = len(selected_images)
@@ -205,10 +242,13 @@ class ImageListView(QListView):
             f'Copy File {pluralize("Name", selected_image_count)}')
         copy_paths_action_name = (f'Copy '
                                   f'{pluralize("Path", selected_image_count)}')
+        move_images_action_name = (
+            f'Move {pluralize("Image", selected_image_count)} To...')
         delete_images_action_name = (
             f'Delete {pluralize("Image", selected_image_count)}')
         self.copy_file_names_action.setText(copy_file_names_action_name)
         self.copy_paths_action.setText(copy_paths_action_name)
+        self.move_images_action.setText(move_images_action_name)
         self.delete_images_action.setText(delete_images_action_name)
 
 
