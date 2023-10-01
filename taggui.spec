@@ -43,6 +43,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=['images/icon.ico'],
+    contents_directory='_taggui',
 )
 coll = COLLECT(
     exe,
