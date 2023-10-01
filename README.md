@@ -13,9 +13,9 @@ Written in Python using PySide6.
 - Keyboard-friendly interface for fast tagging
 - Tag autocomplete based on your own most-used tags
 - Integrated Stable Diffusion token counter
-- Batch tag renaming and deleting
+- Batch tag operations for renaming, deleting, and sorting tags
+- Advanced image list filtering
 - BLIP-2 caption generation
-- Automatic dark mode based on system settings
 
 ## Installation
 
@@ -25,9 +25,13 @@ Choose the appropriate file for your operating system, extract it wherever you
 want, and run the executable file inside.
 You will have to install [7-Zip](https://www.7-zip.org/download.html) to
 extract the files if you don't have it on your system.
-No additional dependencies are required. (Linux users may need to
-install `libxcb-cursor0`;
-see [this Stack Overflow answer](https://stackoverflow.com/a/75941575).)
+No additional dependencies are required.
+
+- macOS users: There is no macOS release because it requires a device running
+  the OS and I do not have one. You can still install and run the program
+  manually (see below).
+- Linux users: You may need to install `libxcb-cursor0`.
+  See [this Stack Overflow answer](https://stackoverflow.com/a/75941575).
 
 Alternatively, you can install manually by cloning this repository and
 installing the dependencies in `requirements.txt`.
@@ -71,17 +75,22 @@ repetition penalty can be viewed and changed by clicking the
 If you want to know more about what each parameter does, you can read the
 [Hugging Face documentation](https://huggingface.co/docs/transformers/main/en/main_classes/text_generation#transformers.GenerationConfig).
 
-## Advanced Image List Filtering (New in v1.6)
+## Advanced Image List Filtering
 
 The basic functionality of filtering for images that contain a certain tag is
 available by clicking on the tag in the `All Tags` pane.
 In addition to this, you can construct more complex filters in
 the `Filter Images` box at the top of the `Images` pane.
 
+<details>
+<summary>
+Click here to see the full documentation for the filter syntax.
+</summary>
+
 ### Filter criteria
 
-There are four prefixes you can use before a filter term to specify the type of
-filter you want to apply:
+These are the prefixes you can use to specify the filter criteria you want to
+apply:
 
 - `tag:`: Images that have the filter term as a tag
     - `tag:cat` will match images with the tag `cat`.
@@ -99,6 +108,25 @@ filter you want to apply:
 - You can also use a filter term with no prefix to filter for images that
   contain the term in either the caption or the file path.
     - `cat` will match images containing `cat` in the caption or file path.
+
+The following are prefixes for numeric filters. The operators `=` (`==` also
+works), `!=`, `<`, `>`, `<=`, and `>=` are used to specify the type of
+comparison.
+
+- `tags`: Images that have the specified number of tags
+    - `tags:=13` will match images that have exactly 13 tags.
+    - `tags:!=7` will match images that do not have exactly 7 tags (images with
+      less than 7 tags or more than 7 tags).
+- `chars`: Images that have the specified number of characters in the caption
+    - `chars:<100` will match images that have less than 100 characters in the
+      caption.
+    - `chars:>=30` will match images that have 30 or more characters in the
+      caption.
+- `tokens`: Images that have the specified number of tokens in the caption
+    - `tokens:>75` will match images that have more than 75 tokens in the
+      caption.
+    - `tokens:<=50` will match images that have 50 or fewer tokens in the
+      caption.
 
 ### Spaces and quotes
 
@@ -135,6 +163,7 @@ For example, in `tag:cat AND (tag:orange OR tag:white)`, the `OR` will be
 evaluated first, matching images that have the tag `cat` and either the
 tag `orange` or the tag `white`.
 You can nest parentheses and operators to create arbitrarily complex filters.
+</details>
 
 ## Controls
 
@@ -151,11 +180,9 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 - First / last image: `Home` / `End`
 - Select multiple images: Hold `Ctrl` or `Shift` and click the images
 - ⭐ Select all images: `Ctrl`+`A`
-- Copy tags/file names/paths of selected images: Right-click and select the
-  action from the context menu (or use the keyboard
-  shortcuts: `Ctrl`+`C`, `Ctrl`+`Alt`+`C`, `Ctrl`+`Shift`+`C`)
-- Paste copied tags to selected images: Right-click and select the action from
-  the context menu (or press `Ctrl`+`V`)
+- Right-clicking on an image will bring up the context menu, which includes
+  actions such as copying and pasting tags and moving or copying selected
+  images to another directory.
 
 ### Image Tags pane
 
