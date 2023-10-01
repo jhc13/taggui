@@ -111,7 +111,8 @@ class ImageListView(QListView):
         self.copy_images_action.triggered.connect(
             self.copy_selected_images)
         self.delete_images_action = self.addAction('Delete Images')
-        self.delete_images_action.setShortcut('Delete')
+        # Setting the shortcut to `Del` creates a conflict with tag deletion.
+        self.delete_images_action.setShortcut('Ctrl+Del')
         self.delete_images_action.triggered.connect(
             self.delete_selected_images)
 
