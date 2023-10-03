@@ -228,7 +228,7 @@ class ImageListView(QListView):
                     shutil.copy(caption_file_path, copy_directory_path)
             except OSError:
                 QMessageBox.critical(self, 'Error',
-                                     f'Failed to move {image.path} to '
+                                     f'Failed to copy {image.path} to '
                                      f'{copy_directory_path}.')
 
     @Slot()
