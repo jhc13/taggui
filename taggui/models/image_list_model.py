@@ -97,7 +97,10 @@ class ImageListModel(QAbstractListModel):
             tags = []
             text_file_path = image_path.with_suffix('.txt')
             if text_file_path in text_file_paths:
-                caption = text_file_path.read_text()
+                # `errors='replace'` inserts a replacement marker such as '?'
+                # when there is malformed data.
+                caption = text_file_path.read_text(encoding='utf-8',
+                                                   errors='replace')
                 if caption:
                     tags = caption.split(self.separator)
                     tags = [tag.strip() for tag in tags]
@@ -119,7 +122,8 @@ class ImageListModel(QAbstractListModel):
     def write_image_tags_to_disk(self, image: Image):
         try:
             image.path.with_suffix('.txt').write_text(
-                self.separator.join(image.tags))
+                self.separator.join(image.tags), encoding='utf-8',
+                errors='replace')
         except OSError:
             error_message_box = QMessageBox()
             error_message_box.setWindowTitle('Error')
