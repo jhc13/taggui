@@ -210,7 +210,21 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def reload_directory(self):
+        # Save the filter text and the index of the selected image to restore
+        # them after reloading the directory.
+        filter_text = self.image_list.filter_line_edit.text()
+        select_index_key = ('image_index'
+                            if self.proxy_image_list_model.filter is None
+                            else 'filtered_image_index')
+        select_index = self.settings.value(select_index_key, type=int) or 0
         self.load_directory(Path(self.settings.value('directory_path')))
+        self.image_list.filter_line_edit.setText(filter_text)
+        # If the selected image index is out of bounds due to images being
+        # deleted, select the last image.
+        if select_index >= self.proxy_image_list_model.rowCount():
+            select_index = self.proxy_image_list_model.rowCount() - 1
+        self.image_list.list_view.setCurrentIndex(
+            self.proxy_image_list_model.index(select_index, 0))
 
     @Slot()
     def show_settings_dialog(self):
@@ -374,12 +388,11 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def save_image_index(self, proxy_image_index: QModelIndex):
-        """
-        Save the index of the currently selected image if the image list is not
-        filtered.
-        """
-        if self.proxy_image_list_model.filter is None:
-            self.settings.setValue('image_index', proxy_image_index.row())
+        """Save the index of the currently selected image."""
+        settings_key = ('image_index'
+                        if self.proxy_image_list_model.filter is None
+                        else 'filtered_image_index')
+        self.settings.setValue(settings_key, proxy_image_index.row())
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(
