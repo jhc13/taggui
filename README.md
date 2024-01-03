@@ -2,9 +2,9 @@
 
 <img src='images/icon.png' alt='TagGUI icon' width='128'>
 
-Cross-platform desktop application for quickly tagging images, aimed towards
-creators of image datasets for generative AI models like Stable Diffusion.
-Written in Python using PySide6.
+Cross-platform desktop application for quickly adding and editing image tags,
+aimed towards creators of image datasets for generative AI models like Stable
+Diffusion.
 
 <img src='images/screenshot-v1.6.0.png' alt='TagGUI screenshot' width='100%'>
 
@@ -23,12 +23,12 @@ The easiest way to use the application is to download the latest release from
 the [releases page](https://www.github.com/jhc13/taggui/releases).
 Choose the appropriate file for your operating system, extract it wherever you
 want, and run the executable file inside.
-You will have to install [7-Zip](https://www.7-zip.org/download.html) to
+You may have to install [7-Zip](https://www.7-zip.org/download.html) to
 extract the files if you don't have it on your system.
 No additional dependencies are required.
 
 - macOS users: There is no macOS release because it requires a device running
-  the OS and I do not have one. You can still install and run the program
+  the OS, and I do not have one. You can still install and run the program
   manually (see below).
 - Linux users: You may need to install `libxcb-cursor0`.
   See [this Stack Overflow answer](https://stackoverflow.com/a/75941575).
