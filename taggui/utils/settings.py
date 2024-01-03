@@ -5,7 +5,9 @@ default_settings = {
     'image_list_image_width': 200,
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
-    'do_not_reorder_first_tag': True
+    'do_not_reorder_first_tag': True,
+    'replace_in_filtered_images_only': False,
+    'replace_whole_tags_only': False
 }
 
 

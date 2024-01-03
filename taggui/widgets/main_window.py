@@ -47,6 +47,8 @@ class MainWindow(QMainWindow):
             get_resource_path(TOKENIZER_DIRECTORY_PATH))
         self.proxy_image_list_model = ProxyImageListModel(
             self.image_list_model, tokenizer, separator)
+        self.image_list_model.proxy_image_list_model = (
+            self.proxy_image_list_model)
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 

@@ -29,9 +29,10 @@ class ImageListModel(QAbstractListModel):
         super().__init__()
         self.image_list_image_width = image_list_image_width
         self.separator = separator
-        self.images = []
+        self.images: list[Image] = []
         self.undo_stack = deque(maxlen=UNDO_STACK_SIZE)
         self.redo_stack = []
+        self.proxy_image_list_model = None
 
     def rowCount(self, parent=None) -> int:
         return len(self.images)
@@ -178,15 +179,23 @@ class ImageListModel(QAbstractListModel):
         """Redo the last undone action."""
         self.restore_history_tags(is_undo=False)
 
-    def get_text_match_count(self, text: str) -> int:
+    def get_text_match_count(self, text: str, in_filtered_images_only: bool,
+                             whole_tags_only: bool) -> int:
         """Get the number of instances of a text in all captions."""
         match_count = 0
         for image in self.images:
-            caption = self.separator.join(image.tags)
-            match_count += caption.count(text)
+            if (in_filtered_images_only and not self.proxy_image_list_model
+                    .is_image_in_filtered_images(image)):
+                continue
+            if whole_tags_only:
+                match_count += image.tags.count(text)
+            else:
+                caption = self.separator.join(image.tags)
+                match_count += caption.count(text)
         return match_count
 
-    def find_and_replace(self, find_text: str, replace_text: str):
+    def find_and_replace(self, find_text: str, replace_text: str,
+                         in_filtered_images_only: bool):
         """
         Find and replace arbitrary text in captions, within and across tag
         boundaries.
@@ -197,6 +206,9 @@ class ImageListModel(QAbstractListModel):
                                should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
+            if (in_filtered_images_only and not self.proxy_image_list_model
+                    .is_image_in_filtered_images(image)):
+                continue
             caption = self.separator.join(image.tags)
             if find_text not in caption:
                 continue
@@ -348,31 +360,40 @@ class ImageListModel(QAbstractListModel):
         self.dataChanged.emit(min_image_index, max_image_index)
 
     @Slot(str, str)
-    def rename_tag(self, old_tag: str, new_tag: str):
+    def rename_tag(self, old_tag: str, new_tag: str,
+                   in_filtered_images_only: bool = False):
         """Rename all instances of a tag in all images."""
         self.add_to_undo_stack(action_name='Rename Tag',
                                should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
+            if (in_filtered_images_only and not self.proxy_image_list_model
+                    .is_image_in_filtered_images(image)):
+                continue
             if old_tag in image.tags:
                 changed_image_indices.append(image_index)
                 image.tags = [new_tag if image_tag == old_tag else image_tag
                               for image_tag in image.tags]
                 self.write_image_tags_to_disk(image)
-        self.dataChanged.emit(self.index(changed_image_indices[0]),
-                              self.index(changed_image_indices[-1]))
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
 
     @Slot(str)
-    def delete_tag(self, tag: str):
+    def delete_tag(self, tag: str, in_filtered_images_only: bool = False):
         """Delete all instances of a tag from all images."""
         self.add_to_undo_stack(action_name='Delete Tag',
                                should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
+            if (in_filtered_images_only and not self.proxy_image_list_model
+                    .is_image_in_filtered_images(image)):
+                continue
             if tag in image.tags:
                 changed_image_indices.append(image_index)
                 image.tags = [image_tag for image_tag in image.tags
                               if image_tag != tag]
                 self.write_image_tags_to_disk(image)
-        self.dataChanged.emit(self.index(changed_image_indices[0]),
-                              self.index(changed_image_indices[-1]))
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))

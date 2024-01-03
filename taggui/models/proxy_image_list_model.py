@@ -70,3 +70,7 @@ class ProxyImageListModel(QSortFilterProxyModel):
         image_index = self.sourceModel().index(source_row, 0)
         image: Image = self.sourceModel().data(image_index, Qt.UserRole)
         return self.does_image_match_filter(image, self.filter)
+
+    def is_image_in_filtered_images(self, image: Image) -> bool:
+        return (self.filter is None
+                or self.does_image_match_filter(image, self.filter))
