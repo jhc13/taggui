@@ -444,7 +444,7 @@ class AutoCaptioner(QDockWidget):
         self.setWindowTitle('Auto-Captioner')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
-        self.caption_button = TallPushButton('Generate Caption(s)')
+        self.caption_button = TallPushButton('Run Auto-Captioner')
         self.progress_bar = QProgressBar()
         self.progress_bar.setFormat('%v / %m images captioned (%p%)')
         self.progress_bar.hide()
