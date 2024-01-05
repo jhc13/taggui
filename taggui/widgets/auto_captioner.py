@@ -244,11 +244,10 @@ class CaptionSettingsForm(QVBoxLayout):
             caption_settings.get('device', Device.GPU))
         self.load_in_4_bit_check_box.setChecked(
             caption_settings.get('load_in_4_bit', True))
+        self.convert_tag_separators_to_spaces_check_box.setChecked(
+            caption_settings.get('convert_tag_separators_to_spaces', True))
         generation_parameters = caption_settings.get('generation_parameters',
                                                      {})
-        self.convert_tag_separators_to_spaces_check_box.setChecked(
-            generation_parameters.get('convert_tag_separators_to_spaces',
-                                      True))
         self.min_new_token_count_spin_box.setValue(
             generation_parameters.get('min_new_tokens', 1))
         self.max_new_token_count_spin_box.setValue(
