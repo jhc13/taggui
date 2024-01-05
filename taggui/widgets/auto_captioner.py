@@ -336,13 +336,17 @@ class CaptionThread(QThread):
         # If the processor and model were previously loaded, use them.
         processor = self.parent().processor
         model = self.parent().model
+        model_id = self.caption_settings['model']
+        do_model_ids_match = self.parent().model_id == model_id
         do_device_types_match = (self.parent().model_device_type
                                  == device.type)
-        model_id = self.caption_settings['model']
-        if not model or not do_device_types_match:
+        if not model or not do_model_ids_match or not do_device_types_match:
             if not do_device_types_match:
-                # Garbage collect the previous model to free up memory.
+                # Garbage collect the previous processor and model to free up
+                # memory.
+                self.parent().processor = None
                 self.parent().model = None
+                del processor
                 del model
                 gc.collect()
             self.clear_console_text_edit_requested.emit()
@@ -353,14 +357,14 @@ class CaptionThread(QThread):
             # model will then be downloaded when trying to load it.
             if not try_to_load_from_cache(model_id, filename='config.json'):
                 print('Model not found. Downloading...')
-            if not processor:
-                processor = AutoProcessor.from_pretrained(model_id)
-                self.parent().processor = processor
+            processor = AutoProcessor.from_pretrained(model_id)
+            self.parent().processor = processor
             dtype_argument = ({'torch_dtype': torch.float16}
                               if device.type == 'cuda' else {})
             model = AutoModelForVision2Seq.from_pretrained(
                 model_id, device_map=device, **dtype_argument)
             self.parent().model = model
+            self.parent().model_id = model_id
             self.parent().model_device_type = device.type
         model.to(device)
         model.eval()
@@ -434,6 +438,7 @@ class AutoCaptioner(QDockWidget):
         self.settings = get_settings()
         self.processor = None
         self.model = None
+        self.model_id: str | None = None
         self.model_device_type: str | None = None
         # Whether the last block of text in the console text edit should be
         # replaced with the next block of text that is outputted.
