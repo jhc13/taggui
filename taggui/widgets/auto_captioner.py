@@ -71,8 +71,8 @@ class CaptionSettingsForm(QVBoxLayout):
         super().__init__()
         self.settings = settings
 
-        basic_settings_form = QFormLayout()
-        basic_settings_form.setLabelAlignment(Qt.AlignRight)
+        self.basic_settings_form = QFormLayout()
+        self.basic_settings_form.setLabelAlignment(Qt.AlignRight)
         self.prompt_text_edit = QPlainTextEdit()
         set_text_edit_height(self.prompt_text_edit, 2)
         self.caption_start_line_edit = QLineEdit()
@@ -83,16 +83,16 @@ class CaptionSettingsForm(QVBoxLayout):
         self.model_combo_box.addItems(MODELS)
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItems(list(Device))
-        self.load_in_4bit_check_box = BigCheckBox()
-        basic_settings_form.addRow('Prompt:', self.prompt_text_edit)
-        basic_settings_form.addRow('Start caption with:',
-                                   self.caption_start_line_edit)
-        basic_settings_form.addRow('Caption position:',
-                                   self.caption_position_combo_box)
-        basic_settings_form.addRow('Model:', self.model_combo_box)
-        basic_settings_form.addRow('Device:', self.device_combo_box)
-        basic_settings_form.addRow('Load in 4-bit:',
-                                   self.load_in_4bit_check_box)
+        self.load_in_4_bit_check_box = BigCheckBox()
+        self.basic_settings_form.addRow('Prompt:', self.prompt_text_edit)
+        self.basic_settings_form.addRow('Start caption with:',
+                                        self.caption_start_line_edit)
+        self.basic_settings_form.addRow('Caption position:',
+                                        self.caption_position_combo_box)
+        self.basic_settings_form.addRow('Model:', self.model_combo_box)
+        self.basic_settings_form.addRow('Device:', self.device_combo_box)
+        self.basic_settings_form.addRow('Load in 4-bit:',
+                                        self.load_in_4_bit_check_box)
 
         horizontal_line = QFrame()
         horizontal_line.setFrameShape(QFrame.Shape.HLine)
@@ -160,7 +160,7 @@ class CaptionSettingsForm(QVBoxLayout):
         advanced_settings_form.addRow('No repeat n-gram size:',
                                       self.no_repeat_ngram_size_spin_box)
 
-        self.addLayout(basic_settings_form)
+        self.addLayout(self.basic_settings_form)
         self.addWidget(horizontal_line)
         self.addWidget(self.toggle_advanced_settings_form_button)
         self.addWidget(self.advanced_settings_form_scroll_area)
@@ -184,7 +184,9 @@ class CaptionSettingsForm(QVBoxLayout):
             self.save_caption_settings)
         self.device_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
-        self.load_in_4bit_check_box.stateChanged.connect(
+        self.device_combo_box.currentTextChanged.connect(
+            self.set_load_in_4_bit_visibility)
+        self.load_in_4_bit_check_box.stateChanged.connect(
             self.save_caption_settings)
         self.convert_tag_separators_to_spaces_check_box.stateChanged.connect(
             self.save_caption_settings)
@@ -209,6 +211,11 @@ class CaptionSettingsForm(QVBoxLayout):
 
         # Restore previous caption settings.
         self.load_caption_settings()
+
+    @Slot(str)
+    def set_load_in_4_bit_visibility(self, device: str):
+        self.basic_settings_form.setRowVisible(self.load_in_4_bit_check_box,
+                                               device == Device.GPU)
 
     @Slot()
     def toggle_advanced_settings_form(self):
@@ -235,8 +242,8 @@ class CaptionSettingsForm(QVBoxLayout):
             caption_settings.get('model', MODELS[0]))
         self.device_combo_box.setCurrentText(
             caption_settings.get('device', Device.GPU))
-        self.load_in_4bit_check_box.setChecked(
-            caption_settings.get('load_in_4bit', True))
+        self.load_in_4_bit_check_box.setChecked(
+            caption_settings.get('load_in_4_bit', True))
         generation_parameters = caption_settings.get('generation_parameters',
                                                      {})
         self.convert_tag_separators_to_spaces_check_box.setChecked(
@@ -268,7 +275,7 @@ class CaptionSettingsForm(QVBoxLayout):
             'caption_position': self.caption_position_combo_box.currentText(),
             'model': self.model_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
-            'load_in_4bit': self.load_in_4bit_check_box.isChecked(),
+            'load_in_4_bit': self.load_in_4_bit_check_box.isChecked(),
             'convert_tag_separators_to_spaces':
                 self.convert_tag_separators_to_spaces_check_box.isChecked(),
             'generation_parameters': {
@@ -347,11 +354,11 @@ class CaptionThread(QThread):
         model = self.parent().model
         model_id = self.caption_settings['model']
         # Only GPUs support 4-bit quantization.
-        load_in_4bit = (self.caption_settings['load_in_4bit']
-                        and device.type == 'cuda')
+        load_in_4_bit = (self.caption_settings['load_in_4_bit']
+                         and device.type == 'cuda')
         if (not model or self.parent().model_id != model_id
                 or self.parent().model_device_type != device.type
-                or self.parent().is_model_loaded_in_4bit != load_in_4bit):
+                or self.parent().is_model_loaded_in_4_bit != load_in_4_bit):
             if model:
                 # Garbage collect the previous processor and model to free up
                 # memory.
@@ -370,10 +377,10 @@ class CaptionThread(QThread):
                 print('Model not found. Downloading...')
             processor = AutoProcessor.from_pretrained(model_id)
             self.parent().processor = processor
-            if load_in_4bit:
+            if load_in_4_bit:
                 quantization_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16
+                    load_in_4_bit=True,
+                    bnb_4_bit_compute_dtype=torch.float16
                 )
                 dtype_argument = {}
             else:
@@ -386,8 +393,8 @@ class CaptionThread(QThread):
             self.parent().model = model
             self.parent().model_id = model_id
             self.parent().model_device_type = device.type
-            self.parent().is_model_loaded_in_4bit = load_in_4bit
-        if not load_in_4bit:
+            self.parent().is_model_loaded_in_4_bit = load_in_4_bit
+        if not load_in_4_bit:
             model.to(device)
         model.eval()
         self.clear_console_text_edit_requested.emit()
@@ -462,7 +469,7 @@ class AutoCaptioner(QDockWidget):
         self.model = None
         self.model_id: str | None = None
         self.model_device_type: str | None = None
-        self.is_model_loaded_in_4bit = None
+        self.is_model_loaded_in_4_bit = None
         # Whether the last block of text in the console text edit should be
         # replaced with the next block of text that is outputted.
         self.replace_last_console_text_edit_block = False
