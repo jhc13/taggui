@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QComboBox, QDockWidget,
                                QMessageBox, QPlainTextEdit, QProgressBar,
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
-from transformers import AutoModelForVision2Seq, AutoProcessor
+from transformers import (AutoModelForVision2Seq, AutoProcessor,
+                          BitsAndBytesConfig)
 
 from models.image_list_model import ImageListModel
 from utils.big_widgets import BigCheckBox, TallPushButton
@@ -82,6 +83,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.model_combo_box.addItems(MODELS)
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItems(list(Device))
+        self.load_in_4bit_check_box = BigCheckBox()
         basic_settings_form.addRow('Prompt:', self.prompt_text_edit)
         basic_settings_form.addRow('Start caption with:',
                                    self.caption_start_line_edit)
@@ -89,6 +91,8 @@ class CaptionSettingsForm(QVBoxLayout):
                                    self.caption_position_combo_box)
         basic_settings_form.addRow('Model:', self.model_combo_box)
         basic_settings_form.addRow('Device:', self.device_combo_box)
+        basic_settings_form.addRow('Load in 4-bit:',
+                                   self.load_in_4bit_check_box)
 
         horizontal_line = QFrame()
         horizontal_line.setFrameShape(QFrame.Shape.HLine)
@@ -180,6 +184,8 @@ class CaptionSettingsForm(QVBoxLayout):
             self.save_caption_settings)
         self.device_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
+        self.load_in_4bit_check_box.stateChanged.connect(
+            self.save_caption_settings)
         self.convert_tag_separators_to_spaces_check_box.stateChanged.connect(
             self.save_caption_settings)
         self.min_new_token_count_spin_box.valueChanged.connect(
@@ -229,6 +235,8 @@ class CaptionSettingsForm(QVBoxLayout):
             caption_settings.get('model', MODELS[0]))
         self.device_combo_box.setCurrentText(
             caption_settings.get('device', Device.GPU))
+        self.load_in_4bit_check_box.setChecked(
+            caption_settings.get('load_in_4bit', True))
         generation_parameters = caption_settings.get('generation_parameters',
                                                      {})
         self.convert_tag_separators_to_spaces_check_box.setChecked(
@@ -260,6 +268,7 @@ class CaptionSettingsForm(QVBoxLayout):
             'caption_position': self.caption_position_combo_box.currentText(),
             'model': self.model_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
+            'load_in_4bit': self.load_in_4bit_check_box.isChecked(),
             'convert_tag_separators_to_spaces':
                 self.convert_tag_separators_to_spaces_check_box.isChecked(),
             'generation_parameters': {
@@ -331,17 +340,19 @@ class CaptionThread(QThread):
         if self.caption_settings['device'] == Device.CPU:
             device = torch.device('cpu')
         else:
-            device = torch.device('cuda' if torch.cuda.is_available()
+            device = torch.device('cuda:0' if torch.cuda.is_available()
                                   else 'cpu')
         # If the processor and model were previously loaded, use them.
         processor = self.parent().processor
         model = self.parent().model
         model_id = self.caption_settings['model']
-        do_model_ids_match = self.parent().model_id == model_id
-        do_device_types_match = (self.parent().model_device_type
-                                 == device.type)
-        if not model or not do_model_ids_match or not do_device_types_match:
-            if not do_device_types_match:
+        # Only GPUs support 4-bit quantization.
+        load_in_4bit = (self.caption_settings['load_in_4bit']
+                        and device.type == 'cuda')
+        if (not model or self.parent().model_id != model_id
+                or self.parent().model_device_type != device.type
+                or self.parent().is_model_loaded_in_4bit != load_in_4bit):
+            if model:
                 # Garbage collect the previous processor and model to free up
                 # memory.
                 self.parent().processor = None
@@ -359,14 +370,25 @@ class CaptionThread(QThread):
                 print('Model not found. Downloading...')
             processor = AutoProcessor.from_pretrained(model_id)
             self.parent().processor = processor
-            dtype_argument = ({'torch_dtype': torch.float16}
-                              if device.type == 'cuda' else {})
+            if load_in_4bit:
+                quantization_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.float16
+                )
+                dtype_argument = {}
+            else:
+                quantization_config = None
+                dtype_argument = ({'torch_dtype': torch.float16}
+                                  if device.type == 'cuda' else {})
             model = AutoModelForVision2Seq.from_pretrained(
-                model_id, device_map=device, **dtype_argument)
+                model_id, device_map=device,
+                quantization_config=quantization_config, **dtype_argument)
             self.parent().model = model
             self.parent().model_id = model_id
             self.parent().model_device_type = device.type
-        model.to(device)
+            self.parent().is_model_loaded_in_4bit = load_in_4bit
+        if not load_in_4bit:
+            model.to(device)
         model.eval()
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
@@ -440,6 +462,7 @@ class AutoCaptioner(QDockWidget):
         self.model = None
         self.model_id: str | None = None
         self.model_device_type: str | None = None
+        self.is_model_loaded_in_4bit = None
         # Whether the last block of text in the console text edit should be
         # replaced with the next block of text that is outputted.
         self.replace_last_console_text_edit_block = False
