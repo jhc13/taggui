@@ -379,8 +379,8 @@ class CaptionThread(QThread):
             self.parent().processor = processor
             if load_in_4_bit:
                 quantization_config = BitsAndBytesConfig(
-                    load_in_4_bit=True,
-                    bnb_4_bit_compute_dtype=torch.float16
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.float16
                 )
                 dtype_argument = {}
             else:
