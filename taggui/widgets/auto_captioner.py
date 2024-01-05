@@ -5,7 +5,7 @@ from enum import Enum
 
 import torch
 from PIL import Image as PilImage
-from PySide6.QtCore import QModelIndex, QThread, Qt, Signal, Slot
+from PySide6.QtCore import QModelIndex, QSettings, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QAbstractScrollArea, QComboBox, QDockWidget,
                                QDoubleSpinBox, QFormLayout, QFrame, QLineEdit,
@@ -17,7 +17,7 @@ from transformers import AutoModelForVision2Seq, AutoProcessor
 from models.image_list_model import ImageListModel
 from utils.big_widgets import BigCheckBox, TallPushButton
 from utils.image import Image
-from utils.settings import get_settings
+from utils.settings import get_separator, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
 
@@ -66,9 +66,9 @@ def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
 
 
 class CaptionSettingsForm(QVBoxLayout):
-    def __init__(self):
+    def __init__(self, settings: QSettings):
         super().__init__()
-        self.settings = get_settings()
+        self.settings = settings
 
         basic_settings_form = QFormLayout()
         basic_settings_form.setLabelAlignment(Qt.AlignRight)
@@ -109,6 +109,7 @@ class CaptionSettingsForm(QVBoxLayout):
         advanced_settings_form = QFormLayout(
             advanced_settings_form_container)
         advanced_settings_form.setLabelAlignment(Qt.AlignRight)
+        self.convert_tag_separators_to_spaces_check_box = BigCheckBox()
         self.min_new_token_count_spin_box = QSpinBox()
         self.min_new_token_count_spin_box.setRange(1, 999)
         self.max_new_token_count_spin_box = QSpinBox()
@@ -133,6 +134,9 @@ class CaptionSettingsForm(QVBoxLayout):
         self.repetition_penalty_spin_box.setSingleStep(0.01)
         self.no_repeat_ngram_size_spin_box = QSpinBox()
         self.no_repeat_ngram_size_spin_box.setRange(0, 5)
+        advanced_settings_form.addRow(
+            'Tag separators to spaces:',
+            self.convert_tag_separators_to_spaces_check_box)
         advanced_settings_form.addRow('Minimum tokens:',
                                       self.min_new_token_count_spin_box)
         advanced_settings_form.addRow('Maximum tokens:',
@@ -175,6 +179,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.model_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
         self.device_combo_box.currentTextChanged.connect(
+            self.save_caption_settings)
+        self.convert_tag_separators_to_spaces_check_box.stateChanged.connect(
             self.save_caption_settings)
         self.min_new_token_count_spin_box.valueChanged.connect(
             self.save_caption_settings)
@@ -225,6 +231,9 @@ class CaptionSettingsForm(QVBoxLayout):
             caption_settings.get('device', Device.GPU))
         generation_parameters = caption_settings.get('generation_parameters',
                                                      {})
+        self.convert_tag_separators_to_spaces_check_box.setChecked(
+            generation_parameters.get('convert_tag_separators_to_spaces',
+                                      True))
         self.min_new_token_count_spin_box.setValue(
             generation_parameters.get('min_new_tokens', 1))
         self.max_new_token_count_spin_box.setValue(
@@ -251,6 +260,8 @@ class CaptionSettingsForm(QVBoxLayout):
             'caption_position': self.caption_position_combo_box.currentText(),
             'model': self.model_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
+            'convert_tag_separators_to_spaces':
+                self.convert_tag_separators_to_spaces_check_box.isChecked(),
             'generation_parameters': {
                 'min_new_tokens': self.min_new_token_count_spin_box.value(),
                 'max_new_tokens': self.max_new_token_count_spin_box.value(),
@@ -305,11 +316,12 @@ class CaptionThread(QThread):
 
     def __init__(self, parent, image_list_model: ImageListModel,
                  selected_image_indices: list[QModelIndex],
-                 caption_settings: dict):
+                 caption_settings: dict, tag_separator: str):
         super().__init__(parent)
         self.image_list_model = image_list_model
         self.selected_image_indices = selected_image_indices
         self.caption_settings = caption_settings
+        self.tag_separator = tag_separator
 
     def run(self):
         # Redirect `stdout` and `stderr` so that the outputs are
@@ -389,6 +401,8 @@ class CaptionThread(QThread):
                 # Sequence-to-sequence models like BLIP-2 return only the
                 # new tokens in the generated text.
                 caption = (caption_start + generated_text).strip()
+            if self.caption_settings['convert_tag_separators_to_spaces']:
+                caption = caption.replace(self.tag_separator, ' ')
             caption_position = self.caption_settings['caption_position']
             tags = add_caption_to_tags(image.tags, caption, caption_position)
             self.caption_generated.emit(image_index, caption, tags)
@@ -417,6 +431,7 @@ class AutoCaptioner(QDockWidget):
         super().__init__()
         self.image_list_model = image_list_model
         self.image_list = image_list
+        self.settings = get_settings()
         self.processor = None
         self.model = None
         self.model_device_type: str | None = None
@@ -442,7 +457,7 @@ class AutoCaptioner(QDockWidget):
         layout.addWidget(self.caption_button)
         layout.addWidget(self.progress_bar)
         layout.addWidget(self.console_text_edit)
-        self.caption_settings_form = CaptionSettingsForm()
+        self.caption_settings_form = CaptionSettingsForm(self.settings)
         layout.addLayout(self.caption_settings_form)
         self.setWidget(container)
 
@@ -489,9 +504,10 @@ class AutoCaptioner(QDockWidget):
             self.progress_bar.setRange(0, selected_image_count)
             self.progress_bar.setValue(0)
             self.progress_bar.show()
+        tag_separator = get_separator(self.settings)
         caption_thread = CaptionThread(self, self.image_list_model,
                                        selected_image_indices,
-                                       caption_settings)
+                                       caption_settings, tag_separator)
         caption_thread.text_outputted.connect(self.update_console_text_edit)
         caption_thread.clear_console_text_edit_requested.connect(
             self.console_text_edit.clear)
