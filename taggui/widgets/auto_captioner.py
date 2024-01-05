@@ -78,6 +78,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.caption_position_combo_box = QComboBox()
         self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.model_combo_box = QComboBox()
+        self.model_combo_box.setEditable(True)
         self.model_combo_box.addItems(MODELS)
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItems(list(Device))
