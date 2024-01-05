@@ -12,19 +12,28 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QComboBox, QDockWidget,
                                QMessageBox, QPlainTextEdit, QProgressBar,
                                QScrollArea, QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
-from transformers import AutoProcessor, Blip2ForConditionalGeneration
+from transformers import AutoModelForVision2Seq, AutoProcessor
 
 from models.image_list_model import ImageListModel
 from utils.big_widgets import BigCheckBox, TallPushButton
 from utils.image import Image
 from utils.settings import get_settings
-from utils.utils import get_confirmation_dialog_reply
+from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
 
 # Disable the warning about windows not supporting symlinks.
 os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 
-BLIP_2_HUGGINGFACE_REPOSITORY_ID = 'Salesforce/blip2-opt-2.7b'
+MODELS = [
+    'llava-hf/bakLlava-v1-hf',
+    'llava-hf/llava-1.5-7b-hf',
+    'llava-hf/llava-1.5-13b-hf',
+    'Salesforce/blip2-opt-2.7b',
+    'Salesforce/blip2-opt-6.7b',
+    'Salesforce/blip2-opt-6.7b-coco',
+    'Salesforce/blip2-flan-t5-xl',
+    'Salesforce/blip2-flan-t5-xxl'
+]
 
 
 # `StrEnum` is a Python 3.11 feature that can be used here.
@@ -41,6 +50,21 @@ class Device(str, Enum):
     CPU = 'CPU'
 
 
+def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
+    """
+    Set the height of a text edit to the height of a given number of lines.
+    """
+    # From https://stackoverflow.com/a/46997337.
+    document = text_edit.document()
+    font_metrics = QFontMetrics(document.defaultFont())
+    margins = text_edit.contentsMargins()
+    height = (font_metrics.lineSpacing() * line_count
+              + margins.top() + margins.bottom()
+              + document.documentMargin() * 2
+              + text_edit.frameWidth() * 2)
+    text_edit.setFixedHeight(height)
+
+
 class CaptionSettingsForm(QVBoxLayout):
     def __init__(self):
         super().__init__()
@@ -48,15 +72,21 @@ class CaptionSettingsForm(QVBoxLayout):
 
         basic_settings_form = QFormLayout()
         basic_settings_form.setLabelAlignment(Qt.AlignRight)
+        self.prompt_text_edit = QPlainTextEdit()
+        set_text_edit_height(self.prompt_text_edit, 2)
         self.caption_start_line_edit = QLineEdit()
         self.caption_position_combo_box = QComboBox()
         self.caption_position_combo_box.addItems(list(CaptionPosition))
+        self.model_combo_box = QComboBox()
+        self.model_combo_box.addItems(MODELS)
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItems(list(Device))
+        basic_settings_form.addRow('Prompt:', self.prompt_text_edit)
         basic_settings_form.addRow('Start caption with:',
                                    self.caption_start_line_edit)
         basic_settings_form.addRow('Caption position:',
                                    self.caption_position_combo_box)
+        basic_settings_form.addRow('Model:', self.model_combo_box)
         basic_settings_form.addRow('Device:', self.device_combo_box)
 
         horizontal_line = QFrame()
@@ -79,9 +109,9 @@ class CaptionSettingsForm(QVBoxLayout):
             advanced_settings_form_container)
         advanced_settings_form.setLabelAlignment(Qt.AlignRight)
         self.min_new_token_count_spin_box = QSpinBox()
-        self.min_new_token_count_spin_box.setRange(1, 99)
+        self.min_new_token_count_spin_box.setRange(1, 999)
         self.max_new_token_count_spin_box = QSpinBox()
-        self.max_new_token_count_spin_box.setRange(1, 99)
+        self.max_new_token_count_spin_box.setRange(1, 999)
         self.beam_count_spin_box = QSpinBox()
         self.beam_count_spin_box.setRange(1, 99)
         self.length_penalty_spin_box = QDoubleSpinBox()
@@ -136,9 +166,12 @@ class CaptionSettingsForm(QVBoxLayout):
         self.max_new_token_count_spin_box.valueChanged.connect(
             self.min_new_token_count_spin_box.setMaximum)
         # Save the caption settings when any of them is changed.
+        self.prompt_text_edit.textChanged.connect(self.save_caption_settings)
         self.caption_start_line_edit.textChanged.connect(
             self.save_caption_settings)
         self.caption_position_combo_box.currentTextChanged.connect(
+            self.save_caption_settings)
+        self.model_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
         self.device_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
@@ -179,11 +212,14 @@ class CaptionSettingsForm(QVBoxLayout):
         caption_settings: dict = self.settings.value('caption_settings')
         if caption_settings is None:
             caption_settings = {}
+        self.prompt_text_edit.setPlainText(caption_settings.get('prompt', ''))
         self.caption_start_line_edit.setText(
             caption_settings.get('caption_start', ''))
         self.caption_position_combo_box.setCurrentText(
             caption_settings.get('caption_position',
                                  CaptionPosition.BEFORE_FIRST_TAG))
+        self.model_combo_box.setCurrentText(
+            caption_settings.get('model', MODELS[0]))
         self.device_combo_box.setCurrentText(
             caption_settings.get('device', Device.GPU))
         generation_parameters = caption_settings.get('generation_parameters',
@@ -209,8 +245,10 @@ class CaptionSettingsForm(QVBoxLayout):
 
     def get_caption_settings(self) -> dict:
         return {
+            'prompt': self.prompt_text_edit.toPlainText(),
             'caption_start': self.caption_start_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),
+            'model': self.model_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
             'generation_parameters': {
                 'min_new_tokens': self.min_new_token_count_spin_box.value(),
@@ -257,7 +295,7 @@ def add_caption_to_tags(tags: list[str], caption: str,
 
 class CaptionThread(QThread):
     text_outputted = Signal(str)
-    clear_text_edit_requested = Signal()
+    clear_console_text_edit_requested = Signal()
     # The image index, the caption, and the tags with the caption added. The
     # third parameter must be declared as `list` instead of `list[str]` for it
     # to work.
@@ -274,7 +312,7 @@ class CaptionThread(QThread):
 
     def run(self):
         # Redirect `stdout` and `stderr` so that the outputs are
-        # displayed in the text edit.
+        # displayed in the console text edit.
         sys.stdout = self
         sys.stderr = self
         if self.caption_settings['device'] == Device.CPU:
@@ -287,43 +325,51 @@ class CaptionThread(QThread):
         model = self.parent().model
         do_device_types_match = (self.parent().model_device_type
                                  == device.type)
+        model_id = self.caption_settings['model']
         if not model or not do_device_types_match:
             if not do_device_types_match:
                 # Garbage collect the previous model to free up memory.
                 self.parent().model = None
                 del model
                 gc.collect()
-            self.clear_text_edit_requested.emit()
-            print(f'Loading BLIP-2 model...')
+            self.clear_console_text_edit_requested.emit()
+            print(f'Loading {model_id}...')
             # Check if the model is downloaded by checking the cache for the
             # config file. The model might not be fully downloaded even if the
             # config file is in the cache, but it does not matter because the
             # model will then be downloaded when trying to load it.
-            if not try_to_load_from_cache(BLIP_2_HUGGINGFACE_REPOSITORY_ID,
-                                          filename='config.json'):
-                print('BLIP-2 model not found. Downloading...')
+            if not try_to_load_from_cache(model_id, filename='config.json'):
+                print('Model not found. Downloading...')
             if not processor:
-                processor = AutoProcessor.from_pretrained(
-                    BLIP_2_HUGGINGFACE_REPOSITORY_ID)
+                processor = AutoProcessor.from_pretrained(model_id)
                 self.parent().processor = processor
             dtype_argument = ({'torch_dtype': torch.float16}
                               if device.type == 'cuda' else {})
-            model = Blip2ForConditionalGeneration.from_pretrained(
-                BLIP_2_HUGGINGFACE_REPOSITORY_ID, device_map=device,
-                **dtype_argument)
+            model = AutoModelForVision2Seq.from_pretrained(
+                model_id, device_map=device, **dtype_argument)
             self.parent().model = model
             self.parent().model_device_type = device.type
         model.to(device)
         model.eval()
-        self.clear_text_edit_requested.emit()
+        self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
         for i, image_index in enumerate(self.selected_image_indices):
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             pil_image = PilImage.open(image.path)
+            prompt = self.caption_settings['prompt']
             caption_start = self.caption_settings['caption_start']
+            is_llava_model = 'llava' in model_id.lower()
+            if is_llava_model:
+                if not prompt:
+                    prompt = 'Briefly caption the image.'
+                prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
+            if prompt and caption_start:
+                text = f'{prompt} {caption_start}'
+            else:
+                text = prompt + caption_start
             dtype_argument = ({'dtype': torch.float16}
                               if device.type == 'cuda' else {})
-            model_inputs = (processor(pil_image, text=caption_start,
+            model_inputs = (processor(text=text, images=pil_image,
                                       return_tensors='pt')
                             .to(device, **dtype_argument))
             generation_parameters = self.caption_settings[
@@ -332,7 +378,16 @@ class CaptionThread(QThread):
                                                  **generation_parameters)
             generated_text = processor.batch_decode(
                 generated_token_ids, skip_special_tokens=True)[0]
-            caption = (caption_start + generated_text).strip()
+            if is_llava_model:
+                prompt = prompt.replace('<image>', ' ')
+            if prompt.strip() and generated_text.startswith(prompt):
+                # Autoregressive models like LLaVA include the prompt in the
+                # generated text.
+                caption = generated_text[len(prompt):].strip()
+            else:
+                # Sequence-to-sequence models like BLIP-2 return only the
+                # new tokens in the generated text.
+                caption = (caption_start + generated_text).strip()
             caption_position = self.caption_settings['caption_position']
             tags = add_caption_to_tags(image.tags, caption, caption_position)
             self.caption_generated.emit(image_index, caption, tags)
@@ -340,7 +395,7 @@ class CaptionThread(QThread):
             if selected_image_count > 1:
                 self.progress_bar_update_requested.emit(i + 1)
             if i == 0:
-                self.clear_text_edit_requested.emit()
+                self.clear_console_text_edit_requested.emit()
             print(f'{image.path.name}:\n{caption}')
 
     def write(self, text: str):
@@ -353,7 +408,7 @@ def restore_stdout_and_stderr():
     sys.stderr = sys.__stderr__
 
 
-class Blip2Captioner(QDockWidget):
+class AutoCaptioner(QDockWidget):
     caption_generated = Signal(QModelIndex, str, list)
 
     def __init__(self, image_list_model: ImageListModel,
@@ -364,70 +419,61 @@ class Blip2Captioner(QDockWidget):
         self.processor = None
         self.model = None
         self.model_device_type: str | None = None
-        # Whether the last block of text in the text edit should be replaced
-        # with the next block of text that is outputted.
-        self.replace_last_text_edit_block = False
+        # Whether the last block of text in the console text edit should be
+        # replaced with the next block of text that is outputted.
+        self.replace_last_console_text_edit_block = False
 
         # Each `QDockWidget` needs a unique object name for saving its state.
-        self.setObjectName('blip_2_captioner')
-        self.setWindowTitle('BLIP-2 Captioner')
+        self.setObjectName('auto_captioner')
+        self.setWindowTitle('Auto-Captioner')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
-        self.caption_button = TallPushButton('Caption With BLIP-2')
+        self.caption_button = TallPushButton('Generate Caption(s)')
         self.progress_bar = QProgressBar()
         self.progress_bar.setFormat('%v / %m images captioned (%p%)')
         self.progress_bar.hide()
-        self.text_edit = QPlainTextEdit()
-        # Set the height of the text edit to 5 lines.
-        # From https://stackoverflow.com/a/46997337.
-        document = self.text_edit.document()
-        font_metrics = QFontMetrics(document.defaultFont())
-        margins = self.text_edit.contentsMargins()
-        height = (font_metrics.lineSpacing() * 5
-                  + margins.top() + margins.bottom()
-                  + document.documentMargin() * 2
-                  + self.text_edit.frameWidth() * 2)
-        self.text_edit.setFixedHeight(height)
-        self.text_edit.setReadOnly(True)
+        self.console_text_edit = QPlainTextEdit()
+        set_text_edit_height(self.console_text_edit, 5)
+        self.console_text_edit.setReadOnly(True)
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.addWidget(self.caption_button)
         layout.addWidget(self.progress_bar)
-        layout.addWidget(self.text_edit)
+        layout.addWidget(self.console_text_edit)
         self.caption_settings_form = CaptionSettingsForm()
         layout.addLayout(self.caption_settings_form)
         self.setWidget(container)
 
-        self.caption_button.clicked.connect(self.caption_with_blip_2)
+        self.caption_button.clicked.connect(self.generate_captions)
 
     @Slot(str)
-    def update_text_edit(self, text: str):
+    def update_console_text_edit(self, text: str):
         # '\x1b[A' is the ANSI escape sequence for moving the cursor up.
         if text == '\x1b[A':
-            self.replace_last_text_edit_block = True
+            self.replace_last_console_text_edit_block = True
             return
         text = text.strip()
         if not text:
             return
-        if self.replace_last_text_edit_block:
-            self.replace_last_text_edit_block = False
+        if self.replace_last_console_text_edit_block:
+            self.replace_last_console_text_edit_block = False
             # Select and remove the last block of text.
-            self.text_edit.moveCursor(QTextCursor.End)
-            self.text_edit.moveCursor(QTextCursor.StartOfBlock,
-                                      QTextCursor.KeepAnchor)
-            self.text_edit.textCursor().removeSelectedText()
+            self.console_text_edit.moveCursor(QTextCursor.End)
+            self.console_text_edit.moveCursor(QTextCursor.StartOfBlock,
+                                              QTextCursor.KeepAnchor)
+            self.console_text_edit.textCursor().removeSelectedText()
             # Delete the newline.
-            self.text_edit.textCursor().deletePreviousChar()
-        self.text_edit.appendPlainText(text)
+            self.console_text_edit.textCursor().deletePreviousChar()
+        self.console_text_edit.appendPlainText(text)
 
     @Slot()
-    def caption_with_blip_2(self):
+    def generate_captions(self):
         selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
         if selected_image_count > 1:
             reply = get_confirmation_dialog_reply(
-                title='Caption with BLIP-2',
+                title='Generate Captions',
                 question=f'Caption {selected_image_count} selected images?')
             if reply != QMessageBox.StandardButton.Yes:
                 return
@@ -435,7 +481,8 @@ class Blip2Captioner(QDockWidget):
         caption_settings = self.caption_settings_form.get_caption_settings()
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
             self.image_list_model.add_to_undo_stack(
-                action_name='Caption with BLIP-2',
+                action_name=f'Generate '
+                            f'{pluralize("Caption", selected_image_count)}',
                 should_ask_for_confirmation=selected_image_count > 1)
         if selected_image_count > 1:
             self.progress_bar.setRange(0, selected_image_count)
@@ -444,8 +491,9 @@ class Blip2Captioner(QDockWidget):
         caption_thread = CaptionThread(self, self.image_list_model,
                                        selected_image_indices,
                                        caption_settings)
-        caption_thread.text_outputted.connect(self.update_text_edit)
-        caption_thread.clear_text_edit_requested.connect(self.text_edit.clear)
+        caption_thread.text_outputted.connect(self.update_console_text_edit)
+        caption_thread.clear_console_text_edit_requested.connect(
+            self.console_text_edit.clear)
         caption_thread.caption_generated.connect(self.caption_generated)
         caption_thread.progress_bar_update_requested.connect(
             self.progress_bar.setValue)
