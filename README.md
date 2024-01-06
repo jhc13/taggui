@@ -168,8 +168,8 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 
 ## Controls
 
-- Previous / next image: `Ctrl`+`Up` / `Down` (just `Up` / `Down` also works in
-  some cases)
+- ⭐ Previous / next image: `Ctrl`+`Up` / `Down` (just `Up` / `Down` also works
+  in some cases)
 - Jump to first untagged image: `Ctrl`+`J`
 - Focus the `Filter Images` box: `Alt`+`F`
 - Focus the `Add Tag` box: `Alt`+`A`
@@ -181,7 +181,7 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 
 - First / last image: `Home` / `End`
 - Select multiple images: Hold `Ctrl` or `Shift` and click the images
-- ⭐ Select all images: `Ctrl`+`A`
+- Select all images: `Ctrl`+`A`
 - Right-clicking on an image will bring up the context menu, which includes
   actions such as copying and pasting tags and moving or copying selected
   images to another directory.
