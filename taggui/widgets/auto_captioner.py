@@ -77,7 +77,11 @@ class CaptionSettingsForm(QVBoxLayout):
     def __init__(self, settings: QSettings):
         super().__init__()
         self.settings = settings
-
+        try:
+            import bitsandbytes
+            self.is_bitsandbytes_available = True
+        except RuntimeError:
+            self.is_bitsandbytes_available = False
         self.basic_settings_form = QFormLayout()
         self.basic_settings_form.setRowWrapPolicy(
             QFormLayout.RowWrapPolicy.WrapAllRows)
@@ -209,11 +213,16 @@ class CaptionSettingsForm(QVBoxLayout):
 
         # Restore previous caption settings.
         self.load_caption_settings()
+        if not self.is_bitsandbytes_available:
+            self.load_in_4_bit_check_box.setChecked(False)
+        self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
 
     @Slot(str)
     def set_load_in_4_bit_visibility(self, device: str):
+        is_load_in_4_bit_available = (self.is_bitsandbytes_available
+                                      and device == Device.GPU)
         self.basic_settings_form.setRowVisible(self.load_in_4_bit_check_box,
-                                               device == Device.GPU)
+                                               is_load_in_4_bit_available)
 
     @Slot()
     def toggle_advanced_settings_form(self):
