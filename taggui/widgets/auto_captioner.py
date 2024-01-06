@@ -481,8 +481,9 @@ class AutoCaptioner(QDockWidget):
         self.progress_bar.setFormat('%v / %m images captioned (%p%)')
         self.progress_bar.hide()
         self.console_text_edit = QPlainTextEdit()
-        set_text_edit_height(self.console_text_edit, 5)
+        set_text_edit_height(self.console_text_edit, 4)
         self.console_text_edit.setReadOnly(True)
+        self.console_text_edit.hide()
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.addWidget(self.caption_button)
@@ -509,6 +510,8 @@ class AutoCaptioner(QDockWidget):
         text = text.strip()
         if not text:
             return
+        if self.console_text_edit.isHidden():
+            self.console_text_edit.show()
         if self.replace_last_console_text_edit_block:
             self.replace_last_console_text_edit_block = False
             # Select and remove the last block of text.
