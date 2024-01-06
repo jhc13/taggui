@@ -168,11 +168,12 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 
 ## Controls
 
-- Previous / next image: `Up` / `Down` arrow keys
+- Previous / next image: `Ctrl`+`Up` / `Down` (just `Up` / `Down` also works in
+  some cases)
 - Jump to first untagged image: `Ctrl`+`J`
 - Focus the `Filter Images` box: `Alt`+`F`
-- Focus the image list: `Alt`+`L`
 - Focus the `Add Tag` box: `Alt`+`A`
+- Focus the image tags list: `Alt`+`I`
 - Focus the `Search Tags` box: `Alt`+`S`
 - Focus the `Run Auto-Captioner` button: `Alt`+`C`
 
