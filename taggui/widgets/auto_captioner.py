@@ -66,12 +66,21 @@ def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
     text_edit.setFixedHeight(height)
 
 
+class HorizontalLine(QFrame):
+    def __init__(self):
+        super().__init__()
+        self.setFrameShape(QFrame.Shape.HLine)
+        self.setFrameShadow(QFrame.Shadow.Raised)
+
+
 class CaptionSettingsForm(QVBoxLayout):
     def __init__(self, settings: QSettings):
         super().__init__()
         self.settings = settings
 
         self.basic_settings_form = QFormLayout()
+        self.basic_settings_form.setRowWrapPolicy(
+            QFormLayout.RowWrapPolicy.WrapAllRows)
         self.basic_settings_form.setLabelAlignment(Qt.AlignRight)
         self.prompt_text_edit = QPlainTextEdit()
         set_text_edit_height(self.prompt_text_edit, 2)
@@ -84,34 +93,22 @@ class CaptionSettingsForm(QVBoxLayout):
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItems(list(Device))
         self.load_in_4_bit_check_box = BigCheckBox()
-        self.basic_settings_form.addRow('Prompt:', self.prompt_text_edit)
-        self.basic_settings_form.addRow('Start caption with:',
+        self.basic_settings_form.addRow('Prompt', self.prompt_text_edit)
+        self.basic_settings_form.addRow('Start caption with',
                                         self.caption_start_line_edit)
-        self.basic_settings_form.addRow('Caption position:',
+        self.basic_settings_form.addRow('Caption position',
                                         self.caption_position_combo_box)
-        self.basic_settings_form.addRow('Model:', self.model_combo_box)
-        self.basic_settings_form.addRow('Device:', self.device_combo_box)
+        self.basic_settings_form.addRow('Model', self.model_combo_box)
+        self.basic_settings_form.addRow('Device', self.device_combo_box)
         self.basic_settings_form.addRow('Load in 4-bit:',
                                         self.load_in_4_bit_check_box)
 
-        horizontal_line = QFrame()
-        horizontal_line.setFrameShape(QFrame.Shape.HLine)
-        horizontal_line.setFrameShadow(QFrame.Shadow.Raised)
         self.toggle_advanced_settings_form_button = TallPushButton(
             'Show Advanced Settings')
 
-        advanced_settings_form_container = QWidget()
-        self.advanced_settings_form_scroll_area = QScrollArea()
-        self.advanced_settings_form_scroll_area.setWidgetResizable(True)
-        self.advanced_settings_form_scroll_area.setSizeAdjustPolicy(
-            QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
-        self.advanced_settings_form_scroll_area.setFrameShape(
-            QFrame.Shape.NoFrame)
-        self.advanced_settings_form_scroll_area.setWidget(
-            advanced_settings_form_container)
-        self.advanced_settings_form_scroll_area.hide()
+        self.advanced_settings_form_container = QWidget()
         advanced_settings_form = QFormLayout(
-            advanced_settings_form_container)
+            self.advanced_settings_form_container)
         advanced_settings_form.setLabelAlignment(Qt.AlignRight)
         self.convert_tag_separators_to_spaces_check_box = BigCheckBox()
         self.min_new_token_count_spin_box = QSpinBox()
@@ -159,11 +156,12 @@ class CaptionSettingsForm(QVBoxLayout):
                                       self.repetition_penalty_spin_box)
         advanced_settings_form.addRow('No repeat n-gram size:',
                                       self.no_repeat_ngram_size_spin_box)
+        self.advanced_settings_form_container.hide()
 
         self.addLayout(self.basic_settings_form)
-        self.addWidget(horizontal_line)
+        self.addWidget(HorizontalLine())
         self.addWidget(self.toggle_advanced_settings_form_button)
-        self.addWidget(self.advanced_settings_form_scroll_area)
+        self.addWidget(self.advanced_settings_form_container)
         self.addStretch()
 
         self.toggle_advanced_settings_form_button.clicked.connect(
@@ -219,12 +217,12 @@ class CaptionSettingsForm(QVBoxLayout):
 
     @Slot()
     def toggle_advanced_settings_form(self):
-        if self.advanced_settings_form_scroll_area.isHidden():
-            self.advanced_settings_form_scroll_area.show()
+        if self.advanced_settings_form_container.isHidden():
+            self.advanced_settings_form_container.show()
             self.toggle_advanced_settings_form_button.setText(
                 'Hide Advanced Settings')
         else:
-            self.advanced_settings_form_scroll_area.hide()
+            self.advanced_settings_form_container.hide()
             self.toggle_advanced_settings_form_button.setText(
                 'Show Advanced Settings')
 
@@ -485,7 +483,6 @@ class AutoCaptioner(QDockWidget):
         self.console_text_edit = QPlainTextEdit()
         set_text_edit_height(self.console_text_edit, 5)
         self.console_text_edit.setReadOnly(True)
-        # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.addWidget(self.caption_button)
@@ -493,7 +490,13 @@ class AutoCaptioner(QDockWidget):
         layout.addWidget(self.console_text_edit)
         self.caption_settings_form = CaptionSettingsForm(self.settings)
         layout.addLayout(self.caption_settings_form)
-        self.setWidget(container)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setSizeAdjustPolicy(
+            QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setWidget(container)
+        self.setWidget(scroll_area)
 
         self.caption_button.clicked.connect(self.generate_captions)
 
