@@ -6,7 +6,7 @@ Cross-platform desktop application for quickly adding and editing image tags,
 aimed towards creators of image datasets for generative AI models like Stable
 Diffusion.
 
-<img src='images/screenshot-v1.6.0.png' alt='TagGUI screenshot' width='100%'>
+<img src='images/screenshot-v1.9.0.png' alt='TagGUI screenshot' width='100%'>
 
 ## Features
 
@@ -15,7 +15,7 @@ Diffusion.
 - Integrated Stable Diffusion token counter
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
-- BLIP-2 caption generation
+- Automatic caption generation using LLaVA and BLIP-2
 
 ## Installation
 
@@ -51,24 +51,25 @@ You can change the settings in `File` -> `Settings`.
 Panes can be resized, undocked, moved around, or placed on top of each
 other to create a tabbed interface.
 
-## BLIP-2 Captioning
+## Automatic Captioning
 
-In addition to manual tagging, you can use the BLIP-2 model to automatically
-generate captions for your images inside TagGUI.
+In addition to manual tagging, you can automatically generate captions for your
+images inside TagGUI.
 GPU generation requires a compatible NVIDIA GPU, and CPU generation is also
 supported.
 
 To use the feature, select the images you want to caption in the image list,
-then click the `Caption With BLIP-2` button in the BLIP-2 Captioner pane.
+select the captioning model you want to use in the Auto-Captioner pane, and
+click the `Run Auto-Captioner` button.
 You can select a single image to get a caption for that image, or multiple
 images to batch generate captions for all of them.
-It can take up to several minutes to download and load the model when you first
+It can take up to several minutes to download and load a model when you first
 use it, but subsequent generations will be much faster.
 
-You can put some text inside the `Start caption with:` box to make the model
-generate captions that start with that text.
-For example, you can write `A photo of a person wearing` to get captions that
-describe the clothing of the subject.
+You can use the `Prompt` box to set the instructions given to the captioning
+model.
+You can also put some text inside the `Start caption with` box to make the
+model generate captions that start with that text.
 Additional generation parameters such as the minimum number of tokens and the
 repetition penalty can be viewed and changed by clicking the
 `Show Advanced Settings` button.
@@ -167,13 +168,14 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 
 ## Controls
 
-- Previous / next image: `Up` / `Down` arrow keys
+- Previous / next image: `Ctrl`+`Up` / `Down` (just `Up` / `Down` also works in
+  some cases)
 - Jump to first untagged image: `Ctrl`+`J`
 - Focus the `Filter Images` box: `Alt`+`F`
-- Focus the image list: `Alt`+`L`
 - Focus the `Add Tag` box: `Alt`+`A`
+- Focus the image tags list: `Alt`+`I`
 - Focus the `Search Tags` box: `Alt`+`S`
-- Focus the `Caption With BLIP-2` button: `Alt`+`C`
+- Focus the `Run Auto-Captioner` button: `Alt`+`C`
 
 ### Images pane
 

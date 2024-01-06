@@ -159,6 +159,18 @@ class ImageTagsEditor(QDockWidget):
                                        f'{MAX_TOKEN_COUNT} Tokens')
 
     @Slot()
+    def select_first_tag(self):
+        if self.image_tag_list_model.rowCount() == 0:
+            return
+        # If the current index is not set, the `Down` key has to be pressed
+        # twice to select the second tag.
+        self.image_tags_list.setCurrentIndex(
+            self.image_tag_list_model.index(0))
+        self.image_tags_list.selectionModel().select(
+            self.image_tag_list_model.index(0),
+            QItemSelectionModel.SelectionFlag.ClearAndSelect)
+
+    @Slot()
     def load_image_tags(self, proxy_image_index: QModelIndex):
         self.image_index = self.proxy_image_list_model.mapToSource(
             proxy_image_index)
@@ -166,6 +178,8 @@ class ImageTagsEditor(QDockWidget):
                                                         Qt.UserRole)
         self.image_tag_list_model.setStringList(image.tags)
         self.count_tokens()
+        if self.image_tags_list.hasFocus():
+            self.select_first_tag()
 
     @Slot()
     def reload_image_tags_if_changed(self, first_changed_index: QModelIndex,

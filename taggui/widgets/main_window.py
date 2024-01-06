@@ -23,7 +23,7 @@ from utils.settings import get_separator, get_settings
 from utils.shortcut_remover import ShortcutRemover
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
-from widgets.blip_2_captioner import Blip2Captioner
+from widgets.auto_captioner import AutoCaptioner
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer
@@ -69,10 +69,10 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
-        self.blip_2_captioner = Blip2Captioner(self.image_list_model,
-                                               self.image_list)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.blip_2_captioner)
-        self.tabifyDockWidget(self.all_tags_editor, self.blip_2_captioner)
+        self.auto_captioner = AutoCaptioner(self.image_list_model,
+                                            self.image_list)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.auto_captioner)
+        self.tabifyDockWidget(self.all_tags_editor, self.auto_captioner)
         self.all_tags_editor.raise_()
         # Set default widths for the dock widgets.
         # Temporarily set a size for the window so that the dock widgets can be
@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
                          Qt.Horizontal)
         # Disable some widgets until a directory is loaded.
         self.image_tags_editor.tag_input_box.setDisabled(True)
-        self.blip_2_captioner.caption_button.setDisabled(True)
+        self.auto_captioner.caption_button.setDisabled(True)
         self.reload_directory_action = QAction('Reload Directory', parent=self)
         self.reload_directory_action.setDisabled(True)
         self.undo_action = QAction('Undo', parent=self)
@@ -95,8 +95,8 @@ class MainWindow(QMainWindow):
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
         self.toggle_all_tags_editor_action = QAction('All Tags', parent=self)
-        self.toggle_blip_2_captioner_action = QAction('BLIP-2 Captioner',
-                                                      parent=self)
+        self.toggle_auto_captioner_action = QAction('Auto-Captioner',
+                                                    parent=self)
         self.create_menus()
 
         self.image_list_selection_model = (self.image_list.list_view
@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
         self.connect_image_list_signals()
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()
-        self.connect_blip_2_captioner_signals()
+        self.connect_auto_captioner_signals()
         # Forward any unhandled image changing key presses to the image list.
         key_press_forwarder = KeyPressForwarder(
             parent=self, target=self.image_list.list_view,
@@ -129,15 +129,18 @@ class MainWindow(QMainWindow):
             self.image_list.raise_)
         focus_filter_images_box_shortcut.activated.connect(
             self.image_list.filter_line_edit.setFocus)
-        focus_image_list_shortcut = QShortcut(QKeySequence('Alt+L'), self)
-        focus_image_list_shortcut.activated.connect(self.image_list.raise_)
-        focus_image_list_shortcut.activated.connect(
-            self.image_list.list_view.setFocus)
         focus_add_tag_box_shortcut = QShortcut(QKeySequence('Alt+A'), self)
         focus_add_tag_box_shortcut.activated.connect(
             self.image_tags_editor.raise_)
         focus_add_tag_box_shortcut.activated.connect(
             self.image_tags_editor.tag_input_box.setFocus)
+        focus_image_tags_list_shortcut = QShortcut(QKeySequence('Alt+I'), self)
+        focus_image_tags_list_shortcut.activated.connect(
+            self.image_tags_editor.raise_)
+        focus_image_tags_list_shortcut.activated.connect(
+            self.image_tags_editor.image_tags_list.setFocus)
+        focus_image_tags_list_shortcut.activated.connect(
+            self.image_tags_editor.select_first_tag)
         focus_search_tags_box_shortcut = QShortcut(QKeySequence('Alt+S'), self)
         focus_search_tags_box_shortcut.activated.connect(
             self.all_tags_editor.raise_)
@@ -145,9 +148,16 @@ class MainWindow(QMainWindow):
             self.all_tags_editor.filter_line_edit.setFocus)
         focus_caption_button_shortcut = QShortcut(QKeySequence('Alt+C'), self)
         focus_caption_button_shortcut.activated.connect(
-            self.blip_2_captioner.raise_)
+            self.auto_captioner.raise_)
         focus_caption_button_shortcut.activated.connect(
-            self.blip_2_captioner.caption_button.setFocus)
+            self.auto_captioner.caption_button.setFocus)
+        go_to_previous_image_shortcut = QShortcut(QKeySequence('Ctrl+Up'),
+                                                  self)
+        go_to_previous_image_shortcut.activated.connect(
+            self.image_list.go_to_previous_image)
+        go_to_next_image_shortcut = QShortcut(QKeySequence('Ctrl+Down'), self)
+        go_to_next_image_shortcut.activated.connect(
+            self.image_list.go_to_next_image)
         jump_to_first_untagged_image_shortcut = QShortcut(
             QKeySequence('Ctrl+J'), self)
         jump_to_first_untagged_image_shortcut.activated.connect(
@@ -194,7 +204,7 @@ class MainWindow(QMainWindow):
         self.centralWidget().setCurrentWidget(self.image_viewer)
         self.reload_directory_action.setDisabled(False)
         self.image_tags_editor.tag_input_box.setDisabled(False)
-        self.blip_2_captioner.caption_button.setDisabled(False)
+        self.auto_captioner.caption_button.setDisabled(False)
 
     @Slot()
     def select_and_load_directory(self):
@@ -329,19 +339,19 @@ class MainWindow(QMainWindow):
         self.toggle_image_list_action.setCheckable(True)
         self.toggle_image_tags_editor_action.setCheckable(True)
         self.toggle_all_tags_editor_action.setCheckable(True)
-        self.toggle_blip_2_captioner_action.setCheckable(True)
+        self.toggle_auto_captioner_action.setCheckable(True)
         self.toggle_image_list_action.triggered.connect(
             lambda is_checked: self.image_list.setVisible(is_checked))
         self.toggle_image_tags_editor_action.triggered.connect(
             lambda is_checked: self.image_tags_editor.setVisible(is_checked))
         self.toggle_all_tags_editor_action.triggered.connect(
             lambda is_checked: self.all_tags_editor.setVisible(is_checked))
-        self.toggle_blip_2_captioner_action.triggered.connect(
-            lambda is_checked: self.blip_2_captioner.setVisible(is_checked))
+        self.toggle_auto_captioner_action.triggered.connect(
+            lambda is_checked: self.auto_captioner.setVisible(is_checked))
         view_menu.addAction(self.toggle_image_list_action)
         view_menu.addAction(self.toggle_image_tags_editor_action)
         view_menu.addAction(self.toggle_all_tags_editor_action)
-        view_menu.addAction(self.toggle_blip_2_captioner_action)
+        view_menu.addAction(self.toggle_auto_captioner_action)
 
         help_menu = menu_bar.addMenu('Help')
         open_github_repository_action = QAction('GitHub', parent=self)
@@ -514,17 +524,17 @@ class MainWindow(QMainWindow):
             lambda: self.toggle_all_tags_editor_action.setChecked(
                 self.all_tags_editor.isVisible()))
 
-    def connect_blip_2_captioner_signals(self):
-        self.blip_2_captioner.caption_generated.connect(
+    def connect_auto_captioner_signals(self):
+        self.auto_captioner.caption_generated.connect(
             lambda image_index, _, tags:
             self.image_list_model.update_image_tags(image_index, tags))
-        self.blip_2_captioner.caption_generated.connect(
+        self.auto_captioner.caption_generated.connect(
             lambda image_index, *_:
             self.image_tags_editor.reload_image_tags_if_changed(image_index,
                                                                 image_index))
-        self.blip_2_captioner.visibilityChanged.connect(
-            lambda: self.toggle_blip_2_captioner_action.setChecked(
-                self.blip_2_captioner.isVisible()))
+        self.auto_captioner.visibilityChanged.connect(
+            lambda: self.toggle_auto_captioner_action.setChecked(
+                self.auto_captioner.isVisible()))
 
     def restore(self):
         # Restore the window geometry and state.

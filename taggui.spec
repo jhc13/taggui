@@ -1,8 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_data_files, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, copy_metadata
 
+binaries = collect_dynamic_libs('bitsandbytes')
+hiddenimports = ['triton._C.libtriton']
 datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'), ('images/icon.ico', 'images')]
 datas += collect_data_files('transformers', include_py_files=True, includes=['**/*.py'])
+datas += collect_data_files('triton')
 datas += copy_metadata('transformers', recursive=True)
 
 
@@ -12,9 +15,9 @@ block_cipher = None
 a = Analysis(
     ['taggui/run_gui.py'],
     pathex=['taggui'],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -23,6 +26,10 @@ a = Analysis(
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
+    module_collection_mode={
+        'bitsandbytes': 'pyz+py',
+        'triton': 'py',
+    },
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
