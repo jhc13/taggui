@@ -129,15 +129,18 @@ class MainWindow(QMainWindow):
             self.image_list.raise_)
         focus_filter_images_box_shortcut.activated.connect(
             self.image_list.filter_line_edit.setFocus)
-        focus_image_list_shortcut = QShortcut(QKeySequence('Alt+L'), self)
-        focus_image_list_shortcut.activated.connect(self.image_list.raise_)
-        focus_image_list_shortcut.activated.connect(
-            self.image_list.list_view.setFocus)
         focus_add_tag_box_shortcut = QShortcut(QKeySequence('Alt+A'), self)
         focus_add_tag_box_shortcut.activated.connect(
             self.image_tags_editor.raise_)
         focus_add_tag_box_shortcut.activated.connect(
             self.image_tags_editor.tag_input_box.setFocus)
+        focus_image_tags_list_shortcut = QShortcut(QKeySequence('Alt+I'), self)
+        focus_image_tags_list_shortcut.activated.connect(
+            self.image_tags_editor.raise_)
+        focus_image_tags_list_shortcut.activated.connect(
+            self.image_tags_editor.image_tags_list.setFocus)
+        focus_image_tags_list_shortcut.activated.connect(
+            self.image_tags_editor.select_first_tag)
         focus_search_tags_box_shortcut = QShortcut(QKeySequence('Alt+S'), self)
         focus_search_tags_box_shortcut.activated.connect(
             self.all_tags_editor.raise_)
