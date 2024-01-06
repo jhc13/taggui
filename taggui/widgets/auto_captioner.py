@@ -1,5 +1,4 @@
 import gc
-import os
 import sys
 from enum import Enum
 
@@ -21,9 +20,6 @@ from utils.image import Image
 from utils.settings import get_separator, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
-
-# Disable the warning about windows not supporting symlinks.
-os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
 
 MODELS = [
     'llava-hf/bakLlava-v1-hf',
