@@ -7,9 +7,10 @@ from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QSettings, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QAbstractScrollArea, QComboBox, QDockWidget,
-                               QDoubleSpinBox, QFormLayout, QFrame, QLineEdit,
-                               QMessageBox, QPlainTextEdit, QProgressBar,
-                               QScrollArea, QSpinBox, QVBoxLayout, QWidget)
+                               QDoubleSpinBox, QFormLayout, QFrame,
+                               QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+                               QPlainTextEdit, QProgressBar, QScrollArea,
+                               QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import (AutoModelForVision2Seq, AutoProcessor,
                           BitsAndBytesConfig)
@@ -81,7 +82,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.basic_settings_form = QFormLayout()
         self.basic_settings_form.setRowWrapPolicy(
             QFormLayout.RowWrapPolicy.WrapAllRows)
-        self.basic_settings_form.setLabelAlignment(Qt.AlignRight)
+        self.basic_settings_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.prompt_text_edit = QPlainTextEdit()
         set_text_edit_height(self.prompt_text_edit, 2)
         self.caption_start_line_edit = QLineEdit()
@@ -92,7 +94,6 @@ class CaptionSettingsForm(QVBoxLayout):
         self.model_combo_box.addItems(MODELS)
         self.device_combo_box = QComboBox()
         self.device_combo_box.addItems(list(Device))
-        self.load_in_4_bit_check_box = BigCheckBox()
         self.basic_settings_form.addRow('Prompt', self.prompt_text_edit)
         self.basic_settings_form.addRow('Start caption with',
                                         self.caption_start_line_edit)
@@ -100,8 +101,15 @@ class CaptionSettingsForm(QVBoxLayout):
                                         self.caption_position_combo_box)
         self.basic_settings_form.addRow('Model', self.model_combo_box)
         self.basic_settings_form.addRow('Device', self.device_combo_box)
-        self.basic_settings_form.addRow('Load in 4-bit:',
-                                        self.load_in_4_bit_check_box)
+
+        self.load_in_4_bit_container = QWidget()
+        self.load_in_4_bit_layout = QHBoxLayout()
+        self.load_in_4_bit_layout.setAlignment(Qt.AlignLeft)
+        self.load_in_4_bit_layout.setContentsMargins(0, 0, 0, 0)
+        self.load_in_4_bit_check_box = BigCheckBox()
+        self.load_in_4_bit_layout.addWidget(QLabel('Load in 4-bit'))
+        self.load_in_4_bit_layout.addWidget(self.load_in_4_bit_check_box)
+        self.load_in_4_bit_container.setLayout(self.load_in_4_bit_layout)
 
         self.toggle_advanced_settings_form_button = TallPushButton(
             'Show Advanced Settings')
@@ -110,6 +118,8 @@ class CaptionSettingsForm(QVBoxLayout):
         advanced_settings_form = QFormLayout(
             self.advanced_settings_form_container)
         advanced_settings_form.setLabelAlignment(Qt.AlignRight)
+        advanced_settings_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.convert_tag_separators_to_spaces_check_box = BigCheckBox()
         self.min_new_token_count_spin_box = QSpinBox()
         self.min_new_token_count_spin_box.setRange(1, 999)
@@ -136,29 +146,30 @@ class CaptionSettingsForm(QVBoxLayout):
         self.no_repeat_ngram_size_spin_box = QSpinBox()
         self.no_repeat_ngram_size_spin_box.setRange(0, 5)
         advanced_settings_form.addRow(
-            'Tag separators to spaces:',
+            'Tag separators to spaces',
             self.convert_tag_separators_to_spaces_check_box)
-        advanced_settings_form.addRow('Minimum tokens:',
+        advanced_settings_form.addRow('Minimum tokens',
                                       self.min_new_token_count_spin_box)
-        advanced_settings_form.addRow('Maximum tokens:',
+        advanced_settings_form.addRow('Maximum tokens',
                                       self.max_new_token_count_spin_box)
-        advanced_settings_form.addRow('Number of beams:',
+        advanced_settings_form.addRow('Number of beams',
                                       self.beam_count_spin_box)
-        advanced_settings_form.addRow('Length penalty:',
+        advanced_settings_form.addRow('Length penalty',
                                       self.length_penalty_spin_box)
-        advanced_settings_form.addRow('Use sampling:',
+        advanced_settings_form.addRow('Use sampling',
                                       self.use_sampling_check_box)
-        advanced_settings_form.addRow('Temperature:',
+        advanced_settings_form.addRow('Temperature',
                                       self.temperature_spin_box)
-        advanced_settings_form.addRow('Top-k:', self.top_k_spin_box)
-        advanced_settings_form.addRow('Top-p:', self.top_p_spin_box)
-        advanced_settings_form.addRow('Repetition penalty:',
+        advanced_settings_form.addRow('Top-k', self.top_k_spin_box)
+        advanced_settings_form.addRow('Top-p', self.top_p_spin_box)
+        advanced_settings_form.addRow('Repetition penalty',
                                       self.repetition_penalty_spin_box)
-        advanced_settings_form.addRow('No repeat n-gram size:',
+        advanced_settings_form.addRow('No repeat n-gram size',
                                       self.no_repeat_ngram_size_spin_box)
         self.advanced_settings_form_container.hide()
 
         self.addLayout(self.basic_settings_form)
+        self.addWidget(self.load_in_4_bit_container)
         self.addWidget(HorizontalLine())
         self.addWidget(self.toggle_advanced_settings_form_button)
         self.addWidget(self.advanced_settings_form_container)
@@ -217,8 +228,7 @@ class CaptionSettingsForm(QVBoxLayout):
     def set_load_in_4_bit_visibility(self, device: str):
         is_load_in_4_bit_available = (self.is_bitsandbytes_available
                                       and device == Device.GPU)
-        self.basic_settings_form.setRowVisible(self.load_in_4_bit_check_box,
-                                               is_load_in_4_bit_available)
+        self.load_in_4_bit_container.setVisible(is_load_in_4_bit_available)
 
     @Slot()
     def toggle_advanced_settings_form(self):
