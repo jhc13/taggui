@@ -166,6 +166,15 @@ class ImageTagsEditor(QDockWidget):
                                                         Qt.UserRole)
         self.image_tag_list_model.setStringList(image.tags)
         self.count_tokens()
+        # If the focus is on the image tags list, select the first tag.
+        if self.image_tags_list.hasFocus():
+            # If the current index is not set, the `Down` key has to be pressed
+            # twice to select the second tag.
+            self.image_tags_list.setCurrentIndex(
+                self.image_tag_list_model.index(0))
+            self.image_tags_list.selectionModel().select(
+                self.image_tag_list_model.index(0),
+                QItemSelectionModel.SelectionFlag.ClearAndSelect)
 
     @Slot()
     def reload_image_tags_if_changed(self, first_changed_index: QModelIndex,

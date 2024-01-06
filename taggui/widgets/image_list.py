@@ -310,6 +310,25 @@ class ImageList(QDockWidget):
         self.image_index_label.setText(label_text)
 
     @Slot()
+    def go_to_previous_image(self):
+        if self.list_view.selectionModel().currentIndex().row() == 0:
+            return
+        self.list_view.clearSelection()
+        previous_image_index = self.proxy_image_list_model.index(
+            self.list_view.selectionModel().currentIndex().row() - 1, 0)
+        self.list_view.setCurrentIndex(previous_image_index)
+
+    @Slot()
+    def go_to_next_image(self):
+        if (self.list_view.selectionModel().currentIndex().row()
+                == self.proxy_image_list_model.rowCount() - 1):
+            return
+        self.list_view.clearSelection()
+        next_image_index = self.proxy_image_list_model.index(
+            self.list_view.selectionModel().currentIndex().row() + 1, 0)
+        self.list_view.setCurrentIndex(next_image_index)
+
+    @Slot()
     def jump_to_first_untagged_image(self):
         """
         Select the first image that has no tags, or the last image if all

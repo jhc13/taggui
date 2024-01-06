@@ -148,6 +148,13 @@ class MainWindow(QMainWindow):
             self.auto_captioner.raise_)
         focus_caption_button_shortcut.activated.connect(
             self.auto_captioner.caption_button.setFocus)
+        go_to_previous_image_shortcut = QShortcut(QKeySequence('Ctrl+Up'),
+                                                  self)
+        go_to_previous_image_shortcut.activated.connect(
+            self.image_list.go_to_previous_image)
+        go_to_next_image_shortcut = QShortcut(QKeySequence('Ctrl+Down'), self)
+        go_to_next_image_shortcut.activated.connect(
+            self.image_list.go_to_next_image)
         jump_to_first_untagged_image_shortcut = QShortcut(
             QKeySequence('Ctrl+J'), self)
         jump_to_first_untagged_image_shortcut.activated.connect(
