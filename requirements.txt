@@ -11,6 +11,5 @@ bitsandbytes==0.42.0; platform_system != "Windows"
 https://github.com/jllllll/bitsandbytes-windows-webui/releases/download/wheels/bitsandbytes-0.41.2.post2-py3-none-win_amd64.whl; platform_system == "Windows"
 
 # PyTorch
---find-links https://download.pytorch.org/whl/torch_stable.html
 torch==2.1.2; platform_system != "Windows"
-torch==2.1.2+cu121; platform_system == "Windows"
+https://download.pytorch.org/whl/cu121/torch-2.1.2%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows"
