@@ -16,6 +16,7 @@ Diffusion.
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
 - Automatic caption generation with LLaVA, BLIP-2, InstructBLIP, and KOSMOS-2
+- Option to load auto-captioning models in 4-bit for reduced VRAM usage
 
 ## Installation
 
