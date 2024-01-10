@@ -30,7 +30,12 @@ MODELS = [
     'Salesforce/blip2-opt-6.7b',
     'Salesforce/blip2-opt-6.7b-coco',
     'Salesforce/blip2-flan-t5-xl',
-    'Salesforce/blip2-flan-t5-xxl'
+    'Salesforce/blip2-flan-t5-xxl',
+    'Salesforce/instructblip-vicuna-7b',
+    'Salesforce/instructblip-vicuna-13b',
+    'Salesforce/instructblip-flan-t5-xl',
+    'Salesforce/instructblip-flan-t5-xxl',
+    'microsoft/kosmos-2-patch14-224'
 ]
 
 
@@ -414,17 +419,22 @@ class CaptionThread(QThread):
         for i, image_index in enumerate(self.selected_image_indices):
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             pil_image = PilImage.open(image.path)
+            # Prepare the input text.
             prompt = self.caption_settings['prompt']
             caption_start = self.caption_settings['caption_start']
             is_llava_model = 'llava' in model_id.lower()
+            is_kosmos_model = 'kosmos' in model_id.lower()
             if is_llava_model:
                 if not prompt:
                     prompt = 'Briefly caption the image.'
                 prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
+            elif is_kosmos_model:
+                prompt = f'<grounding>{prompt}'
             if prompt and caption_start:
                 text = f'{prompt} {caption_start}'
             else:
                 text = prompt + caption_start
+            # Generate the output text.
             dtype_argument = ({'dtype': torch.float16}
                               if device.type == 'cuda' else {})
             model_inputs = (processor(text=text, images=pil_image,
@@ -436,16 +446,21 @@ class CaptionThread(QThread):
                                                  **generation_parameters)
             generated_text = processor.batch_decode(
                 generated_token_ids, skip_special_tokens=True)[0]
+            # Post-process the generated text.
             if is_llava_model:
                 prompt = prompt.replace('<image>', ' ')
+            elif is_kosmos_model:
+                generated_text, _ = processor.post_process_generation(
+                    generated_text)
+                prompt = prompt.replace('<grounding>', '')
             if prompt.strip() and generated_text.startswith(prompt):
-                # Autoregressive models like LLaVA include the prompt in the
-                # generated text.
-                caption = generated_text[len(prompt):].strip()
+                caption = generated_text[len(prompt):]
+            elif (caption_start.strip()
+                  and generated_text.startswith(caption_start)):
+                caption = generated_text
             else:
-                # Sequence-to-sequence models like BLIP-2 return only the
-                # new tokens in the generated text.
-                caption = (caption_start + generated_text).strip()
+                caption = f'{caption_start.strip()} {generated_text.strip()}'
+            caption = caption.strip()
             if self.caption_settings['convert_tag_separators_to_spaces']:
                 caption = caption.replace(self.tag_separator, ' ')
             caption_position = self.caption_settings['caption_position']
