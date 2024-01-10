@@ -2,9 +2,9 @@
 
 <img src='images/icon.png' alt='TagGUI icon' width='128'>
 
-Cross-platform desktop application for quickly adding and editing image tags,
-aimed towards creators of image datasets for generative AI models like Stable
-Diffusion.
+Cross-platform desktop application for quickly adding and editing image tags
+and captions, aimed towards creators of image datasets for generative AI models
+like Stable Diffusion.
 
 <img src='images/screenshot-v1.9.0.png' alt='TagGUI screenshot' width='100%'>
 
