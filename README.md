@@ -15,7 +15,7 @@ Diffusion.
 - Integrated Stable Diffusion token counter
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
-- Automatic caption generation using LLaVA and BLIP-2
+- Automatic caption generation with LLaVA, BLIP-2, InstructBLIP, and KOSMOS-2
 
 ## Installation
 
@@ -68,6 +68,7 @@ use it, but subsequent generations will be much faster.
 
 You can use the `Prompt` box to set the instructions given to the captioning
 model.
+Prompt formats are handled automatically based on the selected model.
 You can also put some text inside the `Start caption with` box to make the
 model generate captions that start with that text.
 Additional generation parameters such as the minimum number of tokens and the
