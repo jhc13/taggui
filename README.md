@@ -15,7 +15,7 @@ like Stable Diffusion.
 - Integrated Stable Diffusion token counter
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
-- Automatic caption generation with LLaVA, BLIP-2, InstructBLIP, and KOSMOS-2
+- Automatic caption generation with models including LLaVA, BLIP-2, KOSMOS-2, and CogVLM
 - Option to load auto-captioning models in 4-bit for reduced VRAM usage
 
 ## Installation
