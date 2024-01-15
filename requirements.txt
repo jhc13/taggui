@@ -13,3 +13,10 @@ https://github.com/jllllll/bitsandbytes-windows-webui/releases/download/wheels/b
 # PyTorch
 torch==2.1.2; platform_system != "Windows"
 https://download.pytorch.org/whl/cu121/torch-2.1.2%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows"
+
+# CogVLM dependencies
+einops==0.7.0
+protobuf==4.25.2
+sentencepiece==0.1.99
+torchvision==0.16.2
+xformers==0.0.23.post1
