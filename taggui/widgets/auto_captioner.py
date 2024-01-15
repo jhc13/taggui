@@ -1,6 +1,6 @@
 import gc
 import sys
-from enum import Enum
+from enum import Enum, auto
 
 import torch
 from PIL import Image as PilImage
@@ -12,8 +12,9 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QComboBox, QDockWidget,
                                QPlainTextEdit, QProgressBar, QScrollArea,
                                QSpinBox, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
-from transformers import (AutoModelForVision2Seq, AutoProcessor,
-                          BitsAndBytesConfig)
+from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
+                          AutoProcessor, BatchFeature, BitsAndBytesConfig,
+                          LlamaTokenizer)
 
 from models.image_list_model import ImageListModel
 from utils.big_widgets import BigCheckBox, TallPushButton
@@ -35,7 +36,8 @@ MODELS = [
     'Salesforce/instructblip-vicuna-13b',
     'Salesforce/instructblip-flan-t5-xl',
     'Salesforce/instructblip-flan-t5-xxl',
-    'microsoft/kosmos-2-patch14-224'
+    'microsoft/kosmos-2-patch14-224',
+    'THUDM/cogvlm-chat-hf'
 ]
 
 
@@ -51,6 +53,13 @@ class CaptionPosition(str, Enum):
 class Device(str, Enum):
     GPU = 'GPU if available'
     CPU = 'CPU'
+
+
+class ModelType(Enum):
+    LLAVA = auto()
+    KOSMOS = auto()
+    COGVLM = auto()
+    OTHER = auto()
 
 
 def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
@@ -316,6 +325,13 @@ class CaptionSettingsForm(QVBoxLayout):
         self.settings.setValue('caption_settings', caption_settings)
 
 
+def format_cogvlm_prompt(prompt: str, caption_start: str) -> str:
+    prompt = f'Question: {prompt} Answer:'
+    if caption_start.strip():
+        prompt += f' {caption_start}'
+    return prompt
+
+
 def add_caption_to_tags(tags: list[str], caption: str,
                         caption_position: CaptionPosition) -> list[str]:
     """Add a caption to a list of tags and return the new list."""
@@ -356,6 +372,164 @@ class CaptionThread(QThread):
         self.caption_settings = caption_settings
         self.tag_separator = tag_separator
 
+    def get_model_type(self) -> ModelType:
+        model_id = self.caption_settings['model']
+        if 'llava' in model_id.lower():
+            return ModelType.LLAVA
+        elif 'kosmos' in model_id.lower():
+            return ModelType.KOSMOS
+        elif 'cogvlm' in model_id.lower():
+            return ModelType.COGVLM
+        else:
+            return ModelType.OTHER
+
+    def load_processor_and_model(self, model_type: ModelType,
+                                 device: torch.device) -> tuple:
+        # If the processor and model were previously loaded, use them.
+        processor = self.parent().processor
+        model = self.parent().model
+        model_id = self.caption_settings['model']
+        # Only GPUs support 4-bit quantization.
+        load_in_4_bit = (self.caption_settings['load_in_4_bit']
+                         and device.type == 'cuda')
+        if (model and self.parent().model_id == model_id
+                and self.parent().model_device_type == device.type
+                and self.parent().is_model_loaded_in_4_bit == load_in_4_bit):
+            return processor, model
+        # Load the new processor and model.
+        if model:
+            # Garbage collect the previous processor and model to free up
+            # memory.
+            self.parent().processor = None
+            self.parent().model = None
+            del processor
+            del model
+            gc.collect()
+        self.clear_console_text_edit_requested.emit()
+        print(f'Loading {model_id}...')
+        # Check if the model is downloaded by checking the cache for the
+        # config file. The model might not be fully downloaded even if the
+        # config file is in the cache, but it does not matter because the
+        # model will then be downloaded when trying to load it.
+        if not try_to_load_from_cache(model_id, filename='config.json'):
+            print('Model not found. Downloading...')
+        if model_type == ModelType.COGVLM:
+            processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
+        else:
+            processor = AutoProcessor.from_pretrained(model_id)
+        self.parent().processor = processor
+        if load_in_4_bit:
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.float16
+            )
+            dtype_argument = {}
+        else:
+            quantization_config = None
+            dtype_argument = ({'torch_dtype': torch.float16}
+                              if device.type == 'cuda' else {})
+        model_class = (AutoModelForCausalLM
+                       if model_type == ModelType.COGVLM
+                       else AutoModelForVision2Seq)
+        model = model_class.from_pretrained(
+            model_id, device_map=device, trust_remote_code=True,
+            quantization_config=quantization_config, **dtype_argument)
+        if not load_in_4_bit:
+            model.to(device)
+        model.eval()
+        self.parent().model = model
+        self.parent().model_id = model_id
+        self.parent().model_device_type = device.type
+        self.parent().is_model_loaded_in_4_bit = load_in_4_bit
+        return processor, model
+
+    def get_processed_prompt(self, model_type: ModelType) -> str:
+        prompt = self.caption_settings['prompt']
+        if model_type == ModelType.LLAVA:
+            if not prompt:
+                prompt = 'Briefly caption the image.'
+            prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
+        elif model_type == ModelType.KOSMOS:
+            prompt = f'<grounding>{prompt}'
+        elif model_type == ModelType.COGVLM:
+            if not prompt:
+                prompt = 'Describe the image.'
+        return prompt
+
+    def get_model_inputs(self, prompt: str, image: Image,
+                         model_type: ModelType, device: torch.device, model,
+                         processor) -> BatchFeature | dict:
+        # Prepare the input text.
+        caption_start = self.caption_settings['caption_start']
+        if model_type == ModelType.COGVLM:
+            # `caption_start` is added later.
+            text = prompt
+        elif prompt and caption_start:
+            text = f'{prompt} {caption_start}'
+        else:
+            text = prompt + caption_start
+        # Load the image.
+        pil_image = PilImage.open(image.path)
+        # Convert the text and image to model inputs.
+        dtype_argument = ({'dtype': torch.float16}
+                          if device.type == 'cuda' else {})
+        if model_type == ModelType.COGVLM:
+            # Monkey-patch the CogVLM prompt formatting function to include the
+            # `caption_start` text.
+            cogvlm_module = next(
+                (module for module_name, module in sys.modules.items()
+                 if 'modeling_cogvlm' in module_name))
+            cogvlm_module._history_to_prompt = (
+                lambda _, __, prompt_:
+                format_cogvlm_prompt(prompt_, caption_start))
+            model_inputs = model.build_conversation_input_ids(
+                processor, query=text, history=[], images=[pil_image])
+            beam_count = self.caption_settings['generation_parameters'][
+                'num_beams']
+            model_inputs = {
+                'input_ids': model_inputs['input_ids'].unsqueeze(0).to(device),
+                'token_type_ids': (model_inputs['token_type_ids'].unsqueeze(0)
+                                   .to(device)),
+                'attention_mask': (model_inputs['attention_mask'].unsqueeze(0)
+                                   .to(device)),
+                'images': [
+                    [model_inputs['images'][0].to(device, **dtype_argument)]
+                    for _ in range(beam_count)
+                ]
+            }
+        else:
+            model_inputs = (processor(text=text, images=pil_image,
+                                      return_tensors='pt')
+                            .to(device, **dtype_argument))
+        return model_inputs
+
+    def get_caption_from_generated_tokens(
+            self, generated_token_ids: torch.Tensor, prompt: str, processor,
+            model_type: ModelType) -> str:
+        generated_text = processor.batch_decode(
+            generated_token_ids, skip_special_tokens=True)[0]
+        # Postprocess the generated text.
+        caption_start = self.caption_settings['caption_start']
+        if model_type == ModelType.LLAVA:
+            prompt = prompt.replace('<image>', ' ')
+        elif model_type == ModelType.KOSMOS:
+            generated_text, _ = processor.post_process_generation(
+                generated_text)
+            prompt = prompt.replace('<grounding>', '')
+        elif model_type == ModelType.COGVLM:
+            prompt = f'Question: {prompt} Answer:'
+        if prompt.strip() and generated_text.startswith(prompt):
+            caption = generated_text[len(prompt):]
+        elif (caption_start.strip()
+              and generated_text.startswith(caption_start)):
+            caption = generated_text
+        else:
+            caption = f'{caption_start.strip()} {generated_text.strip()}'
+        caption = caption.strip()
+        if self.caption_settings['convert_tag_separators_to_spaces']:
+            caption = caption.replace(self.tag_separator, ' ')
+        return caption
+
     def run(self):
         # Redirect `stdout` and `stderr` so that the outputs are
         # displayed in the console text edit.
@@ -366,103 +540,22 @@ class CaptionThread(QThread):
         else:
             device = torch.device('cuda:0' if torch.cuda.is_available()
                                   else 'cpu')
-        # If the processor and model were previously loaded, use them.
-        processor = self.parent().processor
-        model = self.parent().model
-        model_id = self.caption_settings['model']
-        # Only GPUs support 4-bit quantization.
-        load_in_4_bit = (self.caption_settings['load_in_4_bit']
-                         and device.type == 'cuda')
-        if (not model or self.parent().model_id != model_id
-                or self.parent().model_device_type != device.type
-                or self.parent().is_model_loaded_in_4_bit != load_in_4_bit):
-            if model:
-                # Garbage collect the previous processor and model to free up
-                # memory.
-                self.parent().processor = None
-                self.parent().model = None
-                del processor
-                del model
-                gc.collect()
-            self.clear_console_text_edit_requested.emit()
-            print(f'Loading {model_id}...')
-            # Check if the model is downloaded by checking the cache for the
-            # config file. The model might not be fully downloaded even if the
-            # config file is in the cache, but it does not matter because the
-            # model will then be downloaded when trying to load it.
-            if not try_to_load_from_cache(model_id, filename='config.json'):
-                print('Model not found. Downloading...')
-            processor = AutoProcessor.from_pretrained(model_id)
-            self.parent().processor = processor
-            if load_in_4_bit:
-                quantization_config = BitsAndBytesConfig(
-                    load_in_4bit=True,
-                    bnb_4bit_compute_dtype=torch.float16
-                )
-                dtype_argument = {}
-            else:
-                quantization_config = None
-                dtype_argument = ({'torch_dtype': torch.float16}
-                                  if device.type == 'cuda' else {})
-            model = AutoModelForVision2Seq.from_pretrained(
-                model_id, device_map=device,
-                quantization_config=quantization_config, **dtype_argument)
-            self.parent().model = model
-            self.parent().model_id = model_id
-            self.parent().model_device_type = device.type
-            self.parent().is_model_loaded_in_4_bit = load_in_4_bit
-        if not load_in_4_bit:
-            model.to(device)
-        model.eval()
+        model_type = self.get_model_type()
+        processor, model = self.load_processor_and_model(model_type, device)
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
         for i, image_index in enumerate(self.selected_image_indices):
+            prompt = self.get_processed_prompt(model_type)
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
-            pil_image = PilImage.open(image.path)
-            # Prepare the input text.
-            prompt = self.caption_settings['prompt']
-            caption_start = self.caption_settings['caption_start']
-            is_llava_model = 'llava' in model_id.lower()
-            is_kosmos_model = 'kosmos' in model_id.lower()
-            if is_llava_model:
-                if not prompt:
-                    prompt = 'Briefly caption the image.'
-                prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
-            elif is_kosmos_model:
-                prompt = f'<grounding>{prompt}'
-            if prompt and caption_start:
-                text = f'{prompt} {caption_start}'
-            else:
-                text = prompt + caption_start
-            # Generate the output text.
-            dtype_argument = ({'dtype': torch.float16}
-                              if device.type == 'cuda' else {})
-            model_inputs = (processor(text=text, images=pil_image,
-                                      return_tensors='pt')
-                            .to(device, **dtype_argument))
+            model_inputs = self.get_model_inputs(prompt, image, model_type,
+                                                 device, model, processor)
             generation_parameters = self.caption_settings[
                 'generation_parameters']
-            generated_token_ids = model.generate(**model_inputs,
-                                                 **generation_parameters)
-            generated_text = processor.batch_decode(
-                generated_token_ids, skip_special_tokens=True)[0]
-            # Post-process the generated text.
-            if is_llava_model:
-                prompt = prompt.replace('<image>', ' ')
-            elif is_kosmos_model:
-                generated_text, _ = processor.post_process_generation(
-                    generated_text)
-                prompt = prompt.replace('<grounding>', '')
-            if prompt.strip() and generated_text.startswith(prompt):
-                caption = generated_text[len(prompt):]
-            elif (caption_start.strip()
-                  and generated_text.startswith(caption_start)):
-                caption = generated_text
-            else:
-                caption = f'{caption_start.strip()} {generated_text.strip()}'
-            caption = caption.strip()
-            if self.caption_settings['convert_tag_separators_to_spaces']:
-                caption = caption.replace(self.tag_separator, ' ')
+            with torch.inference_mode():
+                generated_token_ids = model.generate(**model_inputs,
+                                                     **generation_parameters)
+            caption = self.get_caption_from_generated_tokens(
+                generated_token_ids, prompt, processor, model_type)
             caption_position = self.caption_settings['caption_position']
             tags = add_caption_to_tags(image.tags, caption, caption_position)
             self.caption_generated.emit(image_index, caption, tags)
