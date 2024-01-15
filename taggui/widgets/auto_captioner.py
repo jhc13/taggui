@@ -325,6 +325,13 @@ class CaptionSettingsForm(QVBoxLayout):
         self.settings.setValue('caption_settings', caption_settings)
 
 
+def format_cogvlm_prompt(prompt: str, caption_start: str) -> str:
+    prompt = f'Question: {prompt} Answer:'
+    if caption_start.strip():
+        prompt += f' {caption_start}'
+    return prompt
+
+
 def add_caption_to_tags(tags: list[str], caption: str,
                         caption_position: CaptionPosition) -> list[str]:
     """Add a caption to a list of tags and return the new list."""
@@ -444,6 +451,9 @@ class CaptionThread(QThread):
             prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
         elif model_type == ModelType.KOSMOS:
             prompt = f'<grounding>{prompt}'
+        elif model_type == ModelType.COGVLM:
+            if not prompt:
+                prompt = 'Describe the image.'
         return prompt
 
     def get_model_inputs(self, prompt: str, image: Image,
@@ -451,7 +461,10 @@ class CaptionThread(QThread):
                          processor) -> BatchFeature | dict:
         # Prepare the input text.
         caption_start = self.caption_settings['caption_start']
-        if prompt and caption_start:
+        if model_type == ModelType.COGVLM:
+            # `caption_start` is added later.
+            text = prompt
+        elif prompt and caption_start:
             text = f'{prompt} {caption_start}'
         else:
             text = prompt + caption_start
@@ -461,6 +474,14 @@ class CaptionThread(QThread):
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
         if model_type == ModelType.COGVLM:
+            # Monkey-patch the CogVLM prompt formatting function to include the
+            # `caption_start` text.
+            cogvlm_module = next(
+                (module for module_name, module in sys.modules.items()
+                 if 'modeling_cogvlm' in module_name))
+            cogvlm_module._history_to_prompt = (
+                lambda _, __, prompt_:
+                format_cogvlm_prompt(prompt_, caption_start))
             model_inputs = model.build_conversation_input_ids(
                 processor, query=text, history=[], images=[pil_image])
             model_inputs = {
@@ -483,7 +504,7 @@ class CaptionThread(QThread):
             model_type: ModelType) -> str:
         generated_text = processor.batch_decode(
             generated_token_ids, skip_special_tokens=True)[0]
-        # Post-process the generated text.
+        # Postprocess the generated text.
         caption_start = self.caption_settings['caption_start']
         if model_type == ModelType.LLAVA:
             prompt = prompt.replace('<image>', ' ')
@@ -491,6 +512,8 @@ class CaptionThread(QThread):
             generated_text, _ = processor.post_process_generation(
                 generated_text)
             prompt = prompt.replace('<grounding>', '')
+        elif model_type == ModelType.COGVLM:
+            prompt = f'Question: {prompt} Answer:'
         if prompt.strip() and generated_text.startswith(prompt):
             caption = generated_text[len(prompt):]
         elif (caption_start.strip()
