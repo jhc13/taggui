@@ -484,14 +484,18 @@ class CaptionThread(QThread):
                 format_cogvlm_prompt(prompt_, caption_start))
             model_inputs = model.build_conversation_input_ids(
                 processor, query=text, history=[], images=[pil_image])
+            beam_count = self.caption_settings['generation_parameters'][
+                'num_beams']
             model_inputs = {
                 'input_ids': model_inputs['input_ids'].unsqueeze(0).to(device),
                 'token_type_ids': (model_inputs['token_type_ids'].unsqueeze(0)
                                    .to(device)),
                 'attention_mask': (model_inputs['attention_mask'].unsqueeze(0)
                                    .to(device)),
-                'images': [[model_inputs['images'][0].to(device,
-                                                         **dtype_argument)]]
+                'images': [
+                    [model_inputs['images'][0].to(device, **dtype_argument)]
+                    for _ in range(beam_count)
+                ]
             }
         else:
             model_inputs = (processor(text=text, images=pil_image,
