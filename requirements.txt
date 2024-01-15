@@ -12,7 +12,8 @@ https://github.com/jllllll/bitsandbytes-windows-webui/releases/download/wheels/b
 
 # PyTorch
 torch==2.1.2; platform_system != "Windows"
-https://download.pytorch.org/whl/cu121/torch-2.1.2%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows"
+https://download.pytorch.org/whl/cu121/torch-2.1.2%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
+https://download.pytorch.org/whl/cu121/torch-2.1.2%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
 
 # CogVLM dependencies
 einops==0.7.0
