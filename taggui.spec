@@ -6,6 +6,7 @@ hiddenimports = ['triton._C.libtriton']
 datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'), ('images/icon.ico', 'images')]
 datas += collect_data_files('transformers', include_py_files=True, includes=['**/*.py'])
 datas += collect_data_files('triton')
+datas += collect_data_files('xformers')
 datas += copy_metadata('transformers', recursive=True)
 
 
@@ -29,6 +30,7 @@ a = Analysis(
     module_collection_mode={
         'bitsandbytes': 'pyz+py',
         'triton': 'py',
+        'xformers': 'py',
     },
 )
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
