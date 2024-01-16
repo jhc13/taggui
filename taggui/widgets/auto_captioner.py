@@ -280,7 +280,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.min_new_token_count_spin_box.setValue(
             generation_parameters.get('min_new_tokens', 1))
         self.max_new_token_count_spin_box.setValue(
-            generation_parameters.get('max_new_tokens', 50))
+            generation_parameters.get('max_new_tokens', 100))
         self.beam_count_spin_box.setValue(
             generation_parameters.get('num_beams', 1))
         self.length_penalty_spin_box.setValue(
@@ -292,7 +292,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.top_k_spin_box.setValue(generation_parameters.get('top_k', 50))
         self.top_p_spin_box.setValue(generation_parameters.get('top_p', 1))
         self.repetition_penalty_spin_box.setValue(
-            generation_parameters.get('repetition_penalty', 1.15))
+            generation_parameters.get('repetition_penalty', 1))
         self.no_repeat_ngram_size_spin_box.setValue(
             generation_parameters.get('no_repeat_ngram_size', 3))
 
