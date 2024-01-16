@@ -93,7 +93,7 @@ class ImageListModel(QAbstractListModel):
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
-            except ValueError:
+            except (ValueError, OSError):
                 dimensions = None
             tags = []
             text_file_path = image_path.with_suffix('.txt')
