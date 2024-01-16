@@ -449,13 +449,13 @@ class CaptionThread(QThread):
         prompt = self.caption_settings['prompt']
         if model_type == ModelType.LLAVA:
             if not prompt:
-                prompt = 'Briefly caption the image.'
+                prompt = 'Describe the image in twenty words or less.'
             prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
         elif model_type == ModelType.KOSMOS:
             prompt = f'<grounding>{prompt}'
         elif model_type == ModelType.COGVLM:
             if not prompt:
-                prompt = 'Describe the image.'
+                prompt = 'Describe the image in twenty words or less.'
         return prompt
 
     def get_model_inputs(self, prompt: str, image: Image,
