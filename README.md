@@ -10,13 +10,14 @@ like Stable Diffusion.
 
 ## Features
 
-- Keyboard-friendly interface for fast tagging
-- Tag autocomplete based on your own most-used tags
-- Integrated Stable Diffusion token counter
+- **Keyboard-friendly** interface for fast tagging
+- **Tag autocomplete** based on your own most-used tags
+- Integrated Stable Diffusion **token counter**
+- **Automatic caption generation** with models including **CogVLM** and
+  **LLaVA**
+- Option to load auto-captioning models in **4-bit** for reduced VRAM usage
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
-- Automatic caption generation with models including LLaVA, BLIP-2, KOSMOS-2, and CogVLM
-- Option to load auto-captioning models in 4-bit for reduced VRAM usage
 
 ## Installation
 
@@ -62,8 +63,7 @@ supported.
 To use the feature, select the images you want to caption in the image list,
 select the captioning model you want to use in the Auto-Captioner pane, and
 click the `Run Auto-Captioner` button.
-You can select a single image to get a caption for that image, or multiple
-images to batch generate captions for all of them.
+**You can select multiple images to batch generate captions for all of them.**
 It can take up to several minutes to download and load a model when you first
 use it, but subsequent generations will be much faster.
 
