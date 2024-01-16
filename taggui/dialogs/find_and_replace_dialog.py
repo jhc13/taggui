@@ -33,14 +33,14 @@ class FindAndReplaceDialog(QDialog):
         grid_layout.addWidget(self.replace_line_edit, 1, 1)
         layout.addLayout(grid_layout)
         horizontal_layout = QHBoxLayout()
-        only_in_filtered_images_check_box = (
+        self.only_in_filtered_images_check_box = (
             self.get_check_box(self.settings, text='In filtered images only',
                                settings_key='replace_in_filtered_images_only'))
-        horizontal_layout.addWidget(only_in_filtered_images_check_box)
-        whole_tags_only_check_box = (
+        horizontal_layout.addWidget(self.only_in_filtered_images_check_box)
+        self.whole_tags_only_check_box = (
             self.get_check_box(self.settings, text='Whole tags only',
                                settings_key='replace_whole_tags_only'))
-        horizontal_layout.addWidget(whole_tags_only_check_box)
+        horizontal_layout.addWidget(self.whole_tags_only_check_box)
         layout.addLayout(horizontal_layout)
         self.replace_button = QPushButton('Replace')
         self.replace_button.clicked.connect(self.replace)
@@ -53,10 +53,9 @@ class FindAndReplaceDialog(QDialog):
         if not text:
             self.replace_button.setText('Replace')
             return
-        in_filtered_images_only = (
-            self.settings.value('replace_in_filtered_images_only', type=bool))
-        whole_tags_only = self.settings.value('replace_whole_tags_only',
-                                              type=bool)
+        in_filtered_images_only = (self.only_in_filtered_images_check_box
+                                   .isChecked())
+        whole_tags_only = self.whole_tags_only_check_box.isChecked()
         match_count = self.image_list_model.get_text_match_count(
             text, in_filtered_images_only, whole_tags_only)
         self.replace_button.setText(f'Replace {match_count} '
@@ -75,11 +74,9 @@ class FindAndReplaceDialog(QDialog):
 
     @Slot()
     def replace(self):
-        whole_tags_only = self.settings.value('replace_whole_tags_only',
-                                              type=bool)
-        in_filtered_images_only = (
-            self.settings.value('replace_in_filtered_images_only', type=bool))
-        if whole_tags_only:
+        in_filtered_images_only = (self.only_in_filtered_images_check_box
+                                   .isChecked())
+        if self.whole_tags_only_check_box.isChecked():
             replace_text = self.replace_line_edit.text()
             if replace_text:
                 self.image_list_model.rename_tag(self.find_line_edit.text(),
