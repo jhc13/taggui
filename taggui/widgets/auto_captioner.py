@@ -26,20 +26,20 @@ from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
 
 MODELS = [
-    'llava-hf/bakLlava-v1-hf',
+    'THUDM/cogvlm-chat-hf',
     'llava-hf/llava-1.5-7b-hf',
     'llava-hf/llava-1.5-13b-hf',
+    'llava-hf/bakLlava-v1-hf',
+    'Salesforce/instructblip-vicuna-7b',
+    'Salesforce/instructblip-vicuna-13b',
+    'Salesforce/instructblip-flan-t5-xl',
+    'Salesforce/instructblip-flan-t5-xxl',
     'Salesforce/blip2-opt-2.7b',
     'Salesforce/blip2-opt-6.7b',
     'Salesforce/blip2-opt-6.7b-coco',
     'Salesforce/blip2-flan-t5-xl',
     'Salesforce/blip2-flan-t5-xxl',
-    'Salesforce/instructblip-vicuna-7b',
-    'Salesforce/instructblip-vicuna-13b',
-    'Salesforce/instructblip-flan-t5-xl',
-    'Salesforce/instructblip-flan-t5-xxl',
-    'microsoft/kosmos-2-patch14-224',
-    'THUDM/cogvlm-chat-hf'
+    'microsoft/kosmos-2-patch14-224'
 ]
 
 
