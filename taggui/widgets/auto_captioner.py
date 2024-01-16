@@ -6,11 +6,10 @@ import torch
 from PIL import Image as PilImage
 from PySide6.QtCore import QModelIndex, QSettings, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
-from PySide6.QtWidgets import (QAbstractScrollArea, QComboBox, QDockWidget,
-                               QDoubleSpinBox, QFormLayout, QFrame,
-                               QHBoxLayout, QLabel, QLineEdit, QMessageBox,
-                               QPlainTextEdit, QProgressBar, QScrollArea,
-                               QSpinBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
+                               QFrame, QHBoxLayout, QLabel, QLineEdit,
+                               QMessageBox, QPlainTextEdit, QProgressBar,
+                               QScrollArea, QVBoxLayout, QWidget)
 from huggingface_hub import try_to_load_from_cache
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           AutoProcessor, BatchFeature, BitsAndBytesConfig,
@@ -18,6 +17,9 @@ from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
 
 from models.image_list_model import ImageListModel
 from utils.big_widgets import BigCheckBox, TallPushButton
+from utils.focused_scroll_widgets import (FocusedScrollComboBox,
+                                          FocusedScrollDoubleSpinBox,
+                                          FocusedScrollSpinBox)
 from utils.image import Image
 from utils.settings import get_separator, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
@@ -101,12 +103,12 @@ class CaptionSettingsForm(QVBoxLayout):
         self.prompt_text_edit = QPlainTextEdit()
         set_text_edit_height(self.prompt_text_edit, 2)
         self.caption_start_line_edit = QLineEdit()
-        self.caption_position_combo_box = QComboBox()
+        self.caption_position_combo_box = FocusedScrollComboBox()
         self.caption_position_combo_box.addItems(list(CaptionPosition))
-        self.model_combo_box = QComboBox()
+        self.model_combo_box = FocusedScrollComboBox()
         self.model_combo_box.setEditable(True)
         self.model_combo_box.addItems(MODELS)
-        self.device_combo_box = QComboBox()
+        self.device_combo_box = FocusedScrollComboBox()
         self.device_combo_box.addItems(list(Device))
         self.basic_settings_form.addRow('Prompt', self.prompt_text_edit)
         self.basic_settings_form.addRow('Start caption with',
@@ -135,29 +137,29 @@ class CaptionSettingsForm(QVBoxLayout):
         advanced_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.convert_tag_separators_to_spaces_check_box = BigCheckBox()
-        self.min_new_token_count_spin_box = QSpinBox()
+        self.min_new_token_count_spin_box = FocusedScrollSpinBox()
         self.min_new_token_count_spin_box.setRange(1, 999)
-        self.max_new_token_count_spin_box = QSpinBox()
+        self.max_new_token_count_spin_box = FocusedScrollSpinBox()
         self.max_new_token_count_spin_box.setRange(1, 999)
-        self.beam_count_spin_box = QSpinBox()
+        self.beam_count_spin_box = FocusedScrollSpinBox()
         self.beam_count_spin_box.setRange(1, 99)
-        self.length_penalty_spin_box = QDoubleSpinBox()
+        self.length_penalty_spin_box = FocusedScrollDoubleSpinBox()
         self.length_penalty_spin_box.setRange(-5, 5)
         self.length_penalty_spin_box.setSingleStep(0.1)
         self.use_sampling_check_box = BigCheckBox()
-        self.temperature_spin_box = QDoubleSpinBox()
+        self.temperature_spin_box = FocusedScrollDoubleSpinBox()
         # The temperature must be positive.
         self.temperature_spin_box.setRange(0.01, 2)
         self.temperature_spin_box.setSingleStep(0.01)
-        self.top_k_spin_box = QSpinBox()
+        self.top_k_spin_box = FocusedScrollSpinBox()
         self.top_k_spin_box.setRange(0, 200)
-        self.top_p_spin_box = QDoubleSpinBox()
+        self.top_p_spin_box = FocusedScrollDoubleSpinBox()
         self.top_p_spin_box.setRange(0, 1)
         self.top_p_spin_box.setSingleStep(0.01)
-        self.repetition_penalty_spin_box = QDoubleSpinBox()
+        self.repetition_penalty_spin_box = FocusedScrollDoubleSpinBox()
         self.repetition_penalty_spin_box.setRange(1, 2)
         self.repetition_penalty_spin_box.setSingleStep(0.01)
-        self.no_repeat_ngram_size_spin_box = QSpinBox()
+        self.no_repeat_ngram_size_spin_box = FocusedScrollSpinBox()
         self.no_repeat_ngram_size_spin_box.setRange(0, 5)
         advanced_settings_form.addRow(
             'Tag separators to spaces',
