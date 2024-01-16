@@ -55,6 +55,8 @@ other to create a tabbed interface.
 
 ## Automatic Captioning
 
+<img src='images/auto-captioner.png' alt='Auto-captioner screenshot' width='100%'>
+
 In addition to manual tagging, you can automatically generate captions for your
 images inside TagGUI.
 GPU generation requires a compatible NVIDIA GPU, and CPU generation is also
