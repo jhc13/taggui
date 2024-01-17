@@ -472,6 +472,9 @@ class CaptionThread(QThread):
             text = prompt + caption_start
         # Load the image.
         pil_image = PilImage.open(image.path)
+        if model_type == ModelType.COGVLM:
+            # CogVLM requires a 3-channel image.
+            pil_image = pil_image.convert('RGB')
         # Convert the text and image to model inputs.
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
