@@ -549,23 +549,23 @@ class CaptionThread(QThread):
         processor, model = self.load_processor_and_model(model_type, device)
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
+        prompt = self.get_processed_prompt(model_type)
+        generation_parameters = self.caption_settings[
+            'generation_parameters']
+        caption_position = self.caption_settings['caption_position']
+        are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
-            prompt = self.get_processed_prompt(model_type)
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             model_inputs = self.get_model_inputs(prompt, image, model_type,
                                                  device, model, processor)
-            generation_parameters = self.caption_settings[
-                'generation_parameters']
             with torch.inference_mode():
                 generated_token_ids = model.generate(**model_inputs,
                                                      **generation_parameters)
             caption = self.get_caption_from_generated_tokens(
                 generated_token_ids, prompt, processor, model_type)
-            caption_position = self.caption_settings['caption_position']
             tags = add_caption_to_tags(image.tags, caption, caption_position)
             self.caption_generated.emit(image_index, caption, tags)
-            selected_image_count = len(self.selected_image_indices)
-            if selected_image_count > 1:
+            if are_multiple_images_selected:
                 self.progress_bar_update_requested.emit(i + 1)
             if i == 0:
                 self.clear_console_text_edit_requested.emit()
