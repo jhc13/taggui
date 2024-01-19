@@ -90,6 +90,8 @@ class ImageListModel(QAbstractListModel):
         text_file_paths = {path for path in file_paths
                            if path.suffix == '.txt'}
         image_paths = file_paths - text_file_paths
+        image_paths = {path for path in image_paths
+                       if path.suffix.lower() not in ('.json', '.jsonl')}
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
