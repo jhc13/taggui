@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QDockWidget, QLabel, QLineEdit, QListView,
 
 from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import TallPushButton
+from utils.text_edit_item_delegate import TextEditItemDelegate
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
 
@@ -28,7 +29,7 @@ class AllTagsList(QListView):
     def __init__(self, proxy_tag_counter_model: ProxyTagCounterModel):
         super().__init__()
         self.setModel(proxy_tag_counter_model)
-        self.setSpacing(4)
+        self.setItemDelegate(TextEditItemDelegate(self))
         self.setWordWrap(True)
 
     def keyPressEvent(self, event: QKeyEvent):
