@@ -105,8 +105,6 @@ class CaptionSettingsForm(QVBoxLayout):
         set_text_edit_height(self.prompt_text_edit, 2)
         self.caption_start_line_edit = QLineEdit()
         self.forced_words_line_edit = QLineEdit()
-        self.forced_words_line_edit.setPlaceholderText(
-            'Comma-separated words or phrases')
         self.caption_position_combo_box = FocusedScrollComboBox()
         self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.model_combo_box = FocusedScrollComboBox()
@@ -355,16 +353,19 @@ def format_cogvlm_prompt(prompt: str, caption_start: str) -> str:
 
 
 def get_forced_words_ids(forced_words_string: str, model_type: ModelType,
-                         processor) -> list[list[int]] | None:
+                         processor) -> list[list[list[int]]] | None:
     if not forced_words_string.strip():
         return None
-    forced_words = re.split(r'(?<!\\),', forced_words_string)
-    forced_words = [forced_word.strip().replace(r'\,', ',')
-                    for forced_word in forced_words]
     tokenizer = (processor if model_type == ModelType.COGVLM else
                  processor.tokenizer)
-    forced_words_ids = tokenizer(forced_words,
-                                 add_special_tokens=False).input_ids
+    word_groups = re.split(r'(?<!\\),', forced_words_string)
+    forced_words_ids = []
+    for word_group in word_groups:
+        word_group = word_group.strip().replace(r'\,', ',')
+        words = re.split(r'(?<!\\)\|', word_group)
+        words = [word.strip().replace(r'\|', '|') for word in words]
+        words_ids = tokenizer(words, add_special_tokens=False).input_ids
+        forced_words_ids.append(words_ids)
     return forced_words_ids
 
 
