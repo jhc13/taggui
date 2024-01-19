@@ -69,13 +69,30 @@ click the `Run Auto-Captioner` button.
 It can take up to several minutes to download and load a model when you first
 use it, but subsequent generations will be much faster.
 
-You can use the `Prompt` box to set the instructions given to the captioning
-model.
+### Captioning parameters
+
+`Prompt`: Instructions given to the captioning model.
 Prompt formats are handled automatically based on the selected model.
-You can also put some text inside the `Start caption with` box to make the
-model generate captions that start with that text.
-Additional generation parameters such as the minimum number of tokens and the
-repetition penalty can be viewed and changed by clicking the
+
+`Start caption with`: Generated captions will start with this text.
+
+`Include in caption`: Words or phrases that should be present somewhere in the
+generated captions.
+You can separate multiple words or phrases with commas (`,`).
+You can also allow the captioning model to choose from a group of words or
+phrases by separating them with `|`.
+For example, if you put `cat,orange|white|black`, the model will attempt to
+generate captions that contain the word `cat` and either `orange`, `white`,
+or `black`.
+You can escape commas and pipes with backslashes (`\,` and `\|`).
+It is not guaranteed that all of your specifications will be met.
+`Number of beams` in the advanced settings must be set to greater than 1 in
+order to use this.
+
+`Remove tag separators in caption`: If checked, tag separators (commas by
+default) will be removed from the generated captions.
+
+Additional generation parameters can be viewed and changed by clicking the
 `Show Advanced Settings` button.
 If you want to know more about what each parameter does, you can read the
 [Hugging Face documentation](https://huggingface.co/docs/transformers/main/en/main_classes/text_generation#transformers.GenerationConfig).
