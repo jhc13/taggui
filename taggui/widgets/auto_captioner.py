@@ -574,6 +574,15 @@ class CaptionThread(QThread):
         # displayed in the console text edit.
         sys.stdout = self
         sys.stderr = self
+        forced_words_string = self.caption_settings['forced_words']
+        generation_parameters = self.caption_settings[
+            'generation_parameters']
+        beam_count = generation_parameters['num_beams']
+        if forced_words_string.strip() and beam_count < 2:
+            self.clear_console_text_edit_requested.emit()
+            print('`Number of beams` must be greater than 1 when `Include in '
+                  'caption` is not empty.')
+            return
         if self.caption_settings['device'] == Device.CPU:
             device = torch.device('cpu')
         else:
@@ -584,9 +593,6 @@ class CaptionThread(QThread):
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
         prompt = self.get_processed_prompt(model_type)
-        generation_parameters = self.caption_settings[
-            'generation_parameters']
-        forced_words_string = self.caption_settings['forced_words']
         caption_position = self.caption_settings['caption_position']
         are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
