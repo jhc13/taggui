@@ -1,4 +1,5 @@
 import gc
+import re
 import sys
 from enum import Enum, auto
 
@@ -103,6 +104,9 @@ class CaptionSettingsForm(QVBoxLayout):
         self.prompt_text_edit = QPlainTextEdit()
         set_text_edit_height(self.prompt_text_edit, 2)
         self.caption_start_line_edit = QLineEdit()
+        self.forced_words_line_edit = QLineEdit()
+        self.forced_words_line_edit.setPlaceholderText(
+            'Comma-separated words or phrases')
         self.caption_position_combo_box = FocusedScrollComboBox()
         self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.model_combo_box = FocusedScrollComboBox()
@@ -113,6 +117,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.basic_settings_form.addRow('Prompt', self.prompt_text_edit)
         self.basic_settings_form.addRow('Start caption with',
                                         self.caption_start_line_edit)
+        self.basic_settings_form.addRow('Include in caption',
+                                        self.forced_words_line_edit)
         self.basic_settings_form.addRow('Caption position',
                                         self.caption_position_combo_box)
         self.basic_settings_form.addRow('Model', self.model_combo_box)
@@ -212,6 +218,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.prompt_text_edit.textChanged.connect(self.save_caption_settings)
         self.caption_start_line_edit.textChanged.connect(
             self.save_caption_settings)
+        self.forced_words_line_edit.textChanged.connect(
+            self.save_caption_settings)
         self.caption_position_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
         self.model_combo_box.currentTextChanged.connect(
@@ -273,6 +281,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.prompt_text_edit.setPlainText(caption_settings.get('prompt', ''))
         self.caption_start_line_edit.setText(
             caption_settings.get('caption_start', ''))
+        self.forced_words_line_edit.setText(
+            caption_settings.get('forced_words', ''))
         self.caption_position_combo_box.setCurrentText(
             caption_settings.get('caption_position',
                                  CaptionPosition.BEFORE_FIRST_TAG))
@@ -309,6 +319,7 @@ class CaptionSettingsForm(QVBoxLayout):
         return {
             'prompt': self.prompt_text_edit.toPlainText(),
             'caption_start': self.caption_start_line_edit.text(),
+            'forced_words': self.forced_words_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),
             'model': self.model_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
@@ -341,6 +352,20 @@ def format_cogvlm_prompt(prompt: str, caption_start: str) -> str:
     if caption_start.strip():
         prompt += f' {caption_start}'
     return prompt
+
+
+def get_forced_words_ids(forced_words_string: str, model_type: ModelType,
+                         processor) -> list[list[int]] | None:
+    if not forced_words_string.strip():
+        return None
+    forced_words = re.split(r'(?<!\\),', forced_words_string)
+    forced_words = [forced_word.strip().replace(r'\,', ',')
+                    for forced_word in forced_words]
+    tokenizer = (processor if model_type == ModelType.COGVLM else
+                 processor.tokenizer)
+    forced_words_ids = tokenizer(forced_words,
+                                 add_special_tokens=False).input_ids
+    return forced_words_ids
 
 
 def add_caption_to_tags(tags: list[str], caption: str,
@@ -561,15 +586,19 @@ class CaptionThread(QThread):
         prompt = self.get_processed_prompt(model_type)
         generation_parameters = self.caption_settings[
             'generation_parameters']
+        forced_words_string = self.caption_settings['forced_words']
         caption_position = self.caption_settings['caption_position']
         are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             model_inputs = self.get_model_inputs(prompt, image, model_type,
                                                  device, model, processor)
+            forced_words_ids = get_forced_words_ids(forced_words_string,
+                                                    model_type, processor)
             with torch.inference_mode():
-                generated_token_ids = model.generate(**model_inputs,
-                                                     **generation_parameters)
+                generated_token_ids = model.generate(
+                    **model_inputs, force_words_ids=forced_words_ids,
+                    **generation_parameters)
             caption = self.get_caption_from_generated_tokens(
                 generated_token_ids, prompt, processor, model_type)
             tags = add_caption_to_tags(image.tags, caption, caption_position)
