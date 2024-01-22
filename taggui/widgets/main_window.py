@@ -497,8 +497,8 @@ class MainWindow(QMainWindow):
         if not selected_indices:
             return
         selected_tag = selected_indices[0].data(role=Qt.EditRole)
-        escaped_selected_tag = (selected_tag.replace('"', r'\"')
-                                .replace("'", r"\'"))
+        escaped_selected_tag = (selected_tag.replace('\\', '\\\\')
+                                .replace('"', r'\"').replace("'", r"\'"))
         self.image_list.filter_line_edit.setText(
             f'tag:"{escaped_selected_tag}"')
 
