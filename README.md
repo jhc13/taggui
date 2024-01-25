@@ -10,12 +10,11 @@ like Stable Diffusion.
 
 ## Features
 
-- **Keyboard-friendly** interface for fast tagging
-- **Tag autocomplete** based on your own most-used tags
-- Integrated Stable Diffusion **token counter**
-- **Automatic caption generation** with models including **CogVLM** and
-  **LLaVA**
-- Option to load auto-captioning models in **4-bit** for reduced VRAM usage
+- Keyboard-friendly interface for fast tagging
+- Tag autocomplete based on your own most-used tags
+- Integrated Stable Diffusion token counter
+- Automatic caption generation with models including CogVLM and LLaVA
+- Option to load auto-captioning models in 4-bit for reduced VRAM usage
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
 
@@ -63,9 +62,10 @@ GPU generation requires a compatible NVIDIA GPU, and CPU generation is also
 supported.
 
 To use the feature, select the images you want to caption in the image list,
-select the captioning model you want to use in the Auto-Captioner pane, and
-click the `Run Auto-Captioner` button.
-**You can select multiple images to batch generate captions for all of them.**
+then select the captioning model you want to use in the Auto-Captioner pane.
+You can also type in the path to a locally saved model.
+Click the `Run Auto-Captioner` button to start captioning.
+You can select multiple images to batch generate captions for all of them.
 It can take up to several minutes to download and load a model when you first
 use it, but subsequent generations will be much faster.
 
