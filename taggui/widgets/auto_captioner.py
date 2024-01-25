@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QFrame, QHBoxLayout, QLabel, QLineEdit,
                                QMessageBox, QPlainTextEdit, QProgressBar,
                                QScrollArea, QVBoxLayout, QWidget)
-from huggingface_hub import try_to_load_from_cache
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           AutoProcessor, BatchFeature, BitsAndBytesConfig,
                           LlamaTokenizer)
@@ -444,12 +443,6 @@ class CaptionThread(QThread):
             gc.collect()
         self.clear_console_text_edit_requested.emit()
         print(f'Loading {model_id}...')
-        # Check if the model is downloaded by checking the cache for the
-        # config file. The model might not be fully downloaded even if the
-        # config file is in the cache, but it does not matter because the
-        # model will then be downloaded when trying to load it.
-        if not try_to_load_from_cache(model_id, filename='config.json'):
-            print('Model not found. Downloading...')
         if model_type == ModelType.COGVLM:
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         else:
