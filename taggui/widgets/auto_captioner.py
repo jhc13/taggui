@@ -446,7 +446,8 @@ class CaptionThread(QThread):
         if model_type == ModelType.COGVLM:
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         else:
-            processor = AutoProcessor.from_pretrained(model_id)
+            processor = AutoProcessor.from_pretrained(model_id,
+                                                      trust_remote_code=True)
         self.parent().processor = processor
         if load_in_4_bit:
             quantization_config = BitsAndBytesConfig(
