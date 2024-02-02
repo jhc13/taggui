@@ -3,7 +3,7 @@ imagesize==1.4.1
 Pillow==10.2.0
 pyparsing==3.1.1
 PySide6==6.6.1
-transformers==4.37.1
+transformers==4.37.2
 
 # bitsandbytes
 scipy==1.12.0
@@ -11,13 +11,13 @@ bitsandbytes==0.42.0; platform_system != "Windows"
 https://github.com/jllllll/bitsandbytes-windows-webui/releases/download/wheels/bitsandbytes-0.41.2.post2-py3-none-win_amd64.whl; platform_system == "Windows"
 
 # PyTorch
-torch==2.1.2; platform_system != "Windows"
-https://download.pytorch.org/whl/cu121/torch-2.1.2%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
-https://download.pytorch.org/whl/cu121/torch-2.1.2%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
+torch==2.2.0; platform_system != "Windows"
+https://download.pytorch.org/whl/cu121/torch-2.2.0%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
+https://download.pytorch.org/whl/cu121/torch-2.2.0%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
 
 # CogVLM dependencies
 einops==0.7.0
 protobuf==4.25.2
 sentencepiece==0.1.99
-torchvision==0.16.2
-xformers==0.0.23.post1
+torchvision==0.17.0
+xformers==0.0.24
