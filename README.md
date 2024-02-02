@@ -203,6 +203,7 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 - First / last image: `Home` / `End`
 - Select multiple images: Hold `Ctrl` or `Shift` and click the images
 - Select all images: `Ctrl`+`A`
+- Invert selection: `Ctrl`+`I`
 - Right-clicking on an image will bring up the context menu, which includes
   actions such as copying and pasting tags and moving or copying selected
   images to another directory.
