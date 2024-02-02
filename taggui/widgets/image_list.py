@@ -3,7 +3,9 @@ from functools import reduce
 from operator import or_
 from pathlib import Path
 
-from PySide6.QtCore import QFile, QModelIndex, QSize, Qt, Signal, Slot
+from PySide6.QtCore import (QFile, QItemSelection, QItemSelectionModel,
+                            QItemSelectionRange, QModelIndex, QSize, Qt,
+                            Signal, Slot)
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
                                QFileDialog, QLabel, QLineEdit, QListView,
                                QMenu, QMessageBox, QVBoxLayout, QWidget)
@@ -86,6 +88,9 @@ class ImageListView(QListView):
         # the image will be scaled down to fit.
         self.setIconSize(QSize(image_width, image_width * 3))
 
+        invert_selection_action = self.addAction('Invert Selection')
+        invert_selection_action.setShortcut('Ctrl+I')
+        invert_selection_action.triggered.connect(self.invert_selection)
         copy_tags_action = self.addAction('Copy Tags')
         copy_tags_action.setShortcut('Ctrl+C')
         copy_tags_action.triggered.connect(
@@ -119,6 +124,7 @@ class ImageListView(QListView):
         self.context_menu = QMenu(self)
         self.context_menu.addAction('Select All Images', self.selectAll,
                                     shortcut='Ctrl+A')
+        self.context_menu.addAction(invert_selection_action)
         self.context_menu.addSeparator()
         self.context_menu.addAction(copy_tags_action)
         self.context_menu.addAction(paste_tags_action)
@@ -133,6 +139,20 @@ class ImageListView(QListView):
 
     def contextMenuEvent(self, event):
         self.context_menu.exec_(event.globalPos())
+
+    @Slot()
+    def invert_selection(self):
+        selected_proxy_rows = {index.row() for index in self.selectedIndexes()}
+        all_proxy_rows = set(range(self.proxy_image_list_model.rowCount()))
+        unselected_proxy_rows = all_proxy_rows - selected_proxy_rows
+        first_unselected_proxy_row = min(unselected_proxy_rows, default=0)
+        item_selection = QItemSelection()
+        for row in unselected_proxy_rows:
+            item_selection.append(
+                QItemSelectionRange(self.proxy_image_list_model.index(row, 0)))
+        self.setCurrentIndex(self.model().index(first_unselected_proxy_row, 0))
+        self.selectionModel().select(
+            item_selection, QItemSelectionModel.SelectionFlag.ClearAndSelect)
 
     def get_selected_images(self) -> list[Image]:
         selected_image_proxy_indices = self.selectedIndexes()
