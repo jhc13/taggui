@@ -1,8 +1,10 @@
 import sys
+import traceback
 
 from PySide6.QtGui import QImageReader
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
 
+from utils.settings import get_settings
 from widgets.main_window import MainWindow
 
 
@@ -21,4 +23,15 @@ def run_gui():
 
 
 if __name__ == '__main__':
-    run_gui()
+    try:
+        run_gui()
+    except Exception as exception:
+        settings = get_settings()
+        settings.clear()
+        error_message_box = QMessageBox()
+        error_message_box.setWindowTitle('Error')
+        error_message_box.setIcon(QMessageBox.Icon.Critical)
+        error_message_box.setText(str(exception))
+        error_message_box.setDetailedText(traceback.format_exc())
+        error_message_box.exec()
+        raise exception
