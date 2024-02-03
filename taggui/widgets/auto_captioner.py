@@ -284,6 +284,7 @@ class CaptionSettingsForm(QVBoxLayout):
             for directory_path in directory_paths
             if (directory_path / 'config.json').is_file()
         ]
+        model_directory_paths.sort()
         print(f'Loaded {len(model_directory_paths)} model '
               f'{pluralize("path", len(model_directory_paths))}.')
         return model_directory_paths
