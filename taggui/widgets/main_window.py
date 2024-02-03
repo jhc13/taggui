@@ -182,7 +182,7 @@ class MainWindow(QMainWindow):
         # Put the button inside a widget so that it will not fill up the entire
         # space.
         load_directory_widget = QWidget()
-        load_directory_button = BigPushButton('Load Directory')
+        load_directory_button = BigPushButton('Load Directory...')
         load_directory_button.clicked.connect(self.select_and_load_directory)
         QVBoxLayout(load_directory_widget).addWidget(load_directory_button,
                                                      alignment=Qt.AlignCenter)
@@ -288,14 +288,14 @@ class MainWindow(QMainWindow):
         menu_bar = self.menuBar()
 
         file_menu = menu_bar.addMenu('File')
-        load_directory_action = QAction('Load Directory', parent=self)
+        load_directory_action = QAction('Load Directory...', parent=self)
         load_directory_action.setShortcut(QKeySequence('Ctrl+L'))
         load_directory_action.triggered.connect(self.select_and_load_directory)
         file_menu.addAction(load_directory_action)
         self.reload_directory_action.setShortcut(QKeySequence('Ctrl+Shift+L'))
         self.reload_directory_action.triggered.connect(self.reload_directory)
         file_menu.addAction(self.reload_directory_action)
-        settings_action = QAction('Settings', parent=self)
+        settings_action = QAction('Settings...', parent=self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
         file_menu.addAction(settings_action)
@@ -313,12 +313,13 @@ class MainWindow(QMainWindow):
         self.redo_action.triggered.connect(self.image_list_model.redo)
         self.redo_action.setDisabled(True)
         edit_menu.addAction(self.redo_action)
-        find_and_replace_action = QAction('Find and Replace', parent=self)
+        find_and_replace_action = QAction('Find and Replace...', parent=self)
         find_and_replace_action.setShortcut(QKeySequence('Ctrl+R'))
         find_and_replace_action.triggered.connect(
             self.show_find_and_replace_dialog)
         edit_menu.addAction(find_and_replace_action)
-        batch_reorder_tags_action = QAction('Batch Reorder Tags', parent=self)
+        batch_reorder_tags_action = QAction('Batch Reorder Tags...',
+                                            parent=self)
         batch_reorder_tags_action.setShortcut(QKeySequence('Ctrl+B'))
         batch_reorder_tags_action.triggered.connect(
             self.show_batch_reorder_tags_dialog)
