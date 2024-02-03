@@ -63,7 +63,8 @@ supported.
 
 To use the feature, select the images you want to caption in the image list,
 then select the captioning model you want to use in the Auto-Captioner pane.
-You can also type in the path to a locally saved model.
+If you have a local directory containing previously downloaded models, you can
+set it in `File` -> `Settings` to include the models in the model list.
 Click the `Run Auto-Captioner` button to start captioning.
 You can select multiple images to batch generate captions for all of them.
 It can take up to several minutes to download and load a model when you first
