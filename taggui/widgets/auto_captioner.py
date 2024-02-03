@@ -465,6 +465,10 @@ class CaptionThread(QThread):
         # Only GPUs support 4-bit quantization.
         load_in_4_bit = (self.caption_settings['load_in_4_bit']
                          and device.type == 'cuda')
+        if self.models_directory_path:
+            config_path = self.models_directory_path / model_id / 'config.json'
+            if config_path.is_file():
+                model_id = str(self.models_directory_path / model_id)
         if (model and self.parent().model_id == model_id
                 and self.parent().model_device_type == device.type
                 and self.parent().is_model_loaded_in_4_bit == load_in_4_bit):
@@ -480,10 +484,6 @@ class CaptionThread(QThread):
             gc.collect()
         self.clear_console_text_edit_requested.emit()
         print(f'Loading {model_id}...')
-        if self.models_directory_path:
-            config_path = self.models_directory_path / model_id / 'config.json'
-            if config_path.is_file():
-                model_id = str(self.models_directory_path / model_id)
         if model_type == ModelType.COGVLM:
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         else:
