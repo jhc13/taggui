@@ -22,6 +22,20 @@ class HistoryItem:
     should_ask_for_confirmation: bool
 
 
+def get_file_paths(directory_path: Path) -> set[Path]:
+    """
+    Recursively get all file paths in a directory, including those in
+    subdirectories.
+    """
+    file_paths = set()
+    for path in directory_path.iterdir():
+        if path.is_file():
+            file_paths.add(path)
+        elif path.is_dir():
+            file_paths.update(get_file_paths(path))
+    return file_paths
+
+
 class ImageListModel(QAbstractListModel):
     update_undo_and_redo_actions_requested = Signal()
 
@@ -68,25 +82,12 @@ class ImageListModel(QAbstractListModel):
             return QSize(self.image_list_image_width,
                          self.image_list_image_width)
 
-    def get_file_paths(self, directory_path: Path) -> set[Path]:
-        """
-        Recursively get all file paths in a directory, including those in
-        subdirectories.
-        """
-        file_paths = set()
-        for path in directory_path.iterdir():
-            if path.is_file():
-                file_paths.add(path)
-            elif path.is_dir():
-                file_paths.update(self.get_file_paths(path))
-        return file_paths
-
     def load_directory(self, directory_path: Path):
         self.images.clear()
         self.undo_stack.clear()
         self.redo_stack.clear()
         self.update_undo_and_redo_actions_requested.emit()
-        file_paths = self.get_file_paths(directory_path)
+        file_paths = get_file_paths(directory_path)
         text_file_paths = {path for path in file_paths
                            if path.suffix == '.txt'}
         image_paths = file_paths - text_file_paths

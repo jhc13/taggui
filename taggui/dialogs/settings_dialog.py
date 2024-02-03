@@ -1,6 +1,6 @@
 from PySide6.QtCore import QSettings, Qt, Slot
-from PySide6.QtWidgets import (QDialog, QGridLayout, QLabel, QLineEdit,
-                               QSpinBox, QVBoxLayout)
+from PySide6.QtWidgets import (QDialog, QFileDialog, QGridLayout, QLabel,
+                               QLineEdit, QPushButton, QSpinBox, QVBoxLayout)
 
 from utils.big_widgets import BigCheckBox
 
@@ -10,10 +10,6 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.settings = settings
         self.setWindowTitle('Settings')
-        self.restart_warning = 'Restart the application to apply new settings.'
-        self.warning_label = QLabel(self.restart_warning)
-        self.warning_label.setAlignment(Qt.AlignCenter)
-        self.warning_label.setStyleSheet('color: red;')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(20)
@@ -24,6 +20,8 @@ class SettingsDialog(QDialog):
         grid_layout.addWidget(QLabel('Tag separator'), 2, 0, Qt.AlignRight)
         grid_layout.addWidget(QLabel('Insert space after tag separator'), 3, 0,
                               Qt.AlignRight)
+        grid_layout.addWidget(QLabel('Auto-captioning models directory'), 4, 0,
+                              Qt.AlignRight)
         grid_layout.addWidget(self.get_font_size_spin_box(), 0, 1,
                               Qt.AlignLeft)
         grid_layout.addWidget(self.get_image_list_image_width_spin_box(), 1, 1,
@@ -33,10 +31,20 @@ class SettingsDialog(QDialog):
         grid_layout.addWidget(
             self.get_insert_space_after_tag_separator_check_box(), 3, 1,
             Qt.AlignLeft)
+        self.models_directory_line_edit = self.get_models_directory_line_edit()
+        grid_layout.addWidget(self.models_directory_line_edit, 4, 1,
+                              Qt.AlignLeft)
+        grid_layout.addWidget(self.get_models_directory_button(), 5, 1,
+                              Qt.AlignLeft)
         layout.addLayout(grid_layout)
         # Prevent the grid layout from moving to the center when the warning
         # label is hidden.
         layout.addStretch()
+        self.restart_warning = ('Restart the application to apply the new '
+                                'settings.')
+        self.warning_label = QLabel(self.restart_warning)
+        self.warning_label.setAlignment(Qt.AlignCenter)
+        self.warning_label.setStyleSheet('color: red;')
         layout.addWidget(self.warning_label)
         # Fix the size of the dialog to its size when the warning label is
         # shown.
@@ -98,3 +106,37 @@ class SettingsDialog(QDialog):
         insert_space_after_tag_separator_check_box.stateChanged.connect(
             self.show_restart_warning)
         return insert_space_after_tag_separator_check_box
+
+    def get_models_directory_line_edit(self) -> QLineEdit:
+        models_directory_line_edit = QLineEdit()
+        models_directory_line_edit.setMinimumWidth(300)
+        models_directory_line_edit.setText(
+            self.settings.value('models_directory_path', type=str))
+        models_directory_line_edit.textChanged.connect(
+            lambda text: self.settings.setValue('models_directory_path', text))
+        models_directory_line_edit.textChanged.connect(
+            self.show_restart_warning)
+        return models_directory_line_edit
+
+    @Slot()
+    def set_models_directory_path(self):
+        if self.settings.contains('models_directory_path'):
+            initial_directory_path = self.settings.value(
+                'models_directory_path')
+        elif self.settings.contains('directory_path'):
+            initial_directory_path = self.settings.value('directory_path')
+        else:
+            initial_directory_path = ''
+        models_directory_path = QFileDialog.getExistingDirectory(
+            parent=self, caption='Select directory containing auto-captioning '
+                                 'models',
+            dir=initial_directory_path)
+        if models_directory_path:
+            self.models_directory_line_edit.setText(models_directory_path)
+
+    def get_models_directory_button(self) -> QPushButton:
+        models_directory_button = QPushButton('Select Directory...')
+        models_directory_button.setFixedWidth(
+            models_directory_button.sizeHint().width() * 1.3)
+        models_directory_button.clicked.connect(self.set_models_directory_path)
+        return models_directory_button

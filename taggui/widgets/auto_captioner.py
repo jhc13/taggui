@@ -2,6 +2,7 @@ import gc
 import re
 import sys
 from enum import Enum, auto
+from pathlib import Path
 
 import torch
 from PIL import Image as PilImage
@@ -86,6 +87,18 @@ class HorizontalLine(QFrame):
         self.setFrameShadow(QFrame.Shadow.Raised)
 
 
+def get_directory_paths(directory_path: Path) -> list[Path]:
+    """
+    Recursively get all directory paths in a directory, including those in
+    subdirectories.
+    """
+    directory_paths = [directory_path]
+    for path in directory_path.iterdir():
+        if path.is_dir():
+            directory_paths.extend(get_directory_paths(path))
+    return directory_paths
+
+
 class CaptionSettingsForm(QVBoxLayout):
     def __init__(self, settings: QSettings):
         super().__init__()
@@ -108,6 +121,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.model_combo_box = FocusedScrollComboBox()
         self.model_combo_box.setEditable(True)
+        self.model_combo_box.addItems(self.get_local_model_paths())
         self.model_combo_box.addItems(MODELS)
         self.device_combo_box = FocusedScrollComboBox()
         self.device_combo_box.addItems(list(Device))
@@ -253,6 +267,26 @@ class CaptionSettingsForm(QVBoxLayout):
         if not self.is_bitsandbytes_available:
             self.load_in_4_bit_check_box.setChecked(False)
         self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
+
+    def get_local_model_paths(self) -> list[str]:
+        models_directory_path: str = self.settings.value(
+            'models_directory_path', type=str)
+        if not models_directory_path:
+            return []
+        models_directory_path: Path = Path(models_directory_path)
+        if not models_directory_path.is_dir():
+            return []
+        print(f'Loading local auto-captioning model paths under '
+              f'{models_directory_path}...')
+        directory_paths = get_directory_paths(models_directory_path)
+        model_directory_paths = [
+            str(directory_path.relative_to(models_directory_path))
+            for directory_path in directory_paths
+            if (directory_path / 'config.json').is_file()
+        ]
+        print(f'Loaded {len(model_directory_paths)} model '
+              f'{pluralize("path", len(model_directory_paths))}.')
+        return model_directory_paths
 
     @Slot(str)
     def set_load_in_4_bit_visibility(self, device: str):
@@ -401,12 +435,14 @@ class CaptionThread(QThread):
 
     def __init__(self, parent, image_list_model: ImageListModel,
                  selected_image_indices: list[QModelIndex],
-                 caption_settings: dict, tag_separator: str):
+                 caption_settings: dict, tag_separator: str,
+                 models_directory_path: Path | None):
         super().__init__(parent)
         self.image_list_model = image_list_model
         self.selected_image_indices = selected_image_indices
         self.caption_settings = caption_settings
         self.tag_separator = tag_separator
+        self.models_directory_path = models_directory_path
 
     def get_model_type(self) -> ModelType:
         model_id = self.caption_settings['model']
@@ -419,8 +455,8 @@ class CaptionThread(QThread):
         else:
             return ModelType.OTHER
 
-    def load_processor_and_model(self, model_type: ModelType,
-                                 device: torch.device) -> tuple:
+    def load_processor_and_model(self, device: torch.device,
+                                 model_type: ModelType) -> tuple:
         # If the processor and model were previously loaded, use them.
         processor = self.parent().processor
         model = self.parent().model
@@ -443,6 +479,10 @@ class CaptionThread(QThread):
             gc.collect()
         self.clear_console_text_edit_requested.emit()
         print(f'Loading {model_id}...')
+        if self.models_directory_path:
+            config_path = self.models_directory_path / model_id / 'config.json'
+            if config_path.is_file():
+                model_id = str(self.models_directory_path / model_id)
         if model_type == ModelType.COGVLM:
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         else:
@@ -584,7 +624,7 @@ class CaptionThread(QThread):
             device = torch.device('cuda:0' if torch.cuda.is_available()
                                   else 'cpu')
         model_type = self.get_model_type()
-        processor, model = self.load_processor_and_model(model_type, device)
+        processor, model = self.load_processor_and_model(device, model_type)
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
         prompt = self.get_processed_prompt(model_type)
@@ -712,9 +752,15 @@ class AutoCaptioner(QDockWidget):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
         tag_separator = get_separator(self.settings)
+        models_directory_path: str = self.settings.value(
+            'models_directory_path', type=str)
+        models_directory_path: Path | None = (Path(models_directory_path)
+                                              if models_directory_path
+                                              else None)
         caption_thread = CaptionThread(self, self.image_list_model,
                                        selected_image_indices,
-                                       caption_settings, tag_separator)
+                                       caption_settings, tag_separator,
+                                       models_directory_path)
         caption_thread.text_outputted.connect(self.update_console_text_edit)
         caption_thread.clear_console_text_edit_requested.connect(
             self.console_text_edit.clear)
