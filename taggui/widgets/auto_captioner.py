@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 from PIL import Image as PilImage
+from PIL.ImageOps import exif_transpose
 from PySide6.QtCore import QModelIndex, QSettings, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
@@ -542,6 +543,8 @@ class CaptionThread(QThread):
             text = prompt + caption_start
         # Load the image.
         pil_image = PilImage.open(image.path)
+        # Rotate the image according to the orientation tag.
+        pil_image = exif_transpose(pil_image)
         if model_type == ModelType.COGVLM:
             # CogVLM requires a 3-channel image.
             pil_image = pil_image.convert('RGB')

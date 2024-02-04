@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, QSize, Qt, Slot
-from PySide6.QtGui import QPixmap, QResizeEvent
+from PySide6.QtGui import QImageReader, QPixmap, QResizeEvent
 from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from models.proxy_image_list_model import ProxyImageListModel
@@ -24,9 +24,12 @@ class ImageLabel(QLabel):
 
     def load_image(self, image_path: Path):
         self.image_path = image_path
+        image_reader = QImageReader(str(image_path))
+        # Rotate the image according to the orientation tag.
+        image_reader.setAutoTransform(True)
         # `SmoothTransformation` is higher quality than the default
         # `FastTransformation`.
-        pixmap = QPixmap(str(image_path)).scaled(
+        pixmap = QPixmap.fromImageReader(image_reader).scaled(
             self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.setPixmap(pixmap)
 

@@ -3,23 +3,17 @@ from collections import Counter, deque
 from dataclasses import dataclass
 from pathlib import Path
 
+import exifread
 import imagesize
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
 from utils.image import Image
 from utils.utils import get_confirmation_dialog_reply
 
 UNDO_STACK_SIZE = 32
-
-
-@dataclass
-class HistoryItem:
-    action_name: str
-    tags: list[list[str]]
-    should_ask_for_confirmation: bool
 
 
 def get_file_paths(directory_path: Path) -> set[Path]:
@@ -34,6 +28,13 @@ def get_file_paths(directory_path: Path) -> set[Path]:
         elif path.is_dir():
             file_paths.update(get_file_paths(path))
     return file_paths
+
+
+@dataclass
+class HistoryItem:
+    action_name: str
+    tags: list[list[str]]
+    should_ask_for_confirmation: bool
 
 
 class ImageListModel(QAbstractListModel):
@@ -67,20 +68,25 @@ class ImageListModel(QAbstractListModel):
             # it. Otherwise, generate a thumbnail and save it to the image.
             if image.thumbnail:
                 return image.thumbnail
-            thumbnail = QIcon(
-                QPixmap(str(image.path)).scaledToWidth(
-                    self.image_list_image_width))
+            image_reader = QImageReader(str(image.path))
+            # Rotate the image based on the orientation tag.
+            image_reader.setAutoTransform(True)
+            pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
+                self.image_list_image_width)
+            thumbnail = QIcon(pixmap)
             image.thumbnail = thumbnail
             return thumbnail
         if role == Qt.SizeHintRole:
+            if image.thumbnail:
+                return image.thumbnail.availableSizes()[0]
             dimensions = image.dimensions
-            if dimensions:
-                width, height = dimensions
-                # Scale the dimensions to the image width.
+            if not dimensions:
                 return QSize(self.image_list_image_width,
-                             int(self.image_list_image_width * height / width))
+                             self.image_list_image_width)
+            width, height = dimensions
+            # Scale the dimensions to the image width.
             return QSize(self.image_list_image_width,
-                         self.image_list_image_width)
+                         int(self.image_list_image_width * height / width))
 
     def load_directory(self, directory_path: Path):
         self.images.clear()
@@ -96,7 +102,19 @@ class ImageListModel(QAbstractListModel):
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
-            except (ValueError, OSError):
+                # Check the orientation tag and rotate the dimensions if
+                # necessary.
+                with open(image_path, 'rb') as image_file:
+                    exif_tags = exifread.process_file(
+                        image_file, details=False,
+                        stop_tag='Image Orientation')
+                    if 'Image Orientation' in exif_tags:
+                        if any(value in exif_tags['Image Orientation'].values
+                               for value in (5, 6, 7, 8)):
+                            dimensions = (dimensions[1], dimensions[0])
+            except (ValueError, OSError) as exception:
+                print(f'Failed to get dimensions for {image_path}: '
+                      f'{exception}')
                 dimensions = None
             tags = []
             text_file_path = image_path.with_suffix('.txt')
