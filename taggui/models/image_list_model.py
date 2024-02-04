@@ -72,7 +72,7 @@ class ImageListModel(QAbstractListModel):
             # Rotate the image based on the orientation tag.
             image_reader.setAutoTransform(True)
             pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
-                self.image_list_image_width)
+                self.image_list_image_width, Qt.SmoothTransformation)
             thumbnail = QIcon(pixmap)
             image.thumbnail = thumbnail
             return thumbnail

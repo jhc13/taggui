@@ -27,8 +27,6 @@ class ImageLabel(QLabel):
         image_reader = QImageReader(str(image_path))
         # Rotate the image according to the orientation tag.
         image_reader.setAutoTransform(True)
-        # `SmoothTransformation` is higher quality than the default
-        # `FastTransformation`.
         pixmap = QPixmap.fromImageReader(image_reader).scaled(
             self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.setPixmap(pixmap)
