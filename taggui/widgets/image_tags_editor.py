@@ -12,6 +12,7 @@ from utils.image import Image
 from utils.text_edit_item_delegate import TextEditItemDelegate
 from utils.utils import get_confirmation_dialog_reply
 from widgets.image_list import ImageList
+from models.completer_tag_filter_model import CompleterTagFilterModel
 
 MAX_TOKEN_COUNT = 75
 
@@ -26,8 +27,9 @@ class TagInputBox(QLineEdit):
         self.image_tag_list_model = image_tag_list_model
         self.image_list = image_list
         self.separator = separator
+        self.tag_counter_model = tag_counter_model
 
-        self.completer = QCompleter(tag_counter_model)
+        self.completer = QCompleter()
         self.setCompleter(self.completer)
         self.setPlaceholderText('Add Tag')
         self.setStyleSheet('padding: 8px;')
@@ -36,6 +38,8 @@ class TagInputBox(QLineEdit):
         # Clear the input box after the completer inserts the tag into it.
         self.completer.activated.connect(
             lambda: QTimer.singleShot(0, self.clear))
+        
+        self.image_tag_list_model.modelReset.connect(self.filter_completer_data)
 
     def keyPressEvent(self, event: QKeyEvent):
         if not event.key() == Qt.Key_Return:
@@ -81,6 +85,12 @@ class TagInputBox(QLineEdit):
                 return
         self.tags_addition_requested.emit(tags, selected_image_indices)
 
+    def filter_completer_data(self):
+        completer_filter = CompleterTagFilterModel()
+        completer_filter.setSourceModel(self.tag_counter_model)
+        image_tags=self.image_tag_list_model.stringList()
+        completer_filter.setFilterTags(QStringListModel(image_tags).stringList())
+        self.completer.setModel(completer_filter)
 
 class ImageTagsList(QListView):
     def __init__(self, image_tag_list_model: QStringListModel):
