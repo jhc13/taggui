@@ -8,10 +8,6 @@ like Stable Diffusion.
 
 <img src='images/screenshot-v1.9.0.png' alt='TagGUI screenshot' width='100%'>
 
-## Fork changelog
-
-- Do not show duplicate image tags inside completer popup 
-
 ## Features
 
 - Keyboard-friendly interface for fast tagging
