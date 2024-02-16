@@ -374,7 +374,8 @@ class ImageListModel(QAbstractListModel):
         self.add_to_undo_stack(action_name, should_ask_for_confirmation)
         for image_index in image_indices:
             image: Image = self.data(image_index, Qt.UserRole)
-            image.tags.extend(tags)
+            unique_tags = [tag for tag in tags if tag not in image.tags]
+            image.tags.extend(unique_tags)
             self.write_image_tags_to_disk(image)
         min_image_index = min(image_indices, key=lambda index: index.row())
         max_image_index = max(image_indices, key=lambda index: index.row())
