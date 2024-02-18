@@ -3,6 +3,7 @@ import re
 import sys
 from contextlib import nullcontext, redirect_stdout
 from enum import Enum, auto
+from inspect import getsource
 from pathlib import Path
 from time import perf_counter
 
@@ -392,10 +393,7 @@ def format_cogvlm_prompt(prompt: str, caption_start: str) -> str:
 
 
 def monkey_patch_cogvlm(caption_start: str):
-    """
-    Monkey-patch the CogVLM prompt formatting function to include the
-    `caption_start` text.
-    """
+    """Monkey-patch the CogVLM module to support `caption_start`."""
     cogvlm_module = next((module for module_name, module in sys.modules.items()
                           if 'modeling_cogvlm' in module_name))
     cogvlm_module._history_to_prompt = (
@@ -409,14 +407,23 @@ def format_cogagent_prompt(prompt: str, caption_start: str) -> str:
     return prompt
 
 
-def monkey_patch_cogagent(caption_start: str):
+def monkey_patch_cogagent(model, caption_start: str):
     """
-    Monkey-patch the CogAgent prompt formatting function to include the
-    `caption_start` text.
+    Monkey-patch the CogAgent module to support beam search and
+    `caption_start`.
     """
     cogagent_module = next((module for module_name, module
                             in sys.modules.items()
                             if 'modeling_cogagent' in module_name))
+    cogagent_module_source = getsource(cogagent_module)
+    # Modify the source code to make beam search work (line 613 of
+    # `modeling_cogagent.py`).
+    cogagent_module_source = cogagent_module_source.replace('(batch_size, 1)',
+                                                            '(1, 1)')
+    # Replace the method in the class with the updated version.
+    exec(cogagent_module_source, cogagent_module.__dict__)
+    model.model.__class__.llm_forward = (cogagent_module.CogAgentModel
+                                         .llm_forward)
     cogagent_module._history_to_prompt = {
         'chat_old': lambda _, prompt_: format_cogagent_prompt(prompt_,
                                                               caption_start)
@@ -595,10 +602,6 @@ class CaptionThread(QThread):
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
         if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
-            if model_type == ModelType.COGVLM:
-                monkey_patch_cogvlm(caption_start)
-            elif model_type == ModelType.COGAGENT:
-                monkey_patch_cogagent(caption_start)
             template_version = ('chat_old' if model_type == ModelType.COGAGENT
                                 else None)
             model_inputs = model.build_conversation_input_ids(
@@ -679,6 +682,11 @@ class CaptionThread(QThread):
                                   else 'cpu')
         model_type = self.get_model_type()
         processor, model = self.load_processor_and_model(device, model_type)
+        caption_start = self.caption_settings['caption_start']
+        if model_type == ModelType.COGVLM:
+            monkey_patch_cogvlm(caption_start)
+        elif model_type == ModelType.COGAGENT:
+            monkey_patch_cogagent(model, caption_start)
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
         prompt = self.get_processed_prompt(model_type)
