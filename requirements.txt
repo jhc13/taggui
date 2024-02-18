@@ -22,3 +22,6 @@ protobuf==4.25.3
 sentencepiece==0.1.99
 torchvision==0.17.0
 xformers==0.0.24
+
+# CogAgent dependencies
+timm==0.9.12

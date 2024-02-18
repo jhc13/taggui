@@ -1,6 +1,7 @@
 import gc
 import re
 import sys
+from contextlib import nullcontext, redirect_stdout
 from enum import Enum, auto
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
 
 MODELS = [
+    'THUDM/cogagent-vqa-hf',
     'THUDM/cogvlm-chat-hf',
     'llava-hf/llava-1.5-7b-hf',
     'llava-hf/llava-1.5-13b-hf',
@@ -63,6 +65,7 @@ class ModelType(Enum):
     LLAVA = auto()
     KOSMOS = auto()
     COGVLM = auto()
+    COGAGENT = auto()
     OTHER = auto()
 
 
@@ -387,12 +390,45 @@ def format_cogvlm_prompt(prompt: str, caption_start: str) -> str:
     return prompt
 
 
+def monkey_patch_cogvlm(caption_start: str):
+    """
+    Monkey-patch the CogVLM prompt formatting function to include the
+    `caption_start` text.
+    """
+    cogvlm_module = next((module for module_name, module in sys.modules.items()
+                          if 'modeling_cogvlm' in module_name))
+    cogvlm_module._history_to_prompt = (
+        lambda _, __, prompt_: format_cogvlm_prompt(prompt_, caption_start))
+
+
+def format_cogagent_prompt(prompt: str, caption_start: str) -> str:
+    prompt = f'<EOI>Question: {prompt} Answer:'
+    if caption_start.strip():
+        prompt += f' {caption_start}'
+    return prompt
+
+
+def monkey_patch_cogagent(caption_start: str):
+    """
+    Monkey-patch the CogAgent prompt formatting function to include the
+    `caption_start` text.
+    """
+    cogagent_module = next((module for module_name, module
+                            in sys.modules.items()
+                            if 'modeling_cogagent' in module_name))
+    cogagent_module._history_to_prompt = {
+        'chat_old': lambda _, prompt_: format_cogagent_prompt(prompt_,
+                                                              caption_start)
+    }
+
+
 def get_forced_words_ids(forced_words_string: str, model_type: ModelType,
                          processor) -> list[list[list[int]]] | None:
     if not forced_words_string.strip():
         return None
-    tokenizer = (processor if model_type == ModelType.COGVLM else
-                 processor.tokenizer)
+    tokenizer = (processor
+                 if model_type in (ModelType.COGVLM, ModelType.COGAGENT)
+                 else processor.tokenizer)
     word_groups = re.split(r'(?<!\\),', forced_words_string)
     forced_words_ids = []
     for word_group in word_groups:
@@ -454,6 +490,8 @@ class CaptionThread(QThread):
             return ModelType.KOSMOS
         elif 'cogvlm' in model_id.lower():
             return ModelType.COGVLM
+        elif 'cogagent' in model_id.lower():
+            return ModelType.COGAGENT
         else:
             return ModelType.OTHER
 
@@ -485,7 +523,7 @@ class CaptionThread(QThread):
             gc.collect()
         self.clear_console_text_edit_requested.emit()
         print(f'Loading {model_id}...')
-        if model_type == ModelType.COGVLM:
+        if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         else:
             processor = AutoProcessor.from_pretrained(model_id,
@@ -502,11 +540,17 @@ class CaptionThread(QThread):
             dtype_argument = ({'torch_dtype': torch.float16}
                               if device.type == 'cuda' else {})
         model_class = (AutoModelForCausalLM
-                       if model_type == ModelType.COGVLM
+                       if model_type in (ModelType.COGVLM, ModelType.COGAGENT)
                        else AutoModelForVision2Seq)
-        model = model_class.from_pretrained(
-            model_id, device_map=device, trust_remote_code=True,
-            quantization_config=quantization_config, **dtype_argument)
+        # The CogAgent model prints an unnecessary message while loading, so
+        # temporarily suppress printing for it.
+        context_manager = (redirect_stdout(None)
+                           if model_type == ModelType.COGAGENT
+                           else nullcontext())
+        with context_manager:
+            model = model_class.from_pretrained(
+                model_id, device_map=device, trust_remote_code=True,
+                quantization_config=quantization_config, **dtype_argument)
         if not load_in_4_bit:
             model.to(device)
         model.eval()
@@ -524,7 +568,7 @@ class CaptionThread(QThread):
             prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
         elif model_type == ModelType.KOSMOS:
             prompt = f'<grounding>{prompt}'
-        elif model_type == ModelType.COGVLM:
+        elif model_type in (ModelType.COGVLM, ModelType.COGAGENT):
             if not prompt:
                 prompt = 'Describe the image in twenty words or less.'
         return prompt
@@ -534,7 +578,7 @@ class CaptionThread(QThread):
                          processor) -> BatchFeature | dict:
         # Prepare the input text.
         caption_start = self.caption_settings['caption_start']
-        if model_type == ModelType.COGVLM:
+        if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
             # `caption_start` is added later.
             text = prompt
         elif prompt and caption_start:
@@ -545,25 +589,23 @@ class CaptionThread(QThread):
         pil_image = PilImage.open(image.path)
         # Rotate the image according to the orientation tag.
         pil_image = exif_transpose(pil_image)
-        if model_type == ModelType.COGVLM:
-            # CogVLM requires a 3-channel image.
-            pil_image = pil_image.convert('RGB')
+        pil_image = pil_image.convert('RGB')
         # Convert the text and image to model inputs.
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
-        if model_type == ModelType.COGVLM:
-            # Monkey-patch the CogVLM prompt formatting function to include the
-            # `caption_start` text.
-            cogvlm_module = next(
-                (module for module_name, module in sys.modules.items()
-                 if 'modeling_cogvlm' in module_name))
-            cogvlm_module._history_to_prompt = (
-                lambda _, __, prompt_:
-                format_cogvlm_prompt(prompt_, caption_start))
+        if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
+            if model_type == ModelType.COGVLM:
+                monkey_patch_cogvlm(caption_start)
+            elif model_type == ModelType.COGAGENT:
+                monkey_patch_cogagent(caption_start)
+            template_version = ('chat_old' if model_type == ModelType.COGAGENT
+                                else None)
             model_inputs = model.build_conversation_input_ids(
-                processor, query=text, history=[], images=[pil_image])
+                processor, query=text, images=[pil_image],
+                template_version=template_version)
             beam_count = self.caption_settings['generation_parameters'][
                 'num_beams']
+            cross_images = model_inputs.get('cross_images')
             model_inputs = {
                 'input_ids': model_inputs['input_ids'].unsqueeze(0).to(device),
                 'token_type_ids': (model_inputs['token_type_ids'].unsqueeze(0)
@@ -575,6 +617,11 @@ class CaptionThread(QThread):
                     for _ in range(beam_count)
                 ]
             }
+            if model_type == ModelType.COGAGENT:
+                model_inputs['cross_images'] = [
+                    [cross_images[0].to(device, **dtype_argument)]
+                    for _ in range(beam_count)
+                ]
         else:
             model_inputs = (processor(text=text, images=pil_image,
                                       return_tensors='pt')
@@ -596,6 +643,8 @@ class CaptionThread(QThread):
             prompt = prompt.replace('<grounding>', '')
         elif model_type == ModelType.COGVLM:
             prompt = f'Question: {prompt} Answer:'
+        elif model_type == ModelType.COGAGENT:
+            prompt = f'<EOI>Question: {prompt} Answer:'
         if prompt.strip() and generated_text.startswith(prompt):
             caption = generated_text[len(prompt):]
         elif (caption_start.strip()
