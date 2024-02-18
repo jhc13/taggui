@@ -4,6 +4,7 @@ import sys
 from contextlib import nullcontext, redirect_stdout
 from enum import Enum, auto
 from pathlib import Path
+from time import perf_counter
 
 import torch
 from PIL import Image as PilImage
@@ -684,6 +685,7 @@ class CaptionThread(QThread):
         caption_position = self.caption_settings['caption_position']
         are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
+            start_time = perf_counter()
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             model_inputs = self.get_model_inputs(prompt, image, model_type,
                                                  device, model, processor)
@@ -701,7 +703,8 @@ class CaptionThread(QThread):
                 self.progress_bar_update_requested.emit(i + 1)
             if i == 0:
                 self.clear_console_text_edit_requested.emit()
-            print(f'{image.path.name}:\n{caption}')
+            print(f'{image.path.name} ({perf_counter() - start_time:.1f} s):\n'
+                  f'{caption}')
 
     def write(self, text: str):
         self.text_outputted.emit(text)
