@@ -14,6 +14,7 @@ from utils.image import Image
 from utils.utils import get_confirmation_dialog_reply
 
 UNDO_STACK_SIZE = 32
+NON_IMAGE_SUFFIXES = ['.json', '.jsonl', '.npz']
 
 
 def get_file_paths(directory_path: Path) -> set[Path]:
@@ -98,7 +99,7 @@ class ImageListModel(QAbstractListModel):
                            if path.suffix == '.txt'}
         image_paths = file_paths - text_file_paths
         image_paths = {path for path in image_paths
-                       if path.suffix.lower() not in ('.json', '.jsonl')}
+                       if path.suffix.lower() not in NON_IMAGE_SUFFIXES}
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
