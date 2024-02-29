@@ -8,7 +8,7 @@ from pathlib import Path
 from time import perf_counter
 
 import torch
-from PIL import Image as PilImage
+from PIL import Image as PilImage, UnidentifiedImageError
 from PIL.ImageOps import exif_transpose
 from PySide6.QtCore import QModelIndex, QSettings, QThread, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
@@ -695,8 +695,13 @@ class CaptionThread(QThread):
         for i, image_index in enumerate(self.selected_image_indices):
             start_time = perf_counter()
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
-            model_inputs = self.get_model_inputs(prompt, image, model_type,
-                                                 device, model, processor)
+            try:
+                model_inputs = self.get_model_inputs(prompt, image, model_type,
+                                                     device, model, processor)
+            except UnidentifiedImageError:
+                print(f'Skipping {image.path.name} because its file format is '
+                      'not supported.')
+                continue
             forced_words_ids = get_forced_words_ids(forced_words_string,
                                                     model_type, processor)
             with torch.inference_mode():
