@@ -17,8 +17,8 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QMessageBox, QPlainTextEdit, QProgressBar,
                                QScrollArea, QVBoxLayout, QWidget)
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
-                          AutoProcessor, BatchFeature, BitsAndBytesConfig,
-                          LlamaTokenizer)
+                          AutoProcessor, AutoTokenizer, BatchFeature,
+                          BitsAndBytesConfig, LlamaTokenizer)
 
 from models.image_list_model import ImageListModel
 from utils.big_widgets import BigCheckBox, TallPushButton
@@ -31,6 +31,7 @@ from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
 
 MODELS = [
+    'internlm/internlm-xcomposer2-vl-7b',
     'THUDM/cogagent-vqa-hf',
     'THUDM/cogvlm-chat-hf',
     'llava-hf/llava-1.5-7b-hf',
@@ -68,6 +69,7 @@ class ModelType(Enum):
     KOSMOS = auto()
     COGVLM = auto()
     COGAGENT = auto()
+    XCOMPOSER2 = auto()
     OTHER = auto()
 
 
@@ -500,6 +502,8 @@ class CaptionThread(QThread):
             return ModelType.COGVLM
         elif 'cogagent' in model_id.lower():
             return ModelType.COGAGENT
+        elif 'xcomposer2' in model_id.lower():
+            return ModelType.XCOMPOSER2
         else:
             return ModelType.OTHER
 
@@ -534,8 +538,11 @@ class CaptionThread(QThread):
         if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         else:
-            processor = AutoProcessor.from_pretrained(model_id,
-                                                      trust_remote_code=True)
+            processor_class = (AutoTokenizer
+                               if model_type == ModelType.XCOMPOSER2
+                               else AutoProcessor)
+            processor = processor_class.from_pretrained(model_id,
+                                                        trust_remote_code=True)
         self.parent().processor = processor
         if load_in_4_bit:
             quantization_config = BitsAndBytesConfig(
@@ -548,7 +555,8 @@ class CaptionThread(QThread):
             dtype_argument = ({'torch_dtype': torch.float16}
                               if device.type == 'cuda' else {})
         model_class = (AutoModelForCausalLM
-                       if model_type in (ModelType.COGVLM, ModelType.COGAGENT)
+                       if model_type in (ModelType.COGVLM, ModelType.COGAGENT,
+                                         ModelType.XCOMPOSER2)
                        else AutoModelForVision2Seq)
         # The CogAgent model prints an unnecessary message while loading, so
         # temporarily suppress printing for it.
@@ -570,15 +578,16 @@ class CaptionThread(QThread):
 
     def get_processed_prompt(self, model_type: ModelType) -> str:
         prompt = self.caption_settings['prompt']
-        if model_type == ModelType.LLAVA:
-            if not prompt:
+        if not prompt:
+            if model_type in (ModelType.LLAVA, ModelType.COGVLM,
+                              ModelType.COGAGENT):
                 prompt = 'Describe the image in twenty words or less.'
+            elif model_type == ModelType.XCOMPOSER2:
+                prompt = 'Concisely describe the image.'
+        if model_type == ModelType.LLAVA:
             prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
         elif model_type == ModelType.KOSMOS:
             prompt = f'<grounding>{prompt}'
-        elif model_type in (ModelType.COGVLM, ModelType.COGAGENT):
-            if not prompt:
-                prompt = 'Describe the image in twenty words or less.'
         return prompt
 
     def get_model_inputs(self, prompt: str, image: Image,
@@ -589,10 +598,14 @@ class CaptionThread(QThread):
         if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
             # `caption_start` is added later.
             text = prompt
+        elif model_type == ModelType.XCOMPOSER2:
+            text = (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
+                    f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n'
+                    f'{caption_start}')
         elif prompt and caption_start:
             text = f'{prompt} {caption_start}'
         else:
-            text = prompt + caption_start
+            text = prompt or caption_start
         # Load the image.
         pil_image = PilImage.open(image.path)
         # Rotate the image according to the orientation tag.
@@ -626,6 +639,33 @@ class CaptionThread(QThread):
                     [cross_images[0].to(device, **dtype_argument)]
                     for _ in range(beam_count)
                 ]
+        elif model_type == ModelType.XCOMPOSER2:
+            processed_image = model.vis_processor(pil_image).unsqueeze(0).to(
+                device, **dtype_argument)
+            image_embeddings, *_ = model.img2emb(processed_image)
+            input_embeddings_parts = []
+            image_mask_parts = []
+            for text_part in text.split('<ImageHere>'):
+                part_token_ids = processor(
+                    text_part, return_tensors='pt').input_ids.to(device)
+                part_embeddings = model.model.tok_embeddings(part_token_ids)
+                input_embeddings_parts.append(part_embeddings)
+                image_mask_parts.append(torch.zeros(part_embeddings.shape[:2]))
+            input_embeddings_parts.insert(1, image_embeddings[0].unsqueeze(0))
+            image_mask_parts.insert(
+                1, torch.ones(1, image_embeddings[0].shape[0]))
+            input_embeddings = torch.cat(
+                input_embeddings_parts, dim=1).to(device)
+            image_mask = torch.cat(image_mask_parts, dim=1).bool().to(device)
+            eos_token_id = [
+                processor.eos_token_id,
+                processor.convert_tokens_to_ids(['[UNUSED_TOKEN_145]'])[0]
+            ]
+            model_inputs = {
+                'inputs_embeds': input_embeddings,
+                'im_mask': image_mask,
+                'eos_token_id': eos_token_id
+            }
         else:
             model_inputs = (processor(text=text, images=pil_image,
                                       return_tensors='pt')
@@ -649,6 +689,8 @@ class CaptionThread(QThread):
             prompt = f'Question: {prompt} Answer:'
         elif model_type == ModelType.COGAGENT:
             prompt = f'<EOI>Question: {prompt} Answer:'
+        elif model_type == ModelType.XCOMPOSER2:
+            generated_text = generated_text.split('[UNUSED_TOKEN_145]')[0]
         if prompt.strip() and generated_text.startswith(prompt):
             caption = generated_text[len(prompt):]
         elif (caption_start.strip()
