@@ -451,7 +451,8 @@ def get_forced_words_ids(forced_words_string: str, model_type: ModelType,
     if not forced_words_string.strip():
         return None
     tokenizer = (processor
-                 if model_type in (ModelType.COGVLM, ModelType.COGAGENT)
+                 if model_type in (ModelType.COGVLM, ModelType.COGAGENT,
+                                   ModelType.XCOMPOSER2)
                  else processor.tokenizer)
     word_groups = re.split(r'(?<!\\),', forced_words_string)
     forced_words_ids = []
