@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QFrame, QHBoxLayout, QLabel, QLineEdit,
                                QMessageBox, QPlainTextEdit, QProgressBar,
                                QScrollArea, QVBoxLayout, QWidget)
+from auto_gptq.modeling import BaseGPTQForCausalLM
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           AutoProcessor, AutoTokenizer, BatchFeature,
                           BitsAndBytesConfig, LlamaTokenizer)
@@ -31,6 +32,7 @@ from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
 
 MODELS = [
+    'internlm/internlm-xcomposer2-vl-7b-4bit',
     'internlm/internlm-xcomposer2-vl-7b',
     'THUDM/cogagent-vqa-hf',
     'THUDM/cogvlm-chat-hf',
@@ -387,6 +389,18 @@ class CaptionSettingsForm(QVBoxLayout):
         self.settings.setValue('caption_settings', caption_settings)
 
 
+class InternLMXComposer2QuantizedForCausalLM(BaseGPTQForCausalLM):
+    layers_block_name = 'model.layers'
+    outside_layer_modules = ['vit', 'vision_proj', 'model.tok_embeddings',
+                             'model.norm', 'output']
+    inside_layer_modules = [
+        ['attention.wqkv.linear'],
+        ['attention.wo.linear'],
+        ['feed_forward.w1.linear', 'feed_forward.w3.linear'],
+        ['feed_forward.w2.linear'],
+    ]
+
+
 def format_cogvlm_prompt(prompt: str, caption_start: str) -> str:
     prompt = f'Question: {prompt} Answer:'
     if caption_start.strip():
@@ -496,16 +510,15 @@ class CaptionThread(QThread):
         model_id = self.caption_settings['model']
         if 'llava' in model_id.lower():
             return ModelType.LLAVA
-        elif 'kosmos' in model_id.lower():
+        if 'kosmos' in model_id.lower():
             return ModelType.KOSMOS
-        elif 'cogvlm' in model_id.lower():
+        if 'cogvlm' in model_id.lower():
             return ModelType.COGVLM
-        elif 'cogagent' in model_id.lower():
+        if 'cogagent' in model_id.lower():
             return ModelType.COGAGENT
-        elif 'xcomposer2' in model_id.lower():
+        if 'xcomposer2' in model_id.lower():
             return ModelType.XCOMPOSER2
-        else:
-            return ModelType.OTHER
+        return ModelType.OTHER
 
     def load_processor_and_model(self, device: torch.device,
                                  model_type: ModelType) -> tuple:
@@ -544,29 +557,34 @@ class CaptionThread(QThread):
             processor = processor_class.from_pretrained(model_id,
                                                         trust_remote_code=True)
         self.parent().processor = processor
-        if load_in_4_bit:
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16
-            )
-            dtype_argument = {}
+        if model_type == ModelType.XCOMPOSER2 and load_in_4_bit:
+            model = InternLMXComposer2QuantizedForCausalLM.from_quantized(
+                model_id, trust_remote_code=True, device=str(device))
         else:
-            quantization_config = None
-            dtype_argument = ({'torch_dtype': torch.float16}
-                              if device.type == 'cuda' else {})
-        model_class = (AutoModelForCausalLM
-                       if model_type in (ModelType.COGVLM, ModelType.COGAGENT,
-                                         ModelType.XCOMPOSER2)
-                       else AutoModelForVision2Seq)
-        # The CogAgent model prints an unnecessary message while loading, so
-        # temporarily suppress printing for it.
-        context_manager = (redirect_stdout(None)
-                           if model_type == ModelType.COGAGENT
-                           else nullcontext())
-        with context_manager:
-            model = model_class.from_pretrained(
-                model_id, device_map=device, trust_remote_code=True,
-                quantization_config=quantization_config, **dtype_argument)
+            if load_in_4_bit:
+                quantization_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.float16
+                )
+                dtype_argument = {}
+            else:
+                quantization_config = None
+                dtype_argument = ({'torch_dtype': torch.float16}
+                                  if device.type == 'cuda' else {})
+            model_class = (AutoModelForCausalLM
+                           if model_type in (ModelType.COGVLM,
+                                             ModelType.COGAGENT,
+                                             ModelType.XCOMPOSER2)
+                           else AutoModelForVision2Seq)
+            # The CogAgent model prints an unnecessary message while loading,
+            # so temporarily suppress printing for it.
+            context_manager = (redirect_stdout(None)
+                               if model_type == ModelType.COGAGENT
+                               else nullcontext())
+            with context_manager:
+                model = model_class.from_pretrained(
+                    model_id, device_map=device, trust_remote_code=True,
+                    quantization_config=quantization_config, **dtype_argument)
         if not load_in_4_bit:
             model.to(device)
         model.eval()
@@ -640,15 +658,21 @@ class CaptionThread(QThread):
                     for _ in range(beam_count)
                 ]
         elif model_type == ModelType.XCOMPOSER2:
+            load_4_bit = self.caption_settings['load_in_4_bit']
+            input_embeddings_parts = []
+            image_mask_parts = []
             processed_image = model.vis_processor(pil_image).unsqueeze(0).to(
                 device, **dtype_argument)
             image_embeddings, *_ = model.img2emb(processed_image)
-            input_embeddings_parts = []
-            image_mask_parts = []
             for text_part in text.split('<ImageHere>'):
                 part_token_ids = processor(
                     text_part, return_tensors='pt').input_ids.to(device)
-                part_embeddings = model.model.tok_embeddings(part_token_ids)
+                if load_4_bit:
+                    part_embeddings = model.model.model.tok_embeddings(
+                        part_token_ids)
+                else:
+                    part_embeddings = model.model.tok_embeddings(
+                        part_token_ids)
                 input_embeddings_parts.append(part_embeddings)
                 image_mask_parts.append(torch.zeros(part_embeddings.shape[:2]))
             input_embeddings_parts.insert(1, image_embeddings[0].unsqueeze(0))

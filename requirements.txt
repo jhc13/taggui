@@ -25,3 +25,6 @@ xformers==0.0.24
 
 # CogAgent dependencies
 timm==0.9.12
+
+# InternLM-XComposer2 dependencies
+auto-gptq==0.7.1
