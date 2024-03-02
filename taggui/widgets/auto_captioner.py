@@ -576,8 +576,9 @@ class CaptionThread(QThread):
                                                         trust_remote_code=True)
         self.parent().processor = processor
         if model_type == ModelType.XCOMPOSER2 and load_in_4_bit:
-            model = InternLMXComposer2QuantizedForCausalLM.from_quantized(
-                model_id, trust_remote_code=True, device=str(device))
+            with redirect_stdout(None):
+                model = InternLMXComposer2QuantizedForCausalLM.from_quantized(
+                    model_id, trust_remote_code=True, device=str(device))
         else:
             if load_in_4_bit:
                 quantization_config = BitsAndBytesConfig(
@@ -594,10 +595,11 @@ class CaptionThread(QThread):
                                              ModelType.COGAGENT,
                                              ModelType.XCOMPOSER2)
                            else AutoModelForVision2Seq)
-            # The CogAgent model prints an unnecessary message while loading,
-            # so temporarily suppress printing for it.
+            # Some models print unnecessary messages while loading, so
+            # temporarily suppress printing for them.
             context_manager = (redirect_stdout(None)
-                               if model_type == ModelType.COGAGENT
+                               if model_type in (ModelType.COGAGENT,
+                                                 ModelType.XCOMPOSER2)
                                else nullcontext())
             with context_manager:
                 model = model_class.from_pretrained(
