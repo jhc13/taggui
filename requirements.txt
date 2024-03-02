@@ -19,12 +19,12 @@ https://download.pytorch.org/whl/cu121/torch-2.2.0%2Bcu121-cp310-cp310-win_amd64
 # CogVLM dependencies
 einops==0.7.0
 protobuf==4.25.3
-sentencepiece==0.1.99
+sentencepiece==0.2.0
 torchvision==0.17.0
 xformers==0.0.24
 
 # CogAgent dependencies
-timm==0.9.12
+timm==0.9.16
 
 # InternLM-XComposer2 dependencies
 auto-gptq==0.7.1
