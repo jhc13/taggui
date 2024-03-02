@@ -521,6 +521,23 @@ class CaptionThread(QThread):
             return ModelType.XCOMPOSER2
         return ModelType.OTHER
 
+    def check_xcomposer2_4_bit_consistency(self) -> bool:
+        load_in_4_bit = self.caption_settings['load_in_4_bit']
+        model_id = self.caption_settings['model']
+        if load_in_4_bit and '4bit' not in model_id:
+            self.clear_console_text_edit_requested.emit()
+            print('This version of the model cannot be loaded in 4-bit. '
+                  'Select internlm/internlm-xcomposer2-vl-7b-4bit if you want '
+                  'to load the model in 4-bit.')
+            return False
+        if not load_in_4_bit and '4bit' in model_id:
+            self.clear_console_text_edit_requested.emit()
+            print('This version of the model can only be loaded in 4-bit. '
+                  'Select internlm/internlm-xcomposer2-vl-7b if you do not '
+                  'want to load the model in 4-bit.')
+            return False
+        return True
+
     def load_processor_and_model(self, device: torch.device,
                                  model_type: ModelType) -> tuple:
         # If the processor and model were previously loaded, use them.
@@ -748,6 +765,9 @@ class CaptionThread(QThread):
             device = torch.device('cuda:0' if torch.cuda.is_available()
                                   else 'cpu')
         model_type = self.get_model_type()
+        if model_type == ModelType.XCOMPOSER2:
+            if not self.check_xcomposer2_4_bit_consistency():
+                return
         processor, model = self.load_processor_and_model(device, model_type)
         caption_start = self.caption_settings['caption_start']
         if model_type == ModelType.COGVLM:
