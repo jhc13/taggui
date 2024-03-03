@@ -521,20 +521,32 @@ class CaptionThread(QThread):
             return ModelType.XCOMPOSER2
         return ModelType.OTHER
 
-    def check_xcomposer2_4_bit_consistency(self) -> bool:
-        load_in_4_bit = self.caption_settings['load_in_4_bit']
+    def check_xcomposer2_settings_consistency(self) -> bool:
         model_id = self.caption_settings['model']
-        if load_in_4_bit and '4bit' not in model_id:
+        is_4_bit_model = '4bit' in model_id
+        device = self.caption_settings['device']
+        load_in_4_bit = self.caption_settings['load_in_4_bit']
+        error_message = None
+        if is_4_bit_model:
+            if device == Device.CPU:
+                error_message = (
+                    'This version of the model can only be loaded on a GPU. '
+                    'Select internlm/internlm-xcomposer2-vl-7b if you want to '
+                    'load the model on the CPU.')
+            if not load_in_4_bit:
+                error_message = (
+                    'This version of the model can only be loaded in 4-bit. '
+                    'Select internlm/internlm-xcomposer2-vl-7b if you do not '
+                    'want to load the model in 4-bit.')
+        else:
+            if load_in_4_bit:
+                error_message = (
+                    'This version of the model cannot be loaded in 4-bit. '
+                    'Select internlm/internlm-xcomposer2-vl-7b-4bit if you '
+                    'want to load the model in 4-bit.')
+        if error_message:
             self.clear_console_text_edit_requested.emit()
-            print('This version of the model cannot be loaded in 4-bit. '
-                  'Select internlm/internlm-xcomposer2-vl-7b-4bit if you want '
-                  'to load the model in 4-bit.')
-            return False
-        if not load_in_4_bit and '4bit' in model_id:
-            self.clear_console_text_edit_requested.emit()
-            print('This version of the model can only be loaded in 4-bit. '
-                  'Select internlm/internlm-xcomposer2-vl-7b if you do not '
-                  'want to load the model in 4-bit.')
+            print(error_message)
             return False
         return True
 
@@ -784,7 +796,7 @@ class CaptionThread(QThread):
                                   else 'cpu')
         model_type = self.get_model_type()
         if model_type == ModelType.XCOMPOSER2:
-            if not self.check_xcomposer2_4_bit_consistency():
+            if not self.check_xcomposer2_settings_consistency():
                 return
         processor, model = self.load_processor_and_model(device, model_type)
         caption_start = self.caption_settings['caption_start']
