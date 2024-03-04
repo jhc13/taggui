@@ -19,7 +19,8 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
 from auto_gptq.modeling import BaseGPTQForCausalLM
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           AutoProcessor, AutoTokenizer, BatchFeature,
-                          BitsAndBytesConfig, LlamaTokenizer)
+                          BitsAndBytesConfig, CodeGenTokenizerFast,
+                          LlamaTokenizer)
 
 from models.image_list_model import ImageListModel
 from utils.big_widgets import BigCheckBox, TallPushButton
@@ -39,6 +40,7 @@ MODELS = [
     'llava-hf/llava-1.5-7b-hf',
     'llava-hf/llava-1.5-13b-hf',
     'llava-hf/bakLlava-v1-hf',
+    'vikhyatk/moondream1',
     'Salesforce/instructblip-vicuna-7b',
     'Salesforce/instructblip-vicuna-13b',
     'Salesforce/instructblip-flan-t5-xl',
@@ -72,6 +74,7 @@ class ModelType(Enum):
     COGVLM = auto()
     COGAGENT = auto()
     XCOMPOSER2 = auto()
+    MOONDREAM = auto()
     OTHER = auto()
 
 
@@ -512,6 +515,21 @@ def get_xcomposer2_inputs(model, processor, load_in_4_bit: bool, text: str,
     return model_inputs
 
 
+def get_moondream_inputs(model, processor, text: str, pil_image: PilImage,
+                         device: torch.device, dtype_argument: dict) -> dict:
+    encoded_image = model.encode_image(pil_image)
+    eos_tokens_ids = processor('<END>').input_ids
+    inputs_embeds = model.input_embeds(text, encoded_image, processor)
+    model_inputs = {
+        'inputs_embeds': inputs_embeds,
+        'attention_mask': (torch.ones(1, inputs_embeds.shape[1]).bool()
+                           .to(device, **dtype_argument)),
+        'eos_token_id': eos_tokens_ids,
+        'bos_token_id': processor.bos_token_id
+    }
+    return model_inputs
+
+
 def get_forced_words_ids(forced_words_string: str, model_type: ModelType,
                          processor) -> list[list[list[int]]] | None:
     if not forced_words_string.strip():
@@ -585,9 +603,11 @@ class CaptionThread(QThread):
             return ModelType.COGAGENT
         if 'xcomposer2' in model_id.lower():
             return ModelType.XCOMPOSER2
+        if 'moondream' in model_id.lower():
+            return ModelType.MOONDREAM
         return ModelType.OTHER
 
-    def check_xcomposer2_settings_consistency(self) -> bool:
+    def check_xcomposer2_settings(self) -> bool:
         model_id = self.caption_settings['model']
         is_4_bit_model = '4bit' in model_id
         device = self.caption_settings['device']
@@ -599,7 +619,7 @@ class CaptionThread(QThread):
                     'This version of the model can only be loaded on a GPU. '
                     'Select internlm/internlm-xcomposer2-vl-7b if you want to '
                     'load the model on the CPU.')
-            if not load_in_4_bit:
+            elif not load_in_4_bit:
                 error_message = (
                     'This version of the model can only be loaded in 4-bit. '
                     'Select internlm/internlm-xcomposer2-vl-7b if you do not '
@@ -610,6 +630,22 @@ class CaptionThread(QThread):
                     'This version of the model cannot be loaded in 4-bit. '
                     'Select internlm/internlm-xcomposer2-vl-7b-4bit if you '
                     'want to load the model in 4-bit.')
+        if error_message:
+            self.clear_console_text_edit_requested.emit()
+            print(error_message)
+            return False
+        return True
+
+    def check_moondream_settings(self) -> bool:
+        load_in_4_bit = self.caption_settings['load_in_4_bit']
+        beam_count = self.caption_settings['generation_parameters'][
+            'num_beams']
+        error_message = None
+        if load_in_4_bit:
+            error_message = 'This model cannot be loaded in 4-bit.'
+        elif beam_count > 1:
+            error_message = ('This model only supports `Number of beams` set '
+                             'to 1.')
         if error_message:
             self.clear_console_text_edit_requested.emit()
             print(error_message)
@@ -647,9 +683,12 @@ class CaptionThread(QThread):
         if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         else:
-            processor_class = (AutoTokenizer
-                               if model_type == ModelType.XCOMPOSER2
-                               else AutoProcessor)
+            if model_type == ModelType.XCOMPOSER2:
+                processor_class = AutoTokenizer
+            elif model_type == ModelType.MOONDREAM:
+                processor_class = CodeGenTokenizerFast
+            else:
+                processor_class = AutoProcessor
             processor = processor_class.from_pretrained(model_id,
                                                         trust_remote_code=True)
         self.parent().processor = processor
@@ -671,7 +710,8 @@ class CaptionThread(QThread):
             model_class = (AutoModelForCausalLM
                            if model_type in (ModelType.COGVLM,
                                              ModelType.COGAGENT,
-                                             ModelType.XCOMPOSER2)
+                                             ModelType.XCOMPOSER2,
+                                             ModelType.MOONDREAM)
                            else AutoModelForVision2Seq)
             # Some models print unnecessary messages while loading, so
             # temporarily suppress printing for them.
@@ -696,7 +736,7 @@ class CaptionThread(QThread):
         prompt = self.caption_settings['prompt']
         if not prompt:
             if model_type in (ModelType.LLAVA, ModelType.COGVLM,
-                              ModelType.COGAGENT):
+                              ModelType.COGAGENT, ModelType.MOONDREAM):
                 prompt = 'Describe the image in twenty words or less.'
             elif model_type == ModelType.XCOMPOSER2:
                 prompt = 'Concisely describe the image.'
@@ -707,6 +747,8 @@ class CaptionThread(QThread):
         elif model_type == ModelType.XCOMPOSER2:
             prompt = (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
                       f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n')
+        elif model_type == ModelType.MOONDREAM:
+            prompt = f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
         return prompt
 
     def get_model_inputs(self, prompt: str, image: Image,
@@ -742,6 +784,9 @@ class CaptionThread(QThread):
             model_inputs = get_xcomposer2_inputs(
                 model, processor, load_in_4_bit, text, pil_image, device,
                 dtype_argument)
+        elif model_type == ModelType.MOONDREAM:
+            model_inputs = get_moondream_inputs(
+                model, processor, text, pil_image, device, dtype_argument)
         else:
             model_inputs = (processor(text=text, images=pil_image,
                                       return_tensors='pt')
@@ -767,6 +812,10 @@ class CaptionThread(QThread):
             prompt = f'<EOI>Question: {prompt} Answer:'
         elif model_type == ModelType.XCOMPOSER2:
             generated_text = generated_text.split('[UNUSED_TOKEN_145]')[0]
+        elif model_type == ModelType.MOONDREAM:
+            generated_text = re.sub('END$', '', generated_text)
+            generated_text = re.sub('<$', '', generated_text)
+            pass
         if prompt.strip() and generated_text.startswith(prompt):
             caption = generated_text[len(prompt):]
         elif (caption_start.strip()
@@ -800,7 +849,10 @@ class CaptionThread(QThread):
                                   else 'cpu')
         model_type = self.get_model_type()
         if model_type == ModelType.XCOMPOSER2:
-            if not self.check_xcomposer2_settings_consistency():
+            if not self.check_xcomposer2_settings():
+                return
+        elif model_type == ModelType.MOONDREAM:
+            if not self.check_moondream_settings():
                 return
         processor, model = self.load_processor_and_model(device, model_type)
         caption_start = self.caption_settings['caption_start']
@@ -825,8 +877,11 @@ class CaptionThread(QThread):
                 continue
             forced_words_ids = get_forced_words_ids(forced_words_string,
                                                     model_type, processor)
+            generation_model = (model.text_model
+                                if model_type == ModelType.MOONDREAM
+                                else model)
             with torch.inference_mode():
-                generated_token_ids = model.generate(
+                generated_token_ids = generation_model.generate(
                     **model_inputs, force_words_ids=forced_words_ids,
                     **generation_parameters)
             caption = self.get_caption_from_generated_tokens(
