@@ -446,6 +446,72 @@ def monkey_patch_cogagent(model, caption_start: str):
     }
 
 
+def get_cogvlm_cogagent_inputs(model_type: ModelType, model, processor,
+                               text: str, pil_image: PilImage, beam_count: int,
+                               device: torch.device,
+                               dtype_argument: dict) -> dict:
+    template_version = ('chat_old' if model_type == ModelType.COGAGENT
+                        else None)
+    model_inputs = model.build_conversation_input_ids(
+        processor, query=text, images=[pil_image],
+        template_version=template_version)
+    cross_images = model_inputs.get('cross_images')
+    model_inputs = {
+        'input_ids': model_inputs['input_ids'].unsqueeze(0).to(device),
+        'token_type_ids': (model_inputs['token_type_ids'].unsqueeze(0)
+                           .to(device)),
+        'attention_mask': (model_inputs['attention_mask'].unsqueeze(0)
+                           .to(device)),
+        'images': [
+            [model_inputs['images'][0].to(device, **dtype_argument)]
+            for _ in range(beam_count)
+        ]
+    }
+    if model_type == ModelType.COGAGENT:
+        model_inputs['cross_images'] = [
+            [cross_images[0].to(device, **dtype_argument)]
+            for _ in range(beam_count)
+        ]
+    return model_inputs
+
+
+def get_xcomposer2_inputs(model, processor, load_in_4_bit: bool, text: str,
+                          pil_image: PilImage, device: torch.device,
+                          dtype_argument: dict) -> dict:
+    input_embeddings_parts = []
+    image_mask_parts = []
+    processed_image = model.vis_processor(pil_image).unsqueeze(0).to(
+        device, **dtype_argument)
+    image_embeddings, *_ = model.img2emb(processed_image)
+    for text_part in text.split('<ImageHere>'):
+        part_token_ids = processor(
+            text_part, return_tensors='pt').input_ids.to(device)
+        if load_in_4_bit:
+            part_embeddings = model.model.model.tok_embeddings(
+                part_token_ids)
+        else:
+            part_embeddings = model.model.tok_embeddings(
+                part_token_ids)
+        input_embeddings_parts.append(part_embeddings)
+        image_mask_parts.append(torch.zeros(part_embeddings.shape[:2]))
+    input_embeddings_parts.insert(1, image_embeddings[0].unsqueeze(0))
+    image_mask_parts.insert(
+        1, torch.ones(1, image_embeddings[0].shape[0]))
+    input_embeddings = torch.cat(
+        input_embeddings_parts, dim=1).to(device)
+    image_mask = torch.cat(image_mask_parts, dim=1).bool().to(device)
+    eos_token_id = [
+        processor.eos_token_id,
+        processor.convert_tokens_to_ids(['[UNUSED_TOKEN_145]'])[0]
+    ]
+    model_inputs = {
+        'inputs_embeds': input_embeddings,
+        'im_mask': image_mask,
+        'eos_token_id': eos_token_id
+    }
+    return model_inputs
+
+
 def get_forced_words_ids(forced_words_string: str, model_type: ModelType,
                          processor) -> list[list[list[int]]] | None:
     if not forced_words_string.strip():
@@ -640,73 +706,6 @@ class CaptionThread(QThread):
             prompt = f'<grounding>{prompt}'
         return prompt
 
-    def get_cogvlm_cogagent_inputs(self, model_type: ModelType, model,
-                                   processor, text: str, pil_image: PilImage,
-                                   device: torch.device,
-                                   dtype_argument: dict) -> dict:
-        template_version = ('chat_old' if model_type == ModelType.COGAGENT
-                            else None)
-        model_inputs = model.build_conversation_input_ids(
-            processor, query=text, images=[pil_image],
-            template_version=template_version)
-        beam_count = self.caption_settings['generation_parameters'][
-            'num_beams']
-        cross_images = model_inputs.get('cross_images')
-        model_inputs = {
-            'input_ids': model_inputs['input_ids'].unsqueeze(0).to(device),
-            'token_type_ids': (model_inputs['token_type_ids'].unsqueeze(0)
-                               .to(device)),
-            'attention_mask': (model_inputs['attention_mask'].unsqueeze(0)
-                               .to(device)),
-            'images': [
-                [model_inputs['images'][0].to(device, **dtype_argument)]
-                for _ in range(beam_count)
-            ]
-        }
-        if model_type == ModelType.COGAGENT:
-            model_inputs['cross_images'] = [
-                [cross_images[0].to(device, **dtype_argument)]
-                for _ in range(beam_count)
-            ]
-        return model_inputs
-
-    def get_xcomposer2_inputs(self, model, processor, text: str,
-                              pil_image: PilImage, device: torch.device,
-                              dtype_argument: dict) -> dict:
-        load_4_bit = self.caption_settings['load_in_4_bit']
-        input_embeddings_parts = []
-        image_mask_parts = []
-        processed_image = model.vis_processor(pil_image).unsqueeze(0).to(
-            device, **dtype_argument)
-        image_embeddings, *_ = model.img2emb(processed_image)
-        for text_part in text.split('<ImageHere>'):
-            part_token_ids = processor(
-                text_part, return_tensors='pt').input_ids.to(device)
-            if load_4_bit:
-                part_embeddings = model.model.model.tok_embeddings(
-                    part_token_ids)
-            else:
-                part_embeddings = model.model.tok_embeddings(
-                    part_token_ids)
-            input_embeddings_parts.append(part_embeddings)
-            image_mask_parts.append(torch.zeros(part_embeddings.shape[:2]))
-        input_embeddings_parts.insert(1, image_embeddings[0].unsqueeze(0))
-        image_mask_parts.insert(
-            1, torch.ones(1, image_embeddings[0].shape[0]))
-        input_embeddings = torch.cat(
-            input_embeddings_parts, dim=1).to(device)
-        image_mask = torch.cat(image_mask_parts, dim=1).bool().to(device)
-        eos_token_id = [
-            processor.eos_token_id,
-            processor.convert_tokens_to_ids(['[UNUSED_TOKEN_145]'])[0]
-        ]
-        model_inputs = {
-            'inputs_embeds': input_embeddings,
-            'im_mask': image_mask,
-            'eos_token_id': eos_token_id
-        }
-        return model_inputs
-
     def get_model_inputs(self, prompt: str, image: Image,
                          model_type: ModelType, device: torch.device, model,
                          processor) -> BatchFeature | dict:
@@ -732,12 +731,16 @@ class CaptionThread(QThread):
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
         if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
-            model_inputs = self.get_cogvlm_cogagent_inputs(
-                model_type, model, processor, text, pil_image, device,
-                dtype_argument)
+            beam_count = self.caption_settings['generation_parameters'][
+                'num_beams']
+            model_inputs = get_cogvlm_cogagent_inputs(
+                model_type, model, processor, text, pil_image, beam_count,
+                device, dtype_argument)
         elif model_type == ModelType.XCOMPOSER2:
-            model_inputs = self.get_xcomposer2_inputs(
-                model, processor, text, pil_image, device, dtype_argument)
+            load_in_4_bit = self.caption_settings['load_in_4_bit']
+            model_inputs = get_xcomposer2_inputs(
+                model, processor, load_in_4_bit, text, pil_image, device,
+                dtype_argument)
         else:
             model_inputs = (processor(text=text, images=pil_image,
                                       return_tensors='pt')
