@@ -704,6 +704,9 @@ class CaptionThread(QThread):
             prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
         elif model_type == ModelType.KOSMOS:
             prompt = f'<grounding>{prompt}'
+        elif model_type == ModelType.XCOMPOSER2:
+            prompt = (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
+                      f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n')
         return prompt
 
     def get_model_inputs(self, prompt: str, image: Image,
@@ -715,9 +718,7 @@ class CaptionThread(QThread):
             # `caption_start` is added later.
             text = prompt
         elif model_type == ModelType.XCOMPOSER2:
-            text = (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
-                    f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n'
-                    f'{caption_start}')
+            text = prompt + caption_start
         elif prompt and caption_start:
             text = f'{prompt} {caption_start}'
         else:
