@@ -607,7 +607,7 @@ class CaptionThread(QThread):
             return ModelType.MOONDREAM
         return ModelType.OTHER
 
-    def check_xcomposer2_settings_consistency(self) -> bool:
+    def check_xcomposer2_settings(self) -> bool:
         model_id = self.caption_settings['model']
         is_4_bit_model = '4bit' in model_id
         device = self.caption_settings['device']
@@ -619,7 +619,7 @@ class CaptionThread(QThread):
                     'This version of the model can only be loaded on a GPU. '
                     'Select internlm/internlm-xcomposer2-vl-7b if you want to '
                     'load the model on the CPU.')
-            if not load_in_4_bit:
+            elif not load_in_4_bit:
                 error_message = (
                     'This version of the model can only be loaded in 4-bit. '
                     'Select internlm/internlm-xcomposer2-vl-7b if you do not '
@@ -630,6 +630,22 @@ class CaptionThread(QThread):
                     'This version of the model cannot be loaded in 4-bit. '
                     'Select internlm/internlm-xcomposer2-vl-7b-4bit if you '
                     'want to load the model in 4-bit.')
+        if error_message:
+            self.clear_console_text_edit_requested.emit()
+            print(error_message)
+            return False
+        return True
+
+    def check_moondream_settings(self) -> bool:
+        load_in_4_bit = self.caption_settings['load_in_4_bit']
+        beam_count = self.caption_settings['generation_parameters'][
+            'num_beams']
+        error_message = None
+        if load_in_4_bit:
+            error_message = 'This model cannot be loaded in 4-bit.'
+        elif beam_count > 1:
+            error_message = ('This model only supports `Number of beams` set '
+                             'to 1.')
         if error_message:
             self.clear_console_text_edit_requested.emit()
             print(error_message)
@@ -833,7 +849,10 @@ class CaptionThread(QThread):
                                   else 'cpu')
         model_type = self.get_model_type()
         if model_type == ModelType.XCOMPOSER2:
-            if not self.check_xcomposer2_settings_consistency():
+            if not self.check_xcomposer2_settings():
+                return
+        elif model_type == ModelType.MOONDREAM:
+            if not self.check_moondream_settings():
                 return
         processor, model = self.load_processor_and_model(device, model_type)
         caption_start = self.caption_settings['caption_start']
