@@ -41,6 +41,7 @@ MODELS = [
     'llava-hf/llava-1.5-13b-hf',
     'llava-hf/bakLlava-v1-hf',
     'vikhyatk/moondream1',
+    'vikhyatk/moondream2',
     'Salesforce/instructblip-vicuna-7b',
     'Salesforce/instructblip-vicuna-13b',
     'Salesforce/instructblip-flan-t5-xl',
