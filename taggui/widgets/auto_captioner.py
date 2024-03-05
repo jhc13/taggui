@@ -525,8 +525,9 @@ def get_moondream_inputs(model, processor, text: str, pil_image: PilImage,
         'inputs_embeds': inputs_embeds,
         'attention_mask': (torch.ones(1, inputs_embeds.shape[1]).bool()
                            .to(device, **dtype_argument)),
+        'bos_token_id': processor.bos_token_id,
         'eos_token_id': eos_tokens_ids,
-        'bos_token_id': processor.bos_token_id
+        'pad_token_id': eos_tokens_ids[0]
     }
     return model_inputs
 
