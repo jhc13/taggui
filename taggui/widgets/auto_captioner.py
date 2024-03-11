@@ -450,6 +450,29 @@ def monkey_patch_cogagent(model, caption_start: str):
     }
 
 
+def monkey_patch_moondream1(device: torch.device, model_id: str):
+    """Monkey patch moondream1 for Transformers v4.38."""
+    phi_module = next(module for module_name, module in sys.modules.items()
+                      if 'modeling_phi' in module_name)
+    phi_module_source = getsource(phi_module)
+    # Modify the source code at line 318 of `modeling_phi.py`.
+    insert_index = phi_module_source.find(' ' * 12
+                                          + 'padding_mask.masked_fill_')
+    phi_module_source = (
+            phi_module_source[:insert_index]
+            + ' ' * 12 + 'key_padding_mask = key_padding_mask[:, :seqlen_k]\n'
+            + phi_module_source[insert_index:]
+    )
+    # Reload the model using the updated source code.
+    exec(phi_module_source, phi_module.__dict__)
+    dtype_argument = ({'torch_dtype': torch.float16}
+                      if device.type == 'cuda' else {})
+    model = AutoModelForCausalLM.from_pretrained(model_id, device_map=device,
+                                                 trust_remote_code=True,
+                                                 **dtype_argument)
+    return model
+
+
 def get_cogvlm_cogagent_inputs(model_type: ModelType, model, processor,
                                text: str, pil_image: PilImage, beam_count: int,
                                device: torch.device,
@@ -725,8 +748,14 @@ class CaptionThread(QThread):
                 model = model_class.from_pretrained(
                     model_id, device_map=device, trust_remote_code=True,
                     quantization_config=quantization_config, **dtype_argument)
-        if not load_in_4_bit:
-            model.to(device)
+        # Apply monkey patches.
+        caption_start = self.caption_settings['caption_start']
+        if model_type == ModelType.COGVLM:
+            monkey_patch_cogvlm(caption_start)
+        elif model_type == ModelType.COGAGENT:
+            monkey_patch_cogagent(model, caption_start)
+        elif 'moondream1' in model_id:
+            model = monkey_patch_moondream1(device, model_id)
         model.eval()
         self.parent().model = model
         self.parent().model_id = model_id
@@ -857,11 +886,6 @@ class CaptionThread(QThread):
             if not self.check_moondream_settings():
                 return
         processor, model = self.load_processor_and_model(device, model_type)
-        caption_start = self.caption_settings['caption_start']
-        if model_type == ModelType.COGVLM:
-            monkey_patch_cogvlm(caption_start)
-        elif model_type == ModelType.COGAGENT:
-            monkey_patch_cogagent(model, caption_start)
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
         prompt = self.get_processed_prompt(model_type)
