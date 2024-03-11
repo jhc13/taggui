@@ -419,8 +419,7 @@ def monkey_patch_quantizer():
                 return True
         except KeyError:
             return False
-        if (isinstance(module, Linear4bit)
-                and tensor_name == 'bias'):
+        if isinstance(module, Linear4bit) and tensor_name == 'bias':
             return True
         return False
 
