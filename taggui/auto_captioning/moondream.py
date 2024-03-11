@@ -17,8 +17,10 @@ def get_moondream_error_message(load_in_4_bit: bool,
 
 def monkey_patch_moondream1(device: torch.device, model_id: str):
     """Monkey patch moondream1 for Transformers v4.38."""
+    # There are multiple modules with a name containing 'modeling_phi'.
     phi_module = next(module for module_name, module in sys.modules.items()
-                      if 'modeling_phi' in module_name)
+                      if 'moondream1' in module_name
+                      and 'modeling_phi' in module_name)
     phi_module_source = getsource(phi_module)
     # Modify the source code at line 318 of `modeling_phi.py`.
     insert_index = phi_module_source.find(' ' * 12
