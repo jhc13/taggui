@@ -350,6 +350,8 @@ class AutoCaptioner(QDockWidget):
         self.image_list_model = image_list_model
         self.image_list = image_list
         self.settings = get_settings()
+        self.is_captioning = False
+        self.captioning_thread = None
         self.processor = None
         self.model = None
         self.model_id: str | None = None
@@ -364,7 +366,7 @@ class AutoCaptioner(QDockWidget):
         self.setWindowTitle('Auto-Captioner')
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
 
-        self.caption_button = TallPushButton('Run Auto-Captioner')
+        self.start_cancel_button = TallPushButton('Start Auto-Captioning')
         self.progress_bar = QProgressBar()
         self.progress_bar.setFormat('%v / %m images captioned (%p%)')
         self.progress_bar.hide()
@@ -374,7 +376,7 @@ class AutoCaptioner(QDockWidget):
         self.console_text_edit.hide()
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.addWidget(self.caption_button)
+        layout.addWidget(self.start_cancel_button)
         layout.addWidget(self.progress_bar)
         layout.addWidget(self.console_text_edit)
         self.caption_settings_form = CaptionSettingsForm(self.settings)
@@ -387,7 +389,25 @@ class AutoCaptioner(QDockWidget):
         scroll_area.setWidget(container)
         self.setWidget(scroll_area)
 
-        self.caption_button.clicked.connect(self.generate_captions)
+        self.start_cancel_button.clicked.connect(
+            self.start_or_cancel_captioning)
+
+    @Slot()
+    def start_or_cancel_captioning(self):
+        if self.is_captioning:
+            # Cancel captioning.
+            self.captioning_thread.is_canceled = True
+            self.start_cancel_button.setEnabled(False)
+            self.start_cancel_button.setText('Canceling Auto-Captioning...')
+        else:
+            # Start captioning.
+            self.generate_captions()
+
+    def set_is_captioning(self, is_captioning: bool):
+        self.is_captioning = is_captioning
+        button_text = ('Cancel Auto-Captioning' if is_captioning
+                       else 'Start Auto-Captioning')
+        self.start_cancel_button.setText(button_text)
 
     @Slot(str)
     def update_console_text_edit(self, text: str):
@@ -421,7 +441,7 @@ class AutoCaptioner(QDockWidget):
                 question=f'Caption {selected_image_count} selected images?')
             if reply != QMessageBox.StandardButton.Yes:
                 return
-        self.caption_button.setEnabled(False)
+        self.set_is_captioning(True)
         caption_settings = self.caption_settings_form.get_caption_settings()
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
             self.image_list_model.add_to_undo_stack(
@@ -438,17 +458,25 @@ class AutoCaptioner(QDockWidget):
         models_directory_path: Path | None = (Path(models_directory_path)
                                               if models_directory_path
                                               else None)
-        captioning_thread = CaptioningThread(
+        self.captioning_thread = CaptioningThread(
             self, self.image_list_model, selected_image_indices,
             caption_settings, tag_separator, models_directory_path)
-        captioning_thread.text_outputted.connect(self.update_console_text_edit)
-        captioning_thread.clear_console_text_edit_requested.connect(
+        self.captioning_thread.text_outputted.connect(
+            self.update_console_text_edit)
+        self.captioning_thread.clear_console_text_edit_requested.connect(
             self.console_text_edit.clear)
-        captioning_thread.caption_generated.connect(self.caption_generated)
-        captioning_thread.progress_bar_update_requested.connect(
+        self.captioning_thread.caption_generated.connect(
+            self.caption_generated)
+        self.captioning_thread.progress_bar_update_requested.connect(
             self.progress_bar.setValue)
-        captioning_thread.finished.connect(restore_stdout_and_stderr)
-        captioning_thread.finished.connect(
-            lambda: self.caption_button.setEnabled(True))
-        captioning_thread.finished.connect(self.progress_bar.hide)
-        captioning_thread.start()
+        self.captioning_thread.finished.connect(
+            lambda: self.set_is_captioning(False))
+        self.captioning_thread.finished.connect(restore_stdout_and_stderr)
+        self.captioning_thread.finished.connect(self.progress_bar.hide)
+        self.captioning_thread.finished.connect(
+            lambda: self.start_cancel_button.setEnabled(True))
+        # Redirect `stdout` and `stderr` so that the outputs are displayed in
+        # the console text edit.
+        sys.stdout = self.captioning_thread
+        sys.stderr = self.captioning_thread
+        self.captioning_thread.start()

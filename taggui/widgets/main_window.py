@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
                          Qt.Horizontal)
         # Disable some widgets until a directory is loaded.
         self.image_tags_editor.tag_input_box.setDisabled(True)
-        self.auto_captioner.caption_button.setDisabled(True)
+        self.auto_captioner.start_cancel_button.setDisabled(True)
         self.reload_directory_action = QAction('Reload Directory', parent=self)
         self.reload_directory_action.setDisabled(True)
         self.undo_action = QAction('Undo', parent=self)
@@ -150,7 +150,7 @@ class MainWindow(QMainWindow):
         focus_caption_button_shortcut.activated.connect(
             self.auto_captioner.raise_)
         focus_caption_button_shortcut.activated.connect(
-            self.auto_captioner.caption_button.setFocus)
+            self.auto_captioner.start_cancel_button.setFocus)
         go_to_previous_image_shortcut = QShortcut(QKeySequence('Ctrl+Up'),
                                                   self)
         go_to_previous_image_shortcut.activated.connect(
@@ -204,7 +204,7 @@ class MainWindow(QMainWindow):
         self.centralWidget().setCurrentWidget(self.image_viewer)
         self.reload_directory_action.setDisabled(False)
         self.image_tags_editor.tag_input_box.setDisabled(False)
-        self.auto_captioner.caption_button.setDisabled(False)
+        self.auto_captioner.start_cancel_button.setDisabled(False)
 
     @Slot()
     def select_and_load_directory(self):

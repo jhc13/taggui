@@ -1,6 +1,5 @@
 import gc
 import re
-import sys
 from contextlib import nullcontext, redirect_stdout
 from pathlib import Path
 from time import perf_counter
@@ -89,6 +88,7 @@ class CaptioningThread(QThread):
         self.caption_settings = caption_settings
         self.tag_separator = tag_separator
         self.models_directory_path = models_directory_path
+        self.is_canceled = False
 
     def load_processor_and_model(self, device: torch.device,
                                  model_type: ModelType) -> tuple:
@@ -270,10 +270,6 @@ class CaptioningThread(QThread):
         return caption
 
     def run(self):
-        # Redirect `stdout` and `stderr` so that the outputs are
-        # displayed in the console text edit.
-        sys.stdout = self
-        sys.stderr = self
         forced_words_string = self.caption_settings['forced_words']
         generation_parameters = self.caption_settings[
             'generation_parameters']
@@ -312,6 +308,9 @@ class CaptioningThread(QThread):
             monkey_patch_cogvlm(caption_start)
         elif model_type == ModelType.COGAGENT:
             monkey_patch_cogagent(model, caption_start)
+        if self.is_canceled:
+            print('Canceled captioning.')
+            return
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
         prompt = self.get_processed_prompt(model_type)
@@ -319,6 +318,9 @@ class CaptioningThread(QThread):
         are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
             start_time = perf_counter()
+            if self.is_canceled:
+                print('Canceled captioning.')
+                return
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             try:
                 model_inputs = self.get_model_inputs(prompt, image, model_type,
