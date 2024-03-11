@@ -405,49 +405,26 @@ class InternLMXComposer2QuantizedForCausalLM(BaseGPTQForCausalLM):
     ]
 
 
-def format_cogvlm_prompt(prompt: str, caption_start: str) -> str:
-    prompt = f'Question: {prompt} Answer:'
-    if caption_start.strip():
-        prompt += f' {caption_start}'
-    return prompt
+def monkey_patch_quantizer():
+    """Monkey patch the bitsandbytes quantizer for CogVLM and CogAgent."""
+    from bitsandbytes.nn import Linear4bit, Params4bit
+    from transformers.quantizers.quantizer_bnb_4bit import Bnb4BitHfQuantizer
+    from transformers.quantizers.quantizers_utils import get_module_from_name
 
+    def check_quantized_param(self, model, param_value, param_name,
+                              state_dict):
+        module, tensor_name = get_module_from_name(model, param_name)
+        try:
+            if isinstance(module._parameters[tensor_name], Params4bit):
+                return True
+        except KeyError:
+            return False
+        if (isinstance(module, Linear4bit)
+                and tensor_name == 'bias'):
+            return True
+        return False
 
-def monkey_patch_cogvlm(caption_start: str):
-    """Monkey-patch the CogVLM module to support `caption_start`."""
-    cogvlm_module = next((module for module_name, module in sys.modules.items()
-                          if 'modeling_cogvlm' in module_name))
-    cogvlm_module._history_to_prompt = (
-        lambda _, __, prompt_: format_cogvlm_prompt(prompt_, caption_start))
-
-
-def format_cogagent_prompt(prompt: str, caption_start: str) -> str:
-    prompt = f'<EOI>Question: {prompt} Answer:'
-    if caption_start.strip():
-        prompt += f' {caption_start}'
-    return prompt
-
-
-def monkey_patch_cogagent(model, caption_start: str):
-    """
-    Monkey-patch the CogAgent module to support beam search and
-    `caption_start`.
-    """
-    cogagent_module = next((module for module_name, module
-                            in sys.modules.items()
-                            if 'modeling_cogagent' in module_name))
-    cogagent_module_source = getsource(cogagent_module)
-    # Modify the source code to make beam search work (line 613 of
-    # `modeling_cogagent.py`).
-    cogagent_module_source = cogagent_module_source.replace('(batch_size, 1)',
-                                                            '(1, 1)')
-    # Replace the method in the class with the updated version.
-    exec(cogagent_module_source, cogagent_module.__dict__)
-    model.model.__class__.llm_forward = (cogagent_module.CogAgentModel
-                                         .llm_forward)
-    cogagent_module._history_to_prompt = {
-        'chat_old': lambda _, prompt_: format_cogagent_prompt(prompt_,
-                                                              caption_start)
-    }
+    Bnb4BitHfQuantizer.check_quantized_param = check_quantized_param
 
 
 def monkey_patch_moondream1(device: torch.device, model_id: str):
@@ -471,6 +448,48 @@ def monkey_patch_moondream1(device: torch.device, model_id: str):
                                                  trust_remote_code=True,
                                                  **dtype_argument)
     return model
+
+
+def monkey_patch_cogvlm(caption_start: str):
+    """Monkey patch CogVLM to support `caption_start`."""
+    cogvlm_module = next(module for module_name, module in sys.modules.items()
+                         if 'modeling_cogvlm' in module_name)
+
+    def format_cogvlm_prompt(prompt: str, caption_start_: str) -> str:
+        prompt = f'Question: {prompt} Answer:'
+        if caption_start_.strip():
+            prompt += f' {caption_start_}'
+        return prompt
+
+    cogvlm_module._history_to_prompt = (
+        lambda _, __, prompt_: format_cogvlm_prompt(prompt_, caption_start))
+
+
+def monkey_patch_cogagent(model, caption_start: str):
+    """Monkey patch CogAgent to support beam search and `caption_start`."""
+    cogagent_module = next(module
+                           for module_name, module in sys.modules.items()
+                           if 'modeling_cogagent' in module_name)
+    cogagent_module_source = getsource(cogagent_module)
+    # Modify the source code to make beam search work (line 613 of
+    # `modeling_cogagent.py`).
+    cogagent_module_source = cogagent_module_source.replace('(batch_size, 1)',
+                                                            '(1, 1)')
+    # Replace the method in the class with the updated version.
+    exec(cogagent_module_source, cogagent_module.__dict__)
+    model.model.__class__.llm_forward = (cogagent_module.CogAgentModel
+                                         .llm_forward)
+
+    def format_cogagent_prompt(prompt: str, caption_start_: str) -> str:
+        prompt = f'<EOI>Question: {prompt} Answer:'
+        if caption_start_.strip():
+            prompt += f' {caption_start_}'
+        return prompt
+
+    cogagent_module._history_to_prompt = {
+        'chat_old': lambda _, prompt_: format_cogagent_prompt(prompt_,
+                                                              caption_start)
+    }
 
 
 def get_cogvlm_cogagent_inputs(model_type: ModelType, model, processor,
@@ -717,6 +736,9 @@ class CaptionThread(QThread):
             processor = processor_class.from_pretrained(model_id,
                                                         trust_remote_code=True)
         self.parent().processor = processor
+        if (model_type in (ModelType.COGVLM, ModelType.COGAGENT)
+                and load_in_4_bit):
+            monkey_patch_quantizer()
         if model_type == ModelType.XCOMPOSER2 and load_in_4_bit:
             with redirect_stdout(None):
                 model = InternLMXComposer2QuantizedForCausalLM.from_quantized(
@@ -748,13 +770,7 @@ class CaptionThread(QThread):
                 model = model_class.from_pretrained(
                     model_id, device_map=device, trust_remote_code=True,
                     quantization_config=quantization_config, **dtype_argument)
-        # Apply monkey patches.
-        caption_start = self.caption_settings['caption_start']
-        if model_type == ModelType.COGVLM:
-            monkey_patch_cogvlm(caption_start)
-        elif model_type == ModelType.COGAGENT:
-            monkey_patch_cogagent(model, caption_start)
-        elif 'moondream1' in model_id:
+        if 'moondream1' in model_id:
             model = monkey_patch_moondream1(device, model_id)
         model.eval()
         self.parent().model = model
@@ -886,6 +902,13 @@ class CaptionThread(QThread):
             if not self.check_moondream_settings():
                 return
         processor, model = self.load_processor_and_model(device, model_type)
+        # CogVLM and CogAgent have to be monkey patched every time because
+        # `caption_start` might have changed.
+        caption_start = self.caption_settings['caption_start']
+        if model_type == ModelType.COGVLM:
+            monkey_patch_cogvlm(caption_start)
+        elif model_type == ModelType.COGAGENT:
+            monkey_patch_cogagent(model, caption_start)
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
         prompt = self.get_processed_prompt(model_type)
