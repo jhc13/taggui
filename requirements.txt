@@ -2,14 +2,14 @@ accelerate==0.27.2
 ExifRead==3.0.0
 imagesize==1.4.1
 Pillow==10.2.0
-pyparsing==3.1.1
+pyparsing==3.1.2
 PySide6==6.6.2
 transformers==4.38.2
 
 # bitsandbytes
 scipy==1.12.0
-bitsandbytes==0.42.0; platform_system != "Windows"
-https://github.com/jllllll/bitsandbytes-windows-webui/releases/download/wheels/bitsandbytes-0.41.2.post2-py3-none-win_amd64.whl; platform_system == "Windows"
+bitsandbytes==0.43.0; platform_system != "Windows"
+https://github.com/oobabooga/bitsandbytes-windows-webui/releases/download/wheels/bitsandbytes-0.42.0-py3-none-win_amd64.whl; platform_system == "Windows"
 
 # PyTorch
 torch==2.2.0; platform_system != "Windows"
