@@ -13,7 +13,8 @@ like Stable Diffusion.
 - Keyboard-friendly interface for fast tagging
 - Tag autocomplete based on your own most-used tags
 - Integrated Stable Diffusion token counter
-- Automatic caption generation with models including CogVLM and LLaVA
+- Automatic caption generation with models including CogVLM, LLaVA, and many
+  more
 - Option to load auto-captioning models in 4-bit for reduced VRAM usage
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
@@ -65,7 +66,7 @@ To use the feature, select the images you want to caption in the image list,
 then select the captioning model you want to use in the Auto-Captioner pane.
 If you have a local directory containing previously downloaded models, you can
 set it in `File` -> `Settings` to include the models in the model list.
-Click the `Run Auto-Captioner` button to start captioning.
+Click the `Start Auto-Captioning` button to start captioning.
 You can select multiple images to batch generate captions for all of them.
 It can take up to several minutes to download and load a model when you first
 use it, but subsequent generations will be much faster.
@@ -77,6 +78,17 @@ Prompt formats are handled automatically based on the selected model.
 
 `Start caption with`: Generated captions will start with this text.
 
+`Remove tag separators in caption`: If checked, tag separators (commas by
+default) will be removed from the generated captions.
+
+`Discourage from caption`: Words or phrases that should not be present in the
+generated captions.
+You can separate multiple words or phrases with commas (`,`).
+For example, you can put `appears,seems,possibly` to prevent the model from
+using an uncertain tone in the captions.
+The words may still be generated due to limitations related to tokenization.
+You can escape commas with backslashes (`\,`).
+
 `Include in caption`: Words or phrases that should be present somewhere in the
 generated captions.
 You can separate multiple words or phrases with commas (`,`).
@@ -85,17 +97,10 @@ phrases by separating them with `|`.
 For example, if you put `cat,orange|white|black`, the model will attempt to
 generate captions that contain the word `cat` and either `orange`, `white`,
 or `black`.
-You can escape commas and pipes with backslashes (`\,` and `\|`).
 It is not guaranteed that all of your specifications will be met.
-`Number of beams` in the advanced settings must be set to greater than 1 in
-order to use this.
+You can escape commas and pipes with backslashes (`\,` and `\|`).
 
-`Remove tag separators in caption`: If checked, tag separators (commas by
-default) will be removed from the generated captions.
-
-Additional generation parameters can be viewed and changed by clicking the
-`Show Advanced Settings` button.
-If you want to know more about what each parameter does, you can read the
+Many of the other generation parameters are described in the
 [Hugging Face documentation](https://huggingface.co/docs/transformers/main/en/main_classes/text_generation#transformers.GenerationConfig).
 
 ## Advanced Image List Filtering
@@ -197,7 +202,7 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 - Focus the `Add Tag` box: `Alt`+`A`
 - Focus the image tags list: `Alt`+`I`
 - Focus the `Search Tags` box: `Alt`+`S`
-- Focus the `Run Auto-Captioner` button: `Alt`+`C`
+- Focus the `Start Auto-Captioning` button: `Alt`+`C`
 
 ### Images pane
 
