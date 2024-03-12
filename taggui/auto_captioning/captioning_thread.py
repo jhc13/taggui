@@ -31,7 +31,7 @@ from utils.image import Image
 
 def get_tokenizer_from_processor(model_type: ModelType, processor):
     if model_type in (ModelType.COGAGENT, ModelType.COGVLM,
-                      ModelType.XCOMPOSER2):
+                      ModelType.MOONDREAM, ModelType.XCOMPOSER2):
         return processor
     return processor.tokenizer
 
