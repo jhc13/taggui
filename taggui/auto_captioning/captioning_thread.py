@@ -29,14 +29,30 @@ from models.image_list_model import ImageListModel
 from utils.image import Image
 
 
-def get_forced_words_ids(forced_words_string: str, model_type: ModelType,
-                         processor) -> list[list[list[int]]] | None:
+def get_tokenizer_from_processor(model_type: ModelType, processor):
+    if model_type in (ModelType.COGAGENT, ModelType.COGVLM,
+                      ModelType.XCOMPOSER2):
+        return processor
+    return processor.tokenizer
+
+
+def get_bad_words_ids(bad_words_string: str,
+                      tokenizer) -> list[list[int]] | None:
+    if not bad_words_string.strip():
+        return None
+    words = re.split(r'(?<!\\),', bad_words_string)
+    words = [word.strip().replace(r'\,', ',') for word in words]
+    # Also discourage generating the versions of the words with spaces before
+    # them.
+    words += [' ' + word for word in words]
+    bad_words_ids = tokenizer(words, add_special_tokens=False).input_ids
+    return bad_words_ids
+
+
+def get_forced_words_ids(forced_words_string: str,
+                         tokenizer) -> list[list[list[int]]] | None:
     if not forced_words_string.strip():
         return None
-    tokenizer = (processor
-                 if model_type in (ModelType.COGVLM, ModelType.COGAGENT,
-                                   ModelType.XCOMPOSER2)
-                 else processor.tokenizer)
     word_groups = re.split(r'(?<!\\),', forced_words_string)
     forced_words_ids = []
     for word_group in word_groups:
@@ -118,7 +134,7 @@ class CaptioningThread(QThread):
             gc.collect()
         self.clear_console_text_edit_requested.emit()
         print(f'Loading {model_id}...')
-        if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
+        if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         else:
             if model_type == ModelType.XCOMPOSER2:
@@ -130,7 +146,7 @@ class CaptioningThread(QThread):
             processor = processor_class.from_pretrained(model_id,
                                                         trust_remote_code=True)
         self.parent().processor = processor
-        if (model_type in (ModelType.COGVLM, ModelType.COGAGENT)
+        if (model_type in (ModelType.COGAGENT, ModelType.COGVLM)
                 and load_in_4_bit):
             monkey_patch_quantizer()
         if model_type == ModelType.XCOMPOSER2 and load_in_4_bit:
@@ -149,10 +165,10 @@ class CaptioningThread(QThread):
                 dtype_argument = ({'torch_dtype': torch.float16}
                                   if device.type == 'cuda' else {})
             model_class = (AutoModelForCausalLM
-                           if model_type in (ModelType.COGVLM,
-                                             ModelType.COGAGENT,
-                                             ModelType.XCOMPOSER2,
-                                             ModelType.MOONDREAM)
+                           if model_type in (ModelType.COGAGENT,
+                                             ModelType.COGVLM,
+                                             ModelType.MOONDREAM,
+                                             ModelType.XCOMPOSER2)
                            else AutoModelForVision2Seq)
             # Some models print unnecessary messages while loading, so
             # temporarily suppress printing for them.
@@ -176,8 +192,8 @@ class CaptioningThread(QThread):
     def get_processed_prompt(self, model_type: ModelType) -> str:
         prompt = self.caption_settings['prompt']
         if not prompt:
-            if model_type in (ModelType.LLAVA, ModelType.COGVLM,
-                              ModelType.COGAGENT, ModelType.MOONDREAM):
+            if model_type in (ModelType.COGAGENT, ModelType.COGVLM,
+                              ModelType.LLAVA, ModelType.MOONDREAM):
                 prompt = 'Describe the image in twenty words or less.'
             elif model_type == ModelType.XCOMPOSER2:
                 prompt = 'Concisely describe the image.'
@@ -197,7 +213,7 @@ class CaptioningThread(QThread):
                          processor) -> BatchFeature | dict:
         # Prepare the input text.
         caption_start = self.caption_settings['caption_start']
-        if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
+        if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
             # `caption_start` is added later.
             text = prompt
         elif model_type == ModelType.XCOMPOSER2:
@@ -214,7 +230,7 @@ class CaptioningThread(QThread):
         # Convert the text and image to model inputs.
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
-        if model_type in (ModelType.COGVLM, ModelType.COGAGENT):
+        if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
             beam_count = self.caption_settings['generation_parameters'][
                 'num_beams']
             model_inputs = get_cogvlm_cogagent_inputs(
@@ -329,15 +345,18 @@ class CaptioningThread(QThread):
                 print(f'Skipping {image.path.name} because its file format is '
                       'not supported.')
                 continue
+            bad_words_string = self.caption_settings['bad_words']
+            tokenizer = get_tokenizer_from_processor(model_type, processor)
+            bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
             forced_words_ids = get_forced_words_ids(forced_words_string,
-                                                    model_type, processor)
+                                                    tokenizer)
             generation_model = (model.text_model
                                 if model_type == ModelType.MOONDREAM
                                 else model)
             with torch.inference_mode():
                 generated_token_ids = generation_model.generate(
-                    **model_inputs, force_words_ids=forced_words_ids,
-                    **generation_parameters)
+                    **model_inputs, bad_words_ids=bad_words_ids,
+                    force_words_ids=forced_words_ids, **generation_parameters)
             caption = self.get_caption_from_generated_tokens(
                 generated_token_ids, prompt, processor, model_type)
             tags = add_caption_to_tags(image.tags, caption, caption_position)

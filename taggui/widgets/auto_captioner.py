@@ -72,7 +72,6 @@ class CaptionSettingsForm(QVBoxLayout):
         self.prompt_text_edit = QPlainTextEdit()
         set_text_edit_height(self.prompt_text_edit, 2)
         self.caption_start_line_edit = QLineEdit()
-        self.forced_words_line_edit = QLineEdit()
         self.caption_position_combo_box = FocusedScrollComboBox()
         self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.model_combo_box = FocusedScrollComboBox()
@@ -84,8 +83,6 @@ class CaptionSettingsForm(QVBoxLayout):
         self.basic_settings_form.addRow('Prompt', self.prompt_text_edit)
         self.basic_settings_form.addRow('Start caption with',
                                         self.caption_start_line_edit)
-        self.basic_settings_form.addRow('Include in caption',
-                                        self.forced_words_line_edit)
         self.basic_settings_form.addRow('Caption position',
                                         self.caption_position_combo_box)
         self.basic_settings_form.addRow('Model', self.model_combo_box)
@@ -121,6 +118,17 @@ class CaptionSettingsForm(QVBoxLayout):
         advanced_settings_form.setLabelAlignment(Qt.AlignRight)
         advanced_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        bad_forced_words_form = QFormLayout()
+        bad_forced_words_form.setRowWrapPolicy(
+            QFormLayout.RowWrapPolicy.WrapAllRows)
+        bad_forced_words_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        self.bad_words_line_edit = QLineEdit()
+        self.forced_words_line_edit = QLineEdit()
+        bad_forced_words_form.addRow('Discourage from caption',
+                                     self.bad_words_line_edit)
+        bad_forced_words_form.addRow('Include in caption',
+                                     self.forced_words_line_edit)
         self.min_new_token_count_spin_box = FocusedScrollSpinBox()
         self.min_new_token_count_spin_box.setRange(1, 999)
         self.max_new_token_count_spin_box = FocusedScrollSpinBox()
@@ -145,6 +153,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.repetition_penalty_spin_box.setSingleStep(0.01)
         self.no_repeat_ngram_size_spin_box = FocusedScrollSpinBox()
         self.no_repeat_ngram_size_spin_box.setRange(0, 5)
+        advanced_settings_form.addRow(bad_forced_words_form)
+        advanced_settings_form.addRow(HorizontalLine())
         advanced_settings_form.addRow('Minimum tokens',
                                       self.min_new_token_count_spin_box)
         advanced_settings_form.addRow('Maximum tokens',
@@ -185,8 +195,6 @@ class CaptionSettingsForm(QVBoxLayout):
         self.prompt_text_edit.textChanged.connect(self.save_caption_settings)
         self.caption_start_line_edit.textChanged.connect(
             self.save_caption_settings)
-        self.forced_words_line_edit.textChanged.connect(
-            self.save_caption_settings)
         self.caption_position_combo_box.currentTextChanged.connect(
             self.save_caption_settings)
         self.model_combo_box.currentTextChanged.connect(
@@ -198,6 +206,10 @@ class CaptionSettingsForm(QVBoxLayout):
         self.load_in_4_bit_check_box.stateChanged.connect(
             self.save_caption_settings)
         self.remove_tag_separators_check_box.stateChanged.connect(
+            self.save_caption_settings)
+        self.bad_words_line_edit.textChanged.connect(
+            self.save_caption_settings)
+        self.forced_words_line_edit.textChanged.connect(
             self.save_caption_settings)
         self.min_new_token_count_spin_box.valueChanged.connect(
             self.save_caption_settings)
@@ -269,8 +281,6 @@ class CaptionSettingsForm(QVBoxLayout):
         self.prompt_text_edit.setPlainText(caption_settings.get('prompt', ''))
         self.caption_start_line_edit.setText(
             caption_settings.get('caption_start', ''))
-        self.forced_words_line_edit.setText(
-            caption_settings.get('forced_words', ''))
         self.caption_position_combo_box.setCurrentText(
             caption_settings.get('caption_position',
                                  CaptionPosition.BEFORE_FIRST_TAG))
@@ -282,6 +292,9 @@ class CaptionSettingsForm(QVBoxLayout):
             caption_settings.get('load_in_4_bit', True))
         self.remove_tag_separators_check_box.setChecked(
             caption_settings.get('remove_tag_separators', True))
+        self.bad_words_line_edit.setText(caption_settings.get('bad_words', ''))
+        self.forced_words_line_edit.setText(
+            caption_settings.get('forced_words', ''))
         generation_parameters = caption_settings.get('generation_parameters',
                                                      {})
         self.min_new_token_count_spin_box.setValue(
@@ -307,13 +320,14 @@ class CaptionSettingsForm(QVBoxLayout):
         return {
             'prompt': self.prompt_text_edit.toPlainText(),
             'caption_start': self.caption_start_line_edit.text(),
-            'forced_words': self.forced_words_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),
             'model': self.model_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
             'load_in_4_bit': self.load_in_4_bit_check_box.isChecked(),
             'remove_tag_separators':
                 self.remove_tag_separators_check_box.isChecked(),
+            'bad_words': self.bad_words_line_edit.text(),
+            'forced_words': self.forced_words_line_edit.text(),
             'generation_parameters': {
                 'min_new_tokens': self.min_new_token_count_spin_box.value(),
                 'max_new_tokens': self.max_new_token_count_spin_box.value(),
