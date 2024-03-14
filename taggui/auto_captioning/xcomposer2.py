@@ -1,6 +1,5 @@
 import torch
 from PIL import Image as PilImage
-from auto_gptq.modeling import BaseGPTQForCausalLM
 
 from auto_captioning.enums import Device
 
@@ -9,6 +8,13 @@ def get_xcomposer2_error_message(model_id: str, device: Device,
                                  load_in_4_bit: bool) -> str | None:
     is_4_bit_model = '4bit' in model_id
     if is_4_bit_model:
+        try:
+            import auto_gptq
+        except ImportError:
+            return ('This version of the model requires the `auto-gptq` '
+                    'package, which is only available on Linux and Windows. '
+                    'Select internlm/internlm-xcomposer2-vl-7b if you are '
+                    'using a different operating system.')
         if device == Device.CPU:
             return ('This version of the model can only be loaded on a GPU. '
                     'Select internlm/internlm-xcomposer2-vl-7b if you want to '
@@ -22,6 +28,12 @@ def get_xcomposer2_error_message(model_id: str, device: Device,
                 'internlm/internlm-xcomposer2-vl-7b-4bit if you want to load '
                 'the model in 4-bit.')
     return None
+
+
+try:
+    from auto_gptq.modeling import BaseGPTQForCausalLM
+except ImportError:
+    BaseGPTQForCausalLM = object
 
 
 class InternLMXComposer2QuantizedForCausalLM(BaseGPTQForCausalLM):
