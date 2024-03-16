@@ -1,4 +1,4 @@
-accelerate==0.27.2
+accelerate==0.28.0
 bitsandbytes==0.43.0
 ExifRead==3.0.0
 imagesize==1.4.1
@@ -8,16 +8,16 @@ PySide6==6.6.2
 transformers==4.38.2
 
 # PyTorch
-torch==2.2.0; platform_system != "Windows"
-https://download.pytorch.org/whl/cu121/torch-2.2.0%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
-https://download.pytorch.org/whl/cu121/torch-2.2.0%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
+torch==2.2.1; platform_system != "Windows"
+https://download.pytorch.org/whl/cu121/torch-2.2.1%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
+https://download.pytorch.org/whl/cu121/torch-2.2.1%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
 
 # CogVLM dependencies
 einops==0.7.0
-protobuf==4.25.3
+protobuf==5.26.0
 sentencepiece==0.2.0
-torchvision==0.17.0
-xformers==0.0.24
+torchvision==0.17.1
+xformers==0.0.25
 
 # CogAgent dependencies
 timm==0.9.16
