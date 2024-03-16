@@ -1,6 +1,7 @@
 import random
 from collections import Counter, deque
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 import exifread
@@ -15,6 +16,12 @@ from utils.utils import get_confirmation_dialog_reply
 
 UNDO_STACK_SIZE = 32
 NON_IMAGE_SUFFIXES = ['.json', '.jsonl', '.npz']
+
+
+class Scope(str, Enum):
+    ALL_IMAGES = 'All images'
+    FILTERED_IMAGES = 'Filtered images'
+    SELECTED_IMAGES = 'Selected images'
 
 
 def get_file_paths(directory_path: Path) -> set[Path]:
@@ -49,6 +56,7 @@ class ImageListModel(QAbstractListModel):
         self.undo_stack = deque(maxlen=UNDO_STACK_SIZE)
         self.redo_stack = []
         self.proxy_image_list_model = None
+        self.image_list_selection_model = None
 
     def rowCount(self, parent=None) -> int:
         return len(self.images)
@@ -201,13 +209,24 @@ class ImageListModel(QAbstractListModel):
         """Redo the last undone action."""
         self.restore_history_tags(is_undo=False)
 
-    def get_text_match_count(self, text: str, in_filtered_images_only: bool,
+    def is_image_in_scope(self, scope: Scope, image_index: int,
+                          image: Image) -> bool:
+        if scope == Scope.ALL_IMAGES:
+            return True
+        if scope == Scope.FILTERED_IMAGES:
+            return self.proxy_image_list_model.is_image_in_filtered_images(
+                image)
+        if scope == Scope.SELECTED_IMAGES:
+            proxy_index = self.proxy_image_list_model.mapFromSource(
+                self.index(image_index))
+            return self.image_list_selection_model.isSelected(proxy_index)
+
+    def get_text_match_count(self, text: str, scope: Scope,
                              whole_tags_only: bool) -> int:
         """Get the number of instances of a text in all captions."""
         match_count = 0
-        for image in self.images:
-            if (in_filtered_images_only and not self.proxy_image_list_model
-                    .is_image_in_filtered_images(image)):
+        for image_index, image in enumerate(self.images):
+            if not self.is_image_in_scope(scope, image_index, image):
                 continue
             if whole_tags_only:
                 match_count += image.tags.count(text)
@@ -217,7 +236,7 @@ class ImageListModel(QAbstractListModel):
         return match_count
 
     def find_and_replace(self, find_text: str, replace_text: str,
-                         in_filtered_images_only: bool):
+                         scope: Scope):
         """
         Find and replace arbitrary text in captions, within and across tag
         boundaries.
@@ -228,8 +247,7 @@ class ImageListModel(QAbstractListModel):
                                should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
-            if (in_filtered_images_only and not self.proxy_image_list_model
-                    .is_image_in_filtered_images(image)):
+            if not self.is_image_in_scope(scope, image_index, image):
                 continue
             caption = self.separator.join(image.tags)
             if find_text not in caption:
@@ -383,14 +401,12 @@ class ImageListModel(QAbstractListModel):
 
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str,
-                   in_filtered_images_only: bool = False):
-        """Rename all instances of a tag in all images."""
+                   scope: Scope = Scope.ALL_IMAGES):
         self.add_to_undo_stack(action_name='Rename Tag',
                                should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
-            if (in_filtered_images_only and not self.proxy_image_list_model
-                    .is_image_in_filtered_images(image)):
+            if not self.is_image_in_scope(scope, image_index, image):
                 continue
             if old_tag in image.tags:
                 changed_image_indices.append(image_index)
@@ -402,14 +418,12 @@ class ImageListModel(QAbstractListModel):
                                   self.index(changed_image_indices[-1]))
 
     @Slot(str)
-    def delete_tag(self, tag: str, in_filtered_images_only: bool = False):
-        """Delete all instances of a tag from all images."""
+    def delete_tag(self, tag: str, scope: Scope = Scope.ALL_IMAGES):
         self.add_to_undo_stack(action_name='Delete Tag',
                                should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
-            if (in_filtered_images_only and not self.proxy_image_list_model
-                    .is_image_in_filtered_images(image)):
+            if not self.is_image_in_scope(scope, image_index, image):
                 continue
             if tag in image.tags:
                 changed_image_indices.append(image_index)

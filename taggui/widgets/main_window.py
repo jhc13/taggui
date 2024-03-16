@@ -101,6 +101,8 @@ class MainWindow(QMainWindow):
 
         self.image_list_selection_model = (self.image_list.list_view
                                            .selectionModel())
+        self.image_list_model.image_list_selection_model = (
+            self.image_list_selection_model)
         self.connect_image_list_signals()
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()

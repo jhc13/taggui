@@ -6,9 +6,7 @@ default_settings = {
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
     'models_directory_path': '',
-    'do_not_reorder_first_tag': True,
-    'replace_in_filtered_images_only': False,
-    'replace_whole_tags_only': False
+    'do_not_reorder_first_tag': True
 }
 
 
