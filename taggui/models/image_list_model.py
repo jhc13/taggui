@@ -209,7 +209,7 @@ class ImageListModel(QAbstractListModel):
         """Redo the last undone action."""
         self.restore_history_tags(is_undo=False)
 
-    def is_image_in_scope(self, scope: Scope, image_index: int,
+    def is_image_in_scope(self, scope: Scope | str, image_index: int,
                           image: Image) -> bool:
         if scope == Scope.ALL_IMAGES:
             return True
@@ -221,7 +221,7 @@ class ImageListModel(QAbstractListModel):
                 self.index(image_index))
             return self.image_list_selection_model.isSelected(proxy_index)
 
-    def get_text_match_count(self, text: str, scope: Scope,
+    def get_text_match_count(self, text: str, scope: Scope | str,
                              whole_tags_only: bool) -> int:
         """Get the number of instances of a text in all captions."""
         match_count = 0
@@ -236,7 +236,7 @@ class ImageListModel(QAbstractListModel):
         return match_count
 
     def find_and_replace(self, find_text: str, replace_text: str,
-                         scope: Scope):
+                         scope: Scope | str):
         """
         Find and replace arbitrary text in captions, within and across tag
         boundaries.
@@ -401,7 +401,7 @@ class ImageListModel(QAbstractListModel):
 
     @Slot(str, str)
     def rename_tag(self, old_tag: str, new_tag: str,
-                   scope: Scope = Scope.ALL_IMAGES):
+                   scope: Scope | str = Scope.ALL_IMAGES):
         self.add_to_undo_stack(action_name='Rename Tag',
                                should_ask_for_confirmation=True)
         changed_image_indices = []
@@ -418,7 +418,7 @@ class ImageListModel(QAbstractListModel):
                                   self.index(changed_image_indices[-1]))
 
     @Slot(str)
-    def delete_tag(self, tag: str, scope: Scope = Scope.ALL_IMAGES):
+    def delete_tag(self, tag: str, scope: Scope | str = Scope.ALL_IMAGES):
         self.add_to_undo_stack(action_name='Delete Tag',
                                should_ask_for_confirmation=True)
         changed_image_indices = []
