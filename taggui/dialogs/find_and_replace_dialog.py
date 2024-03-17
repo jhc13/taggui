@@ -59,13 +59,16 @@ class FindAndReplaceDialog(QDialog):
         self.replace_button.clicked.connect(self.replace)
         self.replace_button.clicked.connect(self.display_match_count)
         layout.addWidget(self.replace_button)
+        self.display_match_count()
 
     @Slot()
     def display_match_count(self):
         text = self.find_line_edit.text()
         if not text:
             self.replace_button.setText('Replace')
+            self.replace_button.setEnabled(False)
             return
+        self.replace_button.setEnabled(True)
         scope = self.scope_combo_box.currentText()
         whole_tags_only = self.whole_tags_only_check_box.isChecked()
         match_count = self.image_list_model.get_text_match_count(
