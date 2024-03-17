@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, QSettings, Qt, Signal, Slot
+from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QFrame, QHBoxLayout, QLabel, QLineEdit,
@@ -16,7 +16,7 @@ from utils.big_widgets import BigCheckBox, TallPushButton
 from utils.focused_scroll_widgets import (FocusedScrollComboBox,
                                           FocusedScrollDoubleSpinBox,
                                           FocusedScrollSpinBox)
-from utils.settings import get_separator, get_settings
+from utils.settings import get_settings, get_tag_separator
 from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
 
@@ -56,9 +56,9 @@ def get_directory_paths(directory_path: Path) -> list[Path]:
 
 
 class CaptionSettingsForm(QVBoxLayout):
-    def __init__(self, settings: QSettings):
+    def __init__(self):
         super().__init__()
-        self.settings = settings
+        self.settings = get_settings()
         try:
             import bitsandbytes
             self.is_bitsandbytes_available = True
@@ -393,7 +393,7 @@ class AutoCaptioner(QDockWidget):
         layout.addWidget(self.start_cancel_button)
         layout.addWidget(self.progress_bar)
         layout.addWidget(self.console_text_edit)
-        self.caption_settings_form = CaptionSettingsForm(self.settings)
+        self.caption_settings_form = CaptionSettingsForm()
         layout.addLayout(self.caption_settings_form)
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -466,7 +466,7 @@ class AutoCaptioner(QDockWidget):
             self.progress_bar.setRange(0, selected_image_count)
             self.progress_bar.setValue(0)
             self.progress_bar.show()
-        tag_separator = get_separator(self.settings)
+        tag_separator = get_tag_separator()
         models_directory_path: str = self.settings.value(
             'models_directory_path', type=str)
         models_directory_path: Path | None = (Path(models_directory_path)

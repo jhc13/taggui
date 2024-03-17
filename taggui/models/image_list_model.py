@@ -48,10 +48,10 @@ class HistoryItem:
 class ImageListModel(QAbstractListModel):
     update_undo_and_redo_actions_requested = Signal()
 
-    def __init__(self, image_list_image_width: int, separator: str):
+    def __init__(self, image_list_image_width: int, tag_separator: str):
         super().__init__()
         self.image_list_image_width = image_list_image_width
-        self.separator = separator
+        self.tag_separator = tag_separator
         self.images: list[Image] = []
         self.undo_stack = deque(maxlen=UNDO_STACK_SIZE)
         self.redo_stack = []
@@ -69,7 +69,7 @@ class ImageListModel(QAbstractListModel):
             # The text shown next to the thumbnail in the image list.
             text = image.path.name
             if image.tags:
-                caption = self.separator.join(image.tags)
+                caption = self.tag_separator.join(image.tags)
                 text += f'\n{caption}'
             return text
         if role == Qt.DecorationRole:
@@ -133,7 +133,7 @@ class ImageListModel(QAbstractListModel):
                 caption = text_file_path.read_text(encoding='utf-8',
                                                    errors='replace')
                 if caption:
-                    tags = caption.split(self.separator)
+                    tags = caption.split(self.tag_separator)
                     tags = [tag.strip() for tag in tags]
                     tags = [tag for tag in tags if tag]
             image = Image(image_path, dimensions, tags)
@@ -153,7 +153,7 @@ class ImageListModel(QAbstractListModel):
     def write_image_tags_to_disk(self, image: Image):
         try:
             image.path.with_suffix('.txt').write_text(
-                self.separator.join(image.tags), encoding='utf-8',
+                self.tag_separator.join(image.tags), encoding='utf-8',
                 errors='replace')
         except OSError:
             error_message_box = QMessageBox()
@@ -231,7 +231,7 @@ class ImageListModel(QAbstractListModel):
             if whole_tags_only:
                 match_count += image.tags.count(text)
             else:
-                caption = self.separator.join(image.tags)
+                caption = self.tag_separator.join(image.tags)
                 match_count += caption.count(text)
         return match_count
 
@@ -249,12 +249,12 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
-            caption = self.separator.join(image.tags)
+            caption = self.tag_separator.join(image.tags)
             if find_text not in caption:
                 continue
             changed_image_indices.append(image_index)
             caption = caption.replace(find_text, replace_text)
-            image.tags = caption.split(self.separator)
+            image.tags = caption.split(self.tag_separator)
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
@@ -268,13 +268,13 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            old_caption = self.separator.join(image.tags)
+            old_caption = self.tag_separator.join(image.tags)
             if do_not_reorder_first_tag:
                 first_tag = image.tags[0]
                 image.tags = [first_tag] + sorted(image.tags[1:])
             else:
                 image.tags.sort()
-            new_caption = self.separator.join(image.tags)
+            new_caption = self.tag_separator.join(image.tags)
             if new_caption != old_caption:
                 changed_image_indices.append(image_index)
                 self.write_image_tags_to_disk(image)
@@ -294,7 +294,7 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            old_caption = self.separator.join(image.tags)
+            old_caption = self.tag_separator.join(image.tags)
             if do_not_reorder_first_tag:
                 first_tag = image.tags[0]
                 image.tags = [first_tag] + sorted(
@@ -302,7 +302,7 @@ class ImageListModel(QAbstractListModel):
                     reverse=True)
             else:
                 image.tags.sort(key=lambda tag: tag_counter[tag], reverse=True)
-            new_caption = self.separator.join(image.tags)
+            new_caption = self.tag_separator.join(image.tags)
             if new_caption != old_caption:
                 changed_image_indices.append(image_index)
                 self.write_image_tags_to_disk(image)

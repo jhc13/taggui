@@ -21,11 +21,11 @@ class TagInputBox(QLineEdit):
 
     def __init__(self, image_tag_list_model: QStringListModel,
                  tag_counter_model: TagCounterModel, image_list: ImageList,
-                 separator: str):
+                 tag_separator: str):
         super().__init__()
         self.image_tag_list_model = image_tag_list_model
         self.image_list = image_list
-        self.separator = separator
+        self.tag_separator = tag_separator
 
         self.completer = QCompleter(tag_counter_model)
         self.setCompleter(self.completer)
@@ -57,7 +57,7 @@ class TagInputBox(QLineEdit):
     def add_tag(self, tag: str):
         if not tag:
             return
-        tags = tag.split(self.separator)
+        tags = tag.split(self.tag_separator)
         selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
         if len(tags) == 1 and selected_image_count == 1:
@@ -109,12 +109,12 @@ class ImageTagsEditor(QDockWidget):
     def __init__(self, proxy_image_list_model: ProxyImageListModel,
                  tag_counter_model: TagCounterModel,
                  image_tag_list_model: QStringListModel, image_list: ImageList,
-                 tokenizer: PreTrainedTokenizerBase, separator: str):
+                 tokenizer: PreTrainedTokenizerBase, tag_separator: str):
         super().__init__()
         self.proxy_image_list_model = proxy_image_list_model
         self.image_tag_list_model = image_tag_list_model
         self.tokenizer = tokenizer
-        self.separator = separator
+        self.tag_separator = tag_separator
         self.image_index = None
 
         # Each `QDockWidget` needs a unique object name for saving its state.
@@ -123,7 +123,7 @@ class ImageTagsEditor(QDockWidget):
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.tag_input_box = TagInputBox(self.image_tag_list_model,
                                          tag_counter_model, image_list,
-                                         separator)
+                                         tag_separator)
         self.image_tags_list = ImageTagsList(self.image_tag_list_model)
         self.token_count_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
@@ -149,7 +149,8 @@ class ImageTagsEditor(QDockWidget):
 
     @Slot()
     def count_tokens(self):
-        caption = self.separator.join(self.image_tag_list_model.stringList())
+        caption = self.tag_separator.join(
+            self.image_tag_list_model.stringList())
         # Subtract 2 for the `<|startoftext|>` and `<|endoftext|>` tokens.
         caption_token_count = len(self.tokenizer(caption).input_ids) - 2
         if caption_token_count > MAX_TOKEN_COUNT:

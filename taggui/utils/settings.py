@@ -22,10 +22,11 @@ def get_settings() -> QSettings:
     return settings
 
 
-def get_separator(settings: QSettings) -> str:
-    separator = settings.value('tag_separator')
-    insert_space_after_separator = settings.value(
+def get_tag_separator() -> str:
+    settings = get_settings()
+    tag_separator = settings.value('tag_separator', type=str)
+    insert_space_after_tag_separator = settings.value(
         'insert_space_after_tag_separator', type=bool)
-    if insert_space_after_separator:
-        separator += ' '
-    return separator
+    if insert_space_after_tag_separator:
+        tag_separator += ' '
+    return tag_separator

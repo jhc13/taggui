@@ -76,10 +76,10 @@ class ImageListView(QListView):
     directory_reload_requested = Signal()
 
     def __init__(self, parent, proxy_image_list_model: ProxyImageListModel,
-                 separator: str, image_width: int):
+                 tag_separator: str, image_width: int):
         super().__init__(parent)
         self.proxy_image_list_model = proxy_image_list_model
-        self.separator = separator
+        self.tag_separator = tag_separator
         self.setModel(proxy_image_list_model)
         self.setSelectionMode(
             QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -163,7 +163,7 @@ class ImageListView(QListView):
     @Slot()
     def copy_selected_image_tags(self):
         selected_images = self.get_selected_images()
-        selected_image_captions = [self.separator.join(image.tags)
+        selected_image_captions = [self.tag_separator.join(image.tags)
                                    for image in selected_images]
         QApplication.clipboard().setText('\n'.join(selected_image_captions))
 
@@ -184,7 +184,7 @@ class ImageListView(QListView):
                          f'images?')
             if reply != QMessageBox.StandardButton.Yes:
                 return
-        tags = QApplication.clipboard().text().split(self.separator)
+        tags = QApplication.clipboard().text().split(self.tag_separator)
         selected_image_indices = self.get_selected_image_indices()
         self.tags_paste_requested.emit(tags, selected_image_indices)
 
@@ -299,7 +299,7 @@ class ImageListView(QListView):
 
 class ImageList(QDockWidget):
     def __init__(self, proxy_image_list_model: ProxyImageListModel,
-                 separator: str, image_width: int):
+                 tag_separator: str, image_width: int):
         super().__init__()
         self.proxy_image_list_model = proxy_image_list_model
         # Each `QDockWidget` needs a unique object name for saving its state.
@@ -309,7 +309,7 @@ class ImageList(QDockWidget):
 
         self.filter_line_edit = FilterLineEdit()
         self.list_view = ImageListView(self, proxy_image_list_model,
-                                       separator, image_width)
+                                       tag_separator, image_width)
         self.image_index_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()

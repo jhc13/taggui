@@ -1,14 +1,15 @@
-from PySide6.QtCore import QSettings, Qt, Slot
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QDialog, QFileDialog, QGridLayout, QLabel,
                                QLineEdit, QPushButton, QSpinBox, QVBoxLayout)
 
 from utils.big_widgets import BigCheckBox
+from utils.settings import get_settings
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent, settings: QSettings):
+    def __init__(self, parent):
         super().__init__(parent)
-        self.settings = settings
+        self.settings = get_settings()
         self.setWindowTitle('Settings')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
