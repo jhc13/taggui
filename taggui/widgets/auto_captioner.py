@@ -4,19 +4,21 @@ from pathlib import Path
 from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
-                               QFrame, QHBoxLayout, QLabel, QLineEdit,
-                               QMessageBox, QPlainTextEdit, QProgressBar,
+                               QFrame, QHBoxLayout, QLabel, QMessageBox,
+                               QPlainTextEdit, QProgressBar,
                                QScrollArea, QVBoxLayout, QWidget)
 
 from auto_captioning.captioning_thread import CaptioningThread
 from auto_captioning.enums import CaptionPosition, Device
 from auto_captioning.models import MODELS
 from models.image_list_model import ImageListModel
-from utils.big_widgets import BigCheckBox, TallPushButton
-from utils.focused_scroll_widgets import (FocusedScrollComboBox,
-                                          FocusedScrollDoubleSpinBox,
-                                          FocusedScrollSpinBox)
+from utils.big_widgets import TallPushButton
 from utils.settings import get_settings, get_tag_separator
+from utils.settings_widgets import (FocusedScrollSettingsComboBox,
+                                    FocusedScrollSettingsDoubleSpinBox,
+                                    FocusedScrollSettingsSpinBox,
+                                    SettingsBigCheckBox, SettingsLineEdit,
+                                    SettingsPlainTextEdit)
 from utils.utils import get_confirmation_dialog_reply, pluralize
 from widgets.image_list import ImageList
 
@@ -69,16 +71,19 @@ class CaptionSettingsForm(QVBoxLayout):
             QFormLayout.RowWrapPolicy.WrapAllRows)
         self.basic_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        self.prompt_text_edit = QPlainTextEdit()
+        self.prompt_text_edit = SettingsPlainTextEdit(key='prompt')
         set_text_edit_height(self.prompt_text_edit, 2)
-        self.caption_start_line_edit = QLineEdit()
-        self.caption_position_combo_box = FocusedScrollComboBox()
+        self.caption_start_line_edit = SettingsLineEdit(key='caption_start')
+        self.caption_position_combo_box = FocusedScrollSettingsComboBox(
+            key='caption_position')
         self.caption_position_combo_box.addItems(list(CaptionPosition))
-        self.model_combo_box = FocusedScrollComboBox()
+        self.model_combo_box = FocusedScrollSettingsComboBox(key='model')
+        # `setEditable()` must be called before `addItems()` to preserve any
+        # custom model that was set.
         self.model_combo_box.setEditable(True)
         self.model_combo_box.addItems(self.get_local_model_paths())
         self.model_combo_box.addItems(MODELS)
-        self.device_combo_box = FocusedScrollComboBox()
+        self.device_combo_box = FocusedScrollSettingsComboBox(key='device')
         self.device_combo_box.addItems(list(Device))
         self.basic_settings_form.addRow('Prompt', self.prompt_text_edit)
         self.basic_settings_form.addRow('Start caption with',
@@ -92,7 +97,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.load_in_4_bit_layout = QHBoxLayout()
         self.load_in_4_bit_layout.setAlignment(Qt.AlignLeft)
         self.load_in_4_bit_layout.setContentsMargins(0, 0, 0, 0)
-        self.load_in_4_bit_check_box = BigCheckBox()
+        self.load_in_4_bit_check_box = SettingsBigCheckBox(
+            key='load_in_4_bit', default=True)
         self.load_in_4_bit_layout.addWidget(QLabel('Load in 4-bit'))
         self.load_in_4_bit_layout.addWidget(self.load_in_4_bit_check_box)
         self.load_in_4_bit_container.setLayout(self.load_in_4_bit_layout)
@@ -101,7 +107,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.remove_tag_separators_layout = QHBoxLayout()
         self.remove_tag_separators_layout.setAlignment(Qt.AlignLeft)
         self.remove_tag_separators_layout.setContentsMargins(0, 0, 0, 0)
-        self.remove_tag_separators_check_box = BigCheckBox()
+        self.remove_tag_separators_check_box = SettingsBigCheckBox(
+            key='remove_tag_separators', default=True)
         self.remove_tag_separators_layout.addWidget(
             QLabel('Remove tag separators in caption'))
         self.remove_tag_separators_layout.addWidget(
@@ -123,36 +130,37 @@ class CaptionSettingsForm(QVBoxLayout):
             QFormLayout.RowWrapPolicy.WrapAllRows)
         bad_forced_words_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        self.bad_words_line_edit = QLineEdit()
-        self.forced_words_line_edit = QLineEdit()
+        self.bad_words_line_edit = SettingsLineEdit(key='bad_words')
+        self.forced_words_line_edit = SettingsLineEdit(key='forced_words')
         bad_forced_words_form.addRow('Discourage from caption',
                                      self.bad_words_line_edit)
         bad_forced_words_form.addRow('Include in caption',
                                      self.forced_words_line_edit)
-        self.min_new_token_count_spin_box = FocusedScrollSpinBox()
-        self.min_new_token_count_spin_box.setRange(1, 999)
-        self.max_new_token_count_spin_box = FocusedScrollSpinBox()
-        self.max_new_token_count_spin_box.setRange(1, 999)
-        self.beam_count_spin_box = FocusedScrollSpinBox()
-        self.beam_count_spin_box.setRange(1, 99)
-        self.length_penalty_spin_box = FocusedScrollDoubleSpinBox()
-        self.length_penalty_spin_box.setRange(-5, 5)
+        self.min_new_token_count_spin_box = FocusedScrollSettingsSpinBox(
+            key='min_new_tokens', default=1, minimum=1, maximum=999)
+        self.max_new_token_count_spin_box = FocusedScrollSettingsSpinBox(
+            key='max_new_tokens', default=100, minimum=1, maximum=999)
+        self.beam_count_spin_box = FocusedScrollSettingsSpinBox(
+            key='num_beams', default=1, minimum=1, maximum=99)
+        self.length_penalty_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='length_penalty', default=1, minimum=-5, maximum=5)
         self.length_penalty_spin_box.setSingleStep(0.1)
-        self.use_sampling_check_box = BigCheckBox()
-        self.temperature_spin_box = FocusedScrollDoubleSpinBox()
+        self.use_sampling_check_box = SettingsBigCheckBox(key='do_sample',
+                                                          default=False)
         # The temperature must be positive.
-        self.temperature_spin_box.setRange(0.01, 2)
+        self.temperature_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='temperature', default=1, minimum=0.01, maximum=2)
         self.temperature_spin_box.setSingleStep(0.01)
-        self.top_k_spin_box = FocusedScrollSpinBox()
-        self.top_k_spin_box.setRange(0, 200)
-        self.top_p_spin_box = FocusedScrollDoubleSpinBox()
-        self.top_p_spin_box.setRange(0, 1)
+        self.top_k_spin_box = FocusedScrollSettingsSpinBox(
+            key='top_k', default=50, minimum=0, maximum=200)
+        self.top_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='top_p', default=1, minimum=0, maximum=1)
         self.top_p_spin_box.setSingleStep(0.01)
-        self.repetition_penalty_spin_box = FocusedScrollDoubleSpinBox()
-        self.repetition_penalty_spin_box.setRange(1, 2)
+        self.repetition_penalty_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='repetition_penalty', default=1, minimum=1, maximum=2)
         self.repetition_penalty_spin_box.setSingleStep(0.01)
-        self.no_repeat_ngram_size_spin_box = FocusedScrollSpinBox()
-        self.no_repeat_ngram_size_spin_box.setRange(0, 5)
+        self.no_repeat_ngram_size_spin_box = FocusedScrollSettingsSpinBox(
+            key='no_repeat_ngram_size', default=3, minimum=0, maximum=5)
         advanced_settings_form.addRow(bad_forced_words_form)
         advanced_settings_form.addRow(HorizontalLine())
         advanced_settings_form.addRow('Minimum tokens',
@@ -191,47 +199,6 @@ class CaptionSettingsForm(QVBoxLayout):
             self.max_new_token_count_spin_box.setMinimum)
         self.max_new_token_count_spin_box.valueChanged.connect(
             self.min_new_token_count_spin_box.setMaximum)
-        # Save the caption settings when any of them is changed.
-        self.prompt_text_edit.textChanged.connect(self.save_caption_settings)
-        self.caption_start_line_edit.textChanged.connect(
-            self.save_caption_settings)
-        self.caption_position_combo_box.currentTextChanged.connect(
-            self.save_caption_settings)
-        self.model_combo_box.currentTextChanged.connect(
-            self.save_caption_settings)
-        self.device_combo_box.currentTextChanged.connect(
-            self.save_caption_settings)
-        self.device_combo_box.currentTextChanged.connect(
-            self.set_load_in_4_bit_visibility)
-        self.load_in_4_bit_check_box.stateChanged.connect(
-            self.save_caption_settings)
-        self.remove_tag_separators_check_box.stateChanged.connect(
-            self.save_caption_settings)
-        self.bad_words_line_edit.textChanged.connect(
-            self.save_caption_settings)
-        self.forced_words_line_edit.textChanged.connect(
-            self.save_caption_settings)
-        self.min_new_token_count_spin_box.valueChanged.connect(
-            self.save_caption_settings)
-        self.max_new_token_count_spin_box.valueChanged.connect(
-            self.save_caption_settings)
-        self.beam_count_spin_box.valueChanged.connect(
-            self.save_caption_settings)
-        self.length_penalty_spin_box.valueChanged.connect(
-            self.save_caption_settings)
-        self.use_sampling_check_box.stateChanged.connect(
-            self.save_caption_settings)
-        self.temperature_spin_box.valueChanged.connect(
-            self.save_caption_settings)
-        self.top_k_spin_box.valueChanged.connect(self.save_caption_settings)
-        self.top_p_spin_box.valueChanged.connect(self.save_caption_settings)
-        self.repetition_penalty_spin_box.valueChanged.connect(
-            self.save_caption_settings)
-        self.no_repeat_ngram_size_spin_box.valueChanged.connect(
-            self.save_caption_settings)
-
-        # Restore previous caption settings.
-        self.load_caption_settings()
         if not self.is_bitsandbytes_available:
             self.load_in_4_bit_check_box.setChecked(False)
         self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
@@ -274,48 +241,6 @@ class CaptionSettingsForm(QVBoxLayout):
             self.toggle_advanced_settings_form_button.setText(
                 'Show Advanced Settings')
 
-    def load_caption_settings(self):
-        caption_settings: dict = self.settings.value('caption_settings')
-        if caption_settings is None:
-            caption_settings = {}
-        self.prompt_text_edit.setPlainText(caption_settings.get('prompt', ''))
-        self.caption_start_line_edit.setText(
-            caption_settings.get('caption_start', ''))
-        self.caption_position_combo_box.setCurrentText(
-            caption_settings.get('caption_position',
-                                 CaptionPosition.BEFORE_FIRST_TAG))
-        self.model_combo_box.setCurrentText(
-            caption_settings.get('model', MODELS[0]))
-        self.device_combo_box.setCurrentText(
-            caption_settings.get('device', Device.GPU))
-        self.load_in_4_bit_check_box.setChecked(
-            caption_settings.get('load_in_4_bit', True))
-        self.remove_tag_separators_check_box.setChecked(
-            caption_settings.get('remove_tag_separators', True))
-        self.bad_words_line_edit.setText(caption_settings.get('bad_words', ''))
-        self.forced_words_line_edit.setText(
-            caption_settings.get('forced_words', ''))
-        generation_parameters = caption_settings.get('generation_parameters',
-                                                     {})
-        self.min_new_token_count_spin_box.setValue(
-            generation_parameters.get('min_new_tokens', 1))
-        self.max_new_token_count_spin_box.setValue(
-            generation_parameters.get('max_new_tokens', 100))
-        self.beam_count_spin_box.setValue(
-            generation_parameters.get('num_beams', 1))
-        self.length_penalty_spin_box.setValue(
-            generation_parameters.get('length_penalty', 1))
-        self.use_sampling_check_box.setChecked(
-            generation_parameters.get('do_sample', False))
-        self.temperature_spin_box.setValue(
-            generation_parameters.get('temperature', 1))
-        self.top_k_spin_box.setValue(generation_parameters.get('top_k', 50))
-        self.top_p_spin_box.setValue(generation_parameters.get('top_p', 1))
-        self.repetition_penalty_spin_box.setValue(
-            generation_parameters.get('repetition_penalty', 1))
-        self.no_repeat_ngram_size_spin_box.setValue(
-            generation_parameters.get('no_repeat_ngram_size', 3))
-
     def get_caption_settings(self) -> dict:
         return {
             'prompt': self.prompt_text_edit.toPlainText(),
@@ -342,11 +267,6 @@ class CaptionSettingsForm(QVBoxLayout):
                     self.no_repeat_ngram_size_spin_box.value()
             }
         }
-
-    @Slot()
-    def save_caption_settings(self):
-        caption_settings = self.get_caption_settings()
-        self.settings.setValue('caption_settings', caption_settings)
 
 
 @Slot()
