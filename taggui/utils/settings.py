@@ -5,8 +5,7 @@ default_settings = {
     'image_list_image_width': 200,
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
-    'models_directory_path': '',
-    'do_not_reorder_first_tag': True
+    'models_directory_path': ''
 }
 
 
