@@ -5,8 +5,8 @@ from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QFrame, QHBoxLayout, QLabel, QMessageBox,
-                               QPlainTextEdit, QProgressBar,
-                               QScrollArea, QVBoxLayout, QWidget)
+                               QPlainTextEdit, QProgressBar, QScrollArea,
+                               QVBoxLayout, QWidget)
 
 from auto_captioning.captioning_thread import CaptioningThread
 from auto_captioning.enums import CaptionPosition, Device
