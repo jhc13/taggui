@@ -83,7 +83,10 @@ class CaptionSettingsForm(QVBoxLayout):
         self.model_combo_box.setEditable(True)
         self.model_combo_box.addItems(self.get_local_model_paths())
         self.model_combo_box.addItems(MODELS)
+        self.load_in_4_bit_container = QWidget()
         self.device_combo_box = FocusedScrollSettingsComboBox(key='device')
+        self.device_combo_box.currentTextChanged.connect(
+            self.set_load_in_4_bit_visibility)
         self.device_combo_box.addItems(list(Device))
         self.basic_settings_form.addRow('Prompt', self.prompt_text_edit)
         self.basic_settings_form.addRow('Start caption with',
@@ -93,7 +96,6 @@ class CaptionSettingsForm(QVBoxLayout):
         self.basic_settings_form.addRow('Model', self.model_combo_box)
         self.basic_settings_form.addRow('Device', self.device_combo_box)
 
-        self.load_in_4_bit_container = QWidget()
         self.load_in_4_bit_layout = QHBoxLayout()
         self.load_in_4_bit_layout.setAlignment(Qt.AlignLeft)
         self.load_in_4_bit_layout.setContentsMargins(0, 0, 0, 0)
@@ -201,7 +203,6 @@ class CaptionSettingsForm(QVBoxLayout):
             self.min_new_token_count_spin_box.setMaximum)
         if not self.is_bitsandbytes_available:
             self.load_in_4_bit_check_box.setChecked(False)
-        self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
 
     def get_local_model_paths(self) -> list[str]:
         models_directory_path: str = self.settings.value(
