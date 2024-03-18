@@ -19,7 +19,7 @@ from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import BigPushButton
 from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
-from utils.settings import get_settings, get_tag_separator
+from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.shortcut_remover import ShortcutRemover
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
@@ -38,8 +38,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = get_settings()
-        image_list_image_width = self.settings.value('image_list_image_width',
-                                                     type=int)
+        image_list_image_width = self.settings.value(
+            'image_list_image_width',
+            defaultValue=DEFAULT_SETTINGS['image_list_image_width'], type=int)
         tag_separator = get_tag_separator()
         self.image_list_model = ImageListModel(image_list_image_width,
                                                tag_separator)
@@ -176,7 +177,8 @@ class MainWindow(QMainWindow):
 
     def set_font_size(self):
         font = self.app.font()
-        font_size = self.settings.value('font_size', type=int)
+        font_size = self.settings.value(
+            'font_size', defaultValue=DEFAULT_SETTINGS['font_size'], type=int)
         font.setPointSize(font_size)
         self.app.setFont(font)
 

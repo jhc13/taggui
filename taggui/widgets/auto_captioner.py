@@ -13,7 +13,7 @@ from auto_captioning.enums import CaptionPosition, Device
 from auto_captioning.models import MODELS
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
-from utils.settings import get_settings, get_tag_separator
+from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsDoubleSpinBox,
                                     FocusedScrollSettingsSpinBox,
@@ -205,7 +205,8 @@ class CaptionSettingsForm(QVBoxLayout):
 
     def get_local_model_paths(self) -> list[str]:
         models_directory_path: str = self.settings.value(
-            'models_directory_path', type=str)
+            'models_directory_path',
+            defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         if not models_directory_path:
             return []
         models_directory_path: Path = Path(models_directory_path)
@@ -388,7 +389,8 @@ class AutoCaptioner(QDockWidget):
             self.progress_bar.show()
         tag_separator = get_tag_separator()
         models_directory_path: str = self.settings.value(
-            'models_directory_path', type=str)
+            'models_directory_path',
+            defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         models_directory_path: Path | None = (Path(models_directory_path)
                                               if models_directory_path
                                               else None)

@@ -49,13 +49,17 @@ class FocusedScrollSettingsDoubleSpinBox(FocusedScrollMixin, QDoubleSpinBox):
         self.valueChanged.connect(lambda value: settings.setValue(key, value))
 
 
-class FocusedScrollSettingsSpinBox(FocusedScrollMixin, QSpinBox):
+class SettingsSpinBox(QSpinBox):
     def __init__(self, key: str, default: int, minimum: int, maximum: int):
         super().__init__()
         self.setRange(minimum, maximum)
         settings = get_settings()
         self.setValue(settings.value(key, default, type=int))
         self.valueChanged.connect(lambda value: settings.setValue(key, value))
+
+
+class FocusedScrollSettingsSpinBox(FocusedScrollMixin, SettingsSpinBox):
+    pass
 
 
 class SettingsLineEdit(QLineEdit):
