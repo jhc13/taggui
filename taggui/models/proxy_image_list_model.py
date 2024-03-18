@@ -9,17 +9,17 @@ from utils.image import Image
 
 class ProxyImageListModel(QSortFilterProxyModel):
     def __init__(self, image_list_model: ImageListModel,
-                 tokenizer: PreTrainedTokenizerBase, separator: str):
+                 tokenizer: PreTrainedTokenizerBase, tag_separator: str):
         super().__init__()
         self.setSourceModel(image_list_model)
         self.tokenizer = tokenizer
-        self.separator = separator
+        self.tag_separator = tag_separator
         self.filter: list | None = None
 
     def does_image_match_filter(self, image: Image,
                                 filter_: list | str) -> bool:
         if isinstance(filter_, str):
-            return (filter_ in self.separator.join(image.tags) or
+            return (filter_ in self.tag_separator.join(image.tags) or
                     filter_ in str(image.path))
         if len(filter_) == 1:
             return self.does_image_match_filter(image, filter_[0])
@@ -29,7 +29,7 @@ class ProxyImageListModel(QSortFilterProxyModel):
             if filter_[0] == 'tag':
                 return filter_[1] in image.tags
             if filter_[0] == 'caption':
-                return filter_[1] in self.separator.join(image.tags)
+                return filter_[1] in self.tag_separator.join(image.tags)
             if filter_[0] == 'name':
                 return filter_[1] in image.path.name
             if filter_[0] == 'path':
@@ -54,10 +54,10 @@ class ProxyImageListModel(QSortFilterProxyModel):
         if filter_[0] == 'tags':
             number_to_compare = len(image.tags)
         elif filter_[0] == 'chars':
-            caption = self.separator.join(image.tags)
+            caption = self.tag_separator.join(image.tags)
             number_to_compare = len(caption)
         elif filter_[0] == 'tokens':
-            caption = self.separator.join(image.tags)
+            caption = self.tag_separator.join(image.tags)
             # Subtract 2 for the `<|startoftext|>` and `<|endoftext|>` tokens.
             number_to_compare = len(self.tokenizer(caption).input_ids) - 2
         return comparison_operator(number_to_compare, int(filter_[2]))

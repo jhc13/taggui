@@ -19,7 +19,7 @@ from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import BigPushButton
 from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
-from utils.settings import get_separator, get_settings
+from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.shortcut_remover import ShortcutRemover
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
@@ -38,15 +38,16 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = get_settings()
-        image_list_image_width = self.settings.value('image_list_image_width',
-                                                     type=int)
-        separator = get_separator(self.settings)
+        image_list_image_width = self.settings.value(
+            'image_list_image_width',
+            defaultValue=DEFAULT_SETTINGS['image_list_image_width'], type=int)
+        tag_separator = get_tag_separator()
         self.image_list_model = ImageListModel(image_list_image_width,
-                                               separator)
+                                               tag_separator)
         tokenizer = AutoTokenizer.from_pretrained(
             get_resource_path(TOKENIZER_DIRECTORY_PATH))
         self.proxy_image_list_model = ProxyImageListModel(
-            self.image_list_model, tokenizer, separator)
+            self.image_list_model, tokenizer, tag_separator)
         self.image_list_model.proxy_image_list_model = (
             self.proxy_image_list_model)
         self.tag_counter_model = TagCounterModel()
@@ -61,11 +62,12 @@ class MainWindow(QMainWindow):
         self.image_viewer = ImageViewer(self.proxy_image_list_model)
         self.create_central_widget()
         self.image_list = ImageList(self.proxy_image_list_model,
-                                    separator, image_list_image_width)
+                                    tag_separator, image_list_image_width)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
         self.image_tags_editor = ImageTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
-            self.image_tag_list_model, self.image_list, tokenizer, separator)
+            self.image_tag_list_model, self.image_list, tokenizer,
+            tag_separator)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
@@ -175,7 +177,8 @@ class MainWindow(QMainWindow):
 
     def set_font_size(self):
         font = self.app.font()
-        font_size = self.settings.value('font_size', type=int)
+        font_size = self.settings.value(
+            'font_size', defaultValue=DEFAULT_SETTINGS['font_size'], type=int)
         font.setPointSize(font_size)
         self.app.setFont(font)
 
@@ -242,7 +245,7 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def show_settings_dialog(self):
-        settings_dialog = SettingsDialog(parent=self, settings=self.settings)
+        settings_dialog = SettingsDialog(parent=self)
         settings_dialog.exec()
 
     @Slot()

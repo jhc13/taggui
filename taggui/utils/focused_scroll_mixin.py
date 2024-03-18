@@ -1,5 +1,4 @@
 from PySide6.QtCore import QEvent, QObject, Qt
-from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QSpinBox
 
 
 class UnfocusedScrollIgnorer(QObject):
@@ -19,23 +18,8 @@ class UnfocusedScrollIgnorer(QObject):
         return False
 
 
-class FocusedScrollComboBox(QComboBox):
-    def __init__(self):
-        super().__init__()
-        # Disable focusing on scroll.
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.installEventFilter(UnfocusedScrollIgnorer(self))
-
-
-class FocusedScrollDoubleSpinBox(QDoubleSpinBox):
-    def __init__(self):
-        super().__init__()
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.installEventFilter(UnfocusedScrollIgnorer(self))
-
-
-class FocusedScrollSpinBox(QSpinBox):
-    def __init__(self):
-        super().__init__()
+class FocusedScrollMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.setFocusPolicy(Qt.StrongFocus)
         self.installEventFilter(UnfocusedScrollIgnorer(self))

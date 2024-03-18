@@ -1,31 +1,29 @@
 from PySide6.QtCore import QSettings
 
-default_settings = {
+# Defaults for settings that are accessed from multiple places.
+DEFAULT_SETTINGS = {
     'font_size': 16,
     'image_list_image_width': 200,
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
-    'models_directory_path': '',
-    'do_not_reorder_first_tag': True
+    'models_directory_path': ''
 }
-
-
-def set_default_settings(settings: QSettings):
-    for key, value in default_settings.items():
-        if not settings.contains(key):
-            settings.setValue(key, value)
 
 
 def get_settings() -> QSettings:
     settings = QSettings('taggui', 'taggui')
-    set_default_settings(settings)
     return settings
 
 
-def get_separator(settings: QSettings) -> str:
-    separator = settings.value('tag_separator')
-    insert_space_after_separator = settings.value(
-        'insert_space_after_tag_separator', type=bool)
-    if insert_space_after_separator:
-        separator += ' '
-    return separator
+def get_tag_separator() -> str:
+    settings = get_settings()
+    tag_separator = settings.value(
+        'tag_separator', defaultValue=DEFAULT_SETTINGS['tag_separator'],
+        type=str)
+    insert_space_after_tag_separator = settings.value(
+        'insert_space_after_tag_separator',
+        defaultValue=DEFAULT_SETTINGS['insert_space_after_tag_separator'],
+        type=bool)
+    if insert_space_after_tag_separator:
+        tag_separator += ' '
+    return tag_separator

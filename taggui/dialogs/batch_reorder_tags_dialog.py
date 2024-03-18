@@ -1,10 +1,8 @@
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
 
 from models.image_list_model import ImageListModel
 from models.tag_counter_model import TagCounterModel
-from utils.big_widgets import BigCheckBox
-from utils.settings import get_settings
+from utils.settings_widgets import SettingsBigCheckBox
 
 
 class BatchReorderTagsDialog(QDialog):
@@ -15,8 +13,9 @@ class BatchReorderTagsDialog(QDialog):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(20)
-        do_not_reorder_first_tag_check_box = (
-            get_do_not_reorder_first_tag_check_box())
+        do_not_reorder_first_tag_check_box = SettingsBigCheckBox(
+            key='do_not_reorder_first_tag', default=True)
+        do_not_reorder_first_tag_check_box.setText('Do not reorder first tag')
         layout.addWidget(do_not_reorder_first_tag_check_box)
         buttons_layout = QVBoxLayout()
         buttons_layout.setSpacing(20)
@@ -37,16 +36,3 @@ class BatchReorderTagsDialog(QDialog):
                 do_not_reorder_first_tag_check_box.isChecked()))
         buttons_layout.addWidget(shuffle_button)
         layout.addLayout(buttons_layout)
-
-
-def get_do_not_reorder_first_tag_check_box() -> BigCheckBox:
-    check_box = BigCheckBox()
-    check_box.setText('Do not reorder first tag')
-    settings = get_settings()
-    check_box.setChecked(settings.value('do_not_reorder_first_tag',
-                                        type=bool))
-    check_box.stateChanged.connect(
-        lambda state: settings.setValue(
-            'do_not_reorder_first_tag',
-            state == Qt.CheckState.Checked.value))
-    return check_box
