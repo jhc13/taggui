@@ -12,12 +12,13 @@ from PySide6.QtCore import QModelIndex, QThread, Qt, Signal
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           AutoProcessor, AutoTokenizer, BatchFeature,
                           BitsAndBytesConfig, CodeGenTokenizerFast,
-                          LlamaTokenizer)
+                          LlamaTokenizer, LlavaNextProcessor)
 
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
                                              monkey_patch_cogvlm)
 from auto_captioning.enums import CaptionPosition, Device, ModelType
+from auto_captioning.llava_next import get_llava_next_formatted_prompt
 from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
                                        get_moondream_inputs,
@@ -142,17 +143,24 @@ class CaptioningThread(QThread):
         print(f'Loading {model_id}...')
         if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
+        elif model_type == ModelType.LLAVA_NEXT_34B:
+            processor = LlavaNextProcessor.from_pretrained(model_id,
+                                                           use_fast=False)
         elif model_type == ModelType.WD_TAGGER:
             processor = None
         else:
-            if model_type == ModelType.XCOMPOSER2:
-                processor_class = AutoTokenizer
-            elif model_type == ModelType.MOONDREAM:
+            if model_type == ModelType.MOONDREAM:
                 processor_class = CodeGenTokenizerFast
+            elif model_type == ModelType.XCOMPOSER2:
+                processor_class = AutoTokenizer
             else:
                 processor_class = AutoProcessor
             processor = processor_class.from_pretrained(model_id,
                                                         trust_remote_code=True)
+        if model_type in (ModelType.LLAVA_NEXT_34B,
+                          ModelType.LLAVA_NEXT_MISTRAL,
+                          ModelType.LLAVA_NEXT_VICUNA):
+            processor.tokenizer.padding_side = 'left'
         self.parent().processor = processor
         if model_type == ModelType.XCOMPOSER2 and load_in_4_bit:
             with redirect_stdout(None):
@@ -165,7 +173,8 @@ class CaptioningThread(QThread):
                 quantization_config = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_quant_type='nf4',
-                    bnb_4bit_compute_dtype=torch.float16
+                    bnb_4bit_compute_dtype=torch.float16,
+                    bnb_4bit_use_double_quant=True
                 )
                 dtype_argument = {}
             else:
@@ -198,23 +207,31 @@ class CaptioningThread(QThread):
         self.parent().is_model_loaded_in_4_bit = load_in_4_bit
         return processor, model
 
-    def get_processed_prompt(self, model_type: ModelType) -> str:
+    def get_formatted_prompt(self, model_type: ModelType) -> str:
         prompt = self.caption_settings['prompt']
         if not prompt:
             if model_type in (ModelType.COGAGENT, ModelType.COGVLM,
-                              ModelType.LLAVA, ModelType.MOONDREAM):
+                              ModelType.LLAVA_1_5, ModelType.MOONDREAM):
                 prompt = 'Describe the image in twenty words or less.'
+            elif model_type in (ModelType.LLAVA_NEXT_34B,
+                                ModelType.LLAVA_NEXT_MISTRAL,
+                                ModelType.LLAVA_NEXT_VICUNA):
+                prompt = 'Describe the image in one sentence.'
             elif model_type == ModelType.XCOMPOSER2:
                 prompt = 'Concisely describe the image.'
-        if model_type == ModelType.LLAVA:
-            prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
-        elif model_type == ModelType.KOSMOS:
+        if model_type == ModelType.KOSMOS:
             prompt = f'<grounding>{prompt}'
+        elif model_type == ModelType.LLAVA_1_5:
+            prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
+        elif model_type in (ModelType.LLAVA_NEXT_34B,
+                            ModelType.LLAVA_NEXT_MISTRAL,
+                            ModelType.LLAVA_NEXT_VICUNA):
+            prompt = get_llava_next_formatted_prompt(model_type, prompt)
+        elif model_type == ModelType.MOONDREAM:
+            prompt = f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
         elif model_type == ModelType.XCOMPOSER2:
             prompt = (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
                       f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n')
-        elif model_type == ModelType.MOONDREAM:
-            prompt = f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
         return prompt
 
     def get_model_inputs(self, image: Image, prompt: str | None,
@@ -248,14 +265,14 @@ class CaptioningThread(QThread):
             model_inputs = get_cogvlm_cogagent_inputs(
                 model_type, model, processor, text, pil_image, beam_count,
                 device, dtype_argument)
+        elif model_type == ModelType.MOONDREAM:
+            model_inputs = get_moondream_inputs(
+                model, processor, text, pil_image, device, dtype_argument)
         elif model_type == ModelType.XCOMPOSER2:
             load_in_4_bit = self.caption_settings['load_in_4_bit']
             model_inputs = get_xcomposer2_inputs(
                 model, processor, load_in_4_bit, text, pil_image, device,
                 dtype_argument)
-        elif model_type == ModelType.MOONDREAM:
-            model_inputs = get_moondream_inputs(
-                model, processor, text, pil_image, device, dtype_argument)
         else:
             model_inputs = (processor(text=text, images=pil_image,
                                       return_tensors='pt')
@@ -269,22 +286,26 @@ class CaptioningThread(QThread):
             generated_token_ids, skip_special_tokens=True)[0]
         # Postprocess the generated text.
         caption_start = self.caption_settings['caption_start']
-        if model_type == ModelType.LLAVA:
-            prompt = prompt.replace('<image>', ' ')
+        if model_type == ModelType.COGAGENT:
+            prompt = f'<EOI>Question: {prompt} Answer:'
+        elif model_type == ModelType.COGVLM:
+            prompt = f'Question: {prompt} Answer:'
         elif model_type == ModelType.KOSMOS:
             generated_text, _ = processor.post_process_generation(
                 generated_text)
             prompt = prompt.replace('<grounding>', '')
-        elif model_type == ModelType.COGVLM:
-            prompt = f'Question: {prompt} Answer:'
-        elif model_type == ModelType.COGAGENT:
-            prompt = f'<EOI>Question: {prompt} Answer:'
-        elif model_type == ModelType.XCOMPOSER2:
-            generated_text = generated_text.split('[UNUSED_TOKEN_145]')[0]
+        elif model_type in (ModelType.LLAVA_1_5, ModelType.LLAVA_NEXT_MISTRAL,
+                            ModelType.LLAVA_NEXT_VICUNA):
+            prompt = prompt.replace('<image>', ' ')
+        elif model_type == ModelType.LLAVA_NEXT_34B:
+            prompt = prompt.replace('<|im_start|>', '<|im_start|> ')
+            prompt = prompt.replace('<|im_end|>', ' ')
+            prompt = prompt.replace('<image>', '')
         elif model_type == ModelType.MOONDREAM:
             generated_text = re.sub('END$', '', generated_text)
             generated_text = re.sub('<$', '', generated_text)
-            pass
+        elif model_type == ModelType.XCOMPOSER2:
+            generated_text = generated_text.split('[UNUSED_TOKEN_145]')[0]
         if prompt.strip() and generated_text.startswith(prompt):
             caption = generated_text[len(prompt):]
         elif (caption_start.strip()
@@ -346,7 +367,7 @@ class CaptioningThread(QThread):
                               else f'Captioning... (device: {device})')
         print(captioning_message)
         prompt = (None if model_type == ModelType.WD_TAGGER
-                  else self.get_processed_prompt(model_type))
+                  else self.get_formatted_prompt(model_type))
         caption_position = self.caption_settings['caption_position']
         are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
