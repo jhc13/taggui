@@ -4,6 +4,7 @@ from contextlib import nullcontext, redirect_stdout
 from pathlib import Path
 from time import perf_counter
 
+import numpy as np
 import torch
 from PIL import Image as PilImage, UnidentifiedImageError
 from PIL.ImageOps import exif_transpose
@@ -22,6 +23,7 @@ from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
                                        get_moondream_inputs,
                                        monkey_patch_moondream1)
+from auto_captioning.wd_tagger import WdTaggerModel
 from auto_captioning.xcomposer2 import (InternLMXComposer2QuantizedForCausalLM,
                                         get_xcomposer2_error_message,
                                         get_xcomposer2_inputs)
@@ -136,6 +138,8 @@ class CaptioningThread(QThread):
         print(f'Loading {model_id}...')
         if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
+        elif model_type == ModelType.WD_TAGGER:
+            processor = None
         else:
             if model_type == ModelType.XCOMPOSER2:
                 processor_class = AutoTokenizer
@@ -153,6 +157,8 @@ class CaptioningThread(QThread):
             with redirect_stdout(None):
                 model = InternLMXComposer2QuantizedForCausalLM.from_quantized(
                     model_id, trust_remote_code=True, device=str(device))
+        elif model_type == ModelType.WD_TAGGER:
+            model = WdTaggerModel(model_id)
         else:
             if load_in_4_bit:
                 quantization_config = BitsAndBytesConfig(
@@ -182,7 +188,8 @@ class CaptioningThread(QThread):
                     quantization_config=quantization_config, **dtype_argument)
         if 'moondream1' in model_id:
             model = monkey_patch_moondream1(device, model_id)
-        model.eval()
+        if model_type != ModelType.WD_TAGGER:
+            model.eval()
         self.parent().model = model
         self.parent().model_id = model_id
         self.parent().model_device_type = device.type
@@ -208,9 +215,17 @@ class CaptioningThread(QThread):
             prompt = f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
         return prompt
 
-    def get_model_inputs(self, prompt: str, image: Image,
+    def get_model_inputs(self, image: Image, prompt: str | None,
                          model_type: ModelType, device: torch.device, model,
-                         processor) -> BatchFeature | dict:
+                         processor) -> BatchFeature | dict | np.ndarray:
+        # Load the image.
+        pil_image = PilImage.open(image.path)
+        # Rotate the image according to the orientation tag.
+        pil_image = exif_transpose(pil_image)
+        mode = 'RGBA' if model_type == ModelType.WD_TAGGER else 'RGB'
+        pil_image = pil_image.convert(mode)
+        if model_type == ModelType.WD_TAGGER:
+            return model.get_inputs(pil_image)
         # Prepare the input text.
         caption_start = self.caption_settings['caption_start']
         if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
@@ -222,11 +237,6 @@ class CaptioningThread(QThread):
             text = f'{prompt} {caption_start}'
         else:
             text = prompt or caption_start
-        # Load the image.
-        pil_image = PilImage.open(image.path)
-        # Rotate the image according to the orientation tag.
-        pil_image = exif_transpose(pil_image)
-        pil_image = pil_image.convert('RGB')
         # Convert the text and image to model inputs.
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
@@ -329,7 +339,8 @@ class CaptioningThread(QThread):
             return
         self.clear_console_text_edit_requested.emit()
         print(f'Captioning... (device: {device})')
-        prompt = self.get_processed_prompt(model_type)
+        prompt = (None if model_type == ModelType.WD_TAGGER
+                  else self.get_processed_prompt(model_type))
         caption_position = self.caption_settings['caption_position']
         are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
@@ -339,26 +350,33 @@ class CaptioningThread(QThread):
                 return
             image: Image = self.image_list_model.data(image_index, Qt.UserRole)
             try:
-                model_inputs = self.get_model_inputs(prompt, image, model_type,
+                model_inputs = self.get_model_inputs(image, prompt, model_type,
                                                      device, model, processor)
             except UnidentifiedImageError:
                 print(f'Skipping {image.path.name} because its file format is '
                       'not supported.')
                 continue
-            bad_words_string = self.caption_settings['bad_words']
-            tokenizer = get_tokenizer_from_processor(model_type, processor)
-            bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
-            forced_words_ids = get_forced_words_ids(forced_words_string,
-                                                    tokenizer)
-            generation_model = (model.text_model
-                                if model_type == ModelType.MOONDREAM
-                                else model)
-            with torch.inference_mode():
-                generated_token_ids = generation_model.generate(
-                    **model_inputs, bad_words_ids=bad_words_ids,
-                    force_words_ids=forced_words_ids, **generation_parameters)
-            caption = self.get_caption_from_generated_tokens(
-                generated_token_ids, prompt, processor, model_type)
+            if model_type == ModelType.WD_TAGGER:
+                wd_tagger_settings = self.caption_settings[
+                    'wd_tagger_settings']
+                tags = model.generate_tags(model_inputs, wd_tagger_settings)
+                caption = self.tag_separator.join(tags)
+            else:
+                bad_words_string = self.caption_settings['bad_words']
+                tokenizer = get_tokenizer_from_processor(model_type, processor)
+                bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
+                forced_words_ids = get_forced_words_ids(forced_words_string,
+                                                        tokenizer)
+                generation_model = (model.text_model
+                                    if model_type == ModelType.MOONDREAM
+                                    else model)
+                with torch.inference_mode():
+                    generated_token_ids = generation_model.generate(
+                        **model_inputs, bad_words_ids=bad_words_ids,
+                        force_words_ids=forced_words_ids,
+                        **generation_parameters)
+                caption = self.get_caption_from_generated_tokens(
+                    generated_token_ids, prompt, processor, model_type)
             tags = add_caption_to_tags(image.tags, caption, caption_position)
             self.caption_generated.emit(image_index, caption, tags)
             if are_multiple_images_selected:

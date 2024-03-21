@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QVBoxLayout, QWidget)
 
 from auto_captioning.captioning_thread import CaptioningThread
-from auto_captioning.enums import CaptionPosition, Device
-from auto_captioning.models import MODELS
+from auto_captioning.enums import CaptionPosition, Device, ModelType
+from auto_captioning.models import MODELS, get_model_type
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
@@ -66,57 +66,89 @@ class CaptionSettingsForm(QVBoxLayout):
             self.is_bitsandbytes_available = True
         except RuntimeError:
             self.is_bitsandbytes_available = False
-        self.basic_settings_form = QFormLayout()
-        self.basic_settings_form.setRowWrapPolicy(
+        basic_settings_form = QFormLayout()
+        basic_settings_form.setRowWrapPolicy(
             QFormLayout.RowWrapPolicy.WrapAllRows)
-        self.basic_settings_form.setFieldGrowthPolicy(
+        basic_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        self.prompt_text_edit = SettingsPlainTextEdit(key='prompt')
-        set_text_edit_height(self.prompt_text_edit, 2)
-        self.caption_start_line_edit = SettingsLineEdit(key='caption_start')
-        self.caption_position_combo_box = FocusedScrollSettingsComboBox(
-            key='caption_position')
-        self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.model_combo_box = FocusedScrollSettingsComboBox(key='model')
         # `setEditable()` must be called before `addItems()` to preserve any
         # custom model that was set.
         self.model_combo_box.setEditable(True)
         self.model_combo_box.addItems(self.get_local_model_paths())
         self.model_combo_box.addItems(MODELS)
-        self.load_in_4_bit_container = QWidget()
+        self.prompt_text_edit = SettingsPlainTextEdit(key='prompt')
+        set_text_edit_height(self.prompt_text_edit, 4)
+        self.caption_start_line_edit = SettingsLineEdit(key='caption_start')
+        self.caption_position_combo_box = FocusedScrollSettingsComboBox(
+            key='caption_position')
+        self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.device_combo_box = FocusedScrollSettingsComboBox(key='device')
-        self.device_combo_box.currentTextChanged.connect(
-            self.set_load_in_4_bit_visibility)
         self.device_combo_box.addItems(list(Device))
-        self.basic_settings_form.addRow('Prompt', self.prompt_text_edit)
-        self.basic_settings_form.addRow('Start caption with',
-                                        self.caption_start_line_edit)
-        self.basic_settings_form.addRow('Caption position',
-                                        self.caption_position_combo_box)
-        self.basic_settings_form.addRow('Model', self.model_combo_box)
-        self.basic_settings_form.addRow('Device', self.device_combo_box)
-
-        self.load_in_4_bit_layout = QHBoxLayout()
-        self.load_in_4_bit_layout.setAlignment(Qt.AlignLeft)
-        self.load_in_4_bit_layout.setContentsMargins(0, 0, 0, 0)
+        self.load_in_4_bit_container = QWidget()
+        load_in_4_bit_layout = QHBoxLayout()
+        load_in_4_bit_layout.setAlignment(Qt.AlignLeft)
+        load_in_4_bit_layout.setContentsMargins(0, 0, 0, 0)
         self.load_in_4_bit_check_box = SettingsBigCheckBox(
             key='load_in_4_bit', default=True)
-        self.load_in_4_bit_layout.addWidget(QLabel('Load in 4-bit'))
-        self.load_in_4_bit_layout.addWidget(self.load_in_4_bit_check_box)
-        self.load_in_4_bit_container.setLayout(self.load_in_4_bit_layout)
-
+        load_in_4_bit_layout.addWidget(QLabel('Load in 4-bit'))
+        load_in_4_bit_layout.addWidget(self.load_in_4_bit_check_box)
+        self.load_in_4_bit_container.setLayout(load_in_4_bit_layout)
         self.remove_tag_separators_container = QWidget()
-        self.remove_tag_separators_layout = QHBoxLayout()
-        self.remove_tag_separators_layout.setAlignment(Qt.AlignLeft)
-        self.remove_tag_separators_layout.setContentsMargins(0, 0, 0, 0)
+        remove_tag_separators_layout = QHBoxLayout(
+            self.remove_tag_separators_container)
+        remove_tag_separators_layout.setAlignment(Qt.AlignLeft)
+        remove_tag_separators_layout.setContentsMargins(0, 0, 0, 0)
         self.remove_tag_separators_check_box = SettingsBigCheckBox(
             key='remove_tag_separators', default=True)
-        self.remove_tag_separators_layout.addWidget(
-            QLabel('Remove tag separators in caption'))
-        self.remove_tag_separators_layout.addWidget(
+        remove_tag_separators_label = QLabel(
+            'Remove tag separators in caption')
+        remove_tag_separators_layout.addWidget(remove_tag_separators_label)
+        remove_tag_separators_layout.addWidget(
             self.remove_tag_separators_check_box)
-        self.remove_tag_separators_container.setLayout(
-            self.remove_tag_separators_layout)
+        basic_settings_form.addRow('Model', self.model_combo_box)
+        self.prompt_label = QLabel('Prompt')
+        basic_settings_form.addRow(self.prompt_label, self.prompt_text_edit)
+        self.caption_start_label = QLabel('Start caption with')
+        basic_settings_form.addRow(self.caption_start_label,
+                                   self.caption_start_line_edit)
+        basic_settings_form.addRow('Caption position',
+                                   self.caption_position_combo_box)
+        self.device_label = QLabel('Device')
+        basic_settings_form.addRow(self.device_label, self.device_combo_box)
+        basic_settings_form.addRow(self.load_in_4_bit_container)
+        basic_settings_form.addRow(self.remove_tag_separators_container)
+
+        self.wd_tagger_settings_form_container = QWidget()
+        wd_tagger_settings_form = QFormLayout(
+            self.wd_tagger_settings_form_container)
+        wd_tagger_settings_form.setLabelAlignment(Qt.AlignRight)
+        wd_tagger_settings_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        self.use_mcut_threshold_check_box = SettingsBigCheckBox(
+            key='wd_tagger_use_mcut_threshold', default=False)
+        self.threshold_spinbox = FocusedScrollSettingsDoubleSpinBox(
+            key='wd_tagger_threshold', default=0.5, minimum=0.01, maximum=1)
+        self.threshold_spinbox.setSingleStep(0.01)
+        self.max_tags_spin_box = FocusedScrollSettingsSpinBox(
+            key='wd_tagger_max_tags', default=30, minimum=1, maximum=999)
+        tags_to_exclude_form = QFormLayout()
+        tags_to_exclude_form.setRowWrapPolicy(
+            QFormLayout.RowWrapPolicy.WrapAllRows)
+        tags_to_exclude_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        self.tags_to_exclude_text_edit = SettingsPlainTextEdit(
+            key='wd_tagger_tags_to_exclude')
+        tags_to_exclude_form.addRow('Tags to exclude',
+                                    self.tags_to_exclude_text_edit)
+        set_text_edit_height(self.tags_to_exclude_text_edit, 4)
+        wd_tagger_settings_form.addRow('Use MCut threshold',
+                                       self.use_mcut_threshold_check_box)
+        self.threshold_label = QLabel('Threshold')
+        wd_tagger_settings_form.addRow(self.threshold_label,
+                                       self.threshold_spinbox)
+        wd_tagger_settings_form.addRow('Maximum tags', self.max_tags_spin_box)
+        wd_tagger_settings_form.addRow(tags_to_exclude_form)
 
         self.toggle_advanced_settings_form_button = TallPushButton(
             'Show Advanced Settings')
@@ -185,14 +217,20 @@ class CaptionSettingsForm(QVBoxLayout):
                                       self.no_repeat_ngram_size_spin_box)
         self.advanced_settings_form_container.hide()
 
-        self.addLayout(self.basic_settings_form)
-        self.addWidget(self.load_in_4_bit_container)
-        self.addWidget(self.remove_tag_separators_container)
-        self.addWidget(HorizontalLine())
+        self.addLayout(basic_settings_form)
+        self.addWidget(self.wd_tagger_settings_form_container)
+        self.horizontal_line = HorizontalLine()
+        self.addWidget(self.horizontal_line)
         self.addWidget(self.toggle_advanced_settings_form_button)
         self.addWidget(self.advanced_settings_form_container)
         self.addStretch()
 
+        self.model_combo_box.currentTextChanged.connect(
+            self.show_settings_for_model)
+        self.device_combo_box.currentTextChanged.connect(
+            self.set_load_in_4_bit_visibility)
+        self.use_mcut_threshold_check_box.toggled.connect(
+            self.set_threshold_visibility)
         self.toggle_advanced_settings_form_button.clicked.connect(
             self.toggle_advanced_settings_form)
         # Make sure the minimum new token count is less than or equal to the
@@ -201,6 +239,11 @@ class CaptionSettingsForm(QVBoxLayout):
             self.max_new_token_count_spin_box.setMinimum)
         self.max_new_token_count_spin_box.valueChanged.connect(
             self.min_new_token_count_spin_box.setMaximum)
+
+        self.show_settings_for_model(self.model_combo_box.currentText())
+        self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
+        self.set_threshold_visibility(
+            self.use_mcut_threshold_check_box.isChecked())
         if not self.is_bitsandbytes_available:
             self.load_in_4_bit_check_box.setChecked(False)
 
@@ -227,10 +270,41 @@ class CaptionSettingsForm(QVBoxLayout):
         return model_directory_paths
 
     @Slot(str)
+    def show_settings_for_model(self, model: str):
+        wd_tagger_widgets = [self.wd_tagger_settings_form_container]
+        non_wd_tagger_widgets = [
+            self.prompt_label,
+            self.prompt_text_edit,
+            self.caption_start_label,
+            self.caption_start_line_edit,
+            self.device_label,
+            self.device_combo_box,
+            self.load_in_4_bit_container,
+            self.remove_tag_separators_container,
+            self.horizontal_line,
+            self.toggle_advanced_settings_form_button,
+            self.advanced_settings_form_container
+        ]
+        is_wd_tagger_model = get_model_type(model) == ModelType.WD_TAGGER
+        for widget in wd_tagger_widgets:
+            widget.setVisible(is_wd_tagger_model)
+        for widget in non_wd_tagger_widgets:
+            widget.setVisible(not is_wd_tagger_model)
+
+    @Slot(str)
     def set_load_in_4_bit_visibility(self, device: str):
+        model_type = get_model_type(self.model_combo_box.currentText())
+        if model_type == ModelType.WD_TAGGER:
+            self.load_in_4_bit_container.setVisible(False)
+            return
         is_load_in_4_bit_available = (self.is_bitsandbytes_available
                                       and device == Device.GPU)
         self.load_in_4_bit_container.setVisible(is_load_in_4_bit_available)
+
+    @Slot(bool)
+    def set_threshold_visibility(self, use_mcut_threshold: bool):
+        self.threshold_label.setHidden(use_mcut_threshold)
+        self.threshold_spinbox.setHidden(use_mcut_threshold)
 
     @Slot()
     def toggle_advanced_settings_form(self):
@@ -245,10 +319,10 @@ class CaptionSettingsForm(QVBoxLayout):
 
     def get_caption_settings(self) -> dict:
         return {
+            'model': self.model_combo_box.currentText(),
             'prompt': self.prompt_text_edit.toPlainText(),
             'caption_start': self.caption_start_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),
-            'model': self.model_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
             'load_in_4_bit': self.load_in_4_bit_check_box.isChecked(),
             'remove_tag_separators':
@@ -267,6 +341,14 @@ class CaptionSettingsForm(QVBoxLayout):
                 'repetition_penalty': self.repetition_penalty_spin_box.value(),
                 'no_repeat_ngram_size':
                     self.no_repeat_ngram_size_spin_box.value()
+            },
+            'wd_tagger_settings': {
+                'use_mcut_threshold':
+                    self.use_mcut_threshold_check_box.isChecked(),
+                'threshold': self.threshold_spinbox.value(),
+                'max_tags': self.max_tags_spin_box.value(),
+                'tags_to_exclude':
+                    self.tags_to_exclude_text_edit.toPlainText()
             }
         }
 

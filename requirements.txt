@@ -12,15 +12,20 @@ torch==2.2.1; platform_system != "Windows"
 https://download.pytorch.org/whl/cu121/torch-2.2.1%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
 https://download.pytorch.org/whl/cu121/torch-2.2.1%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
 
-# CogVLM dependencies
+# CogAgent
+timm==0.9.16
+
+# CogVLM
 einops==0.7.0
 protobuf==5.26.0
 sentencepiece==0.2.0
 torchvision==0.17.1
 xformers==0.0.25
 
-# CogAgent dependencies
-timm==0.9.16
-
-# InternLM-XComposer2 dependencies
+# InternLM-XComposer2
 auto-gptq==0.7.1; platform_system == "Linux" or platform_system == "Windows"
+
+# WD Tagger
+huggingface-hub==0.21.4
+numpy==1.26.4
+onnxruntime==1.17.1
