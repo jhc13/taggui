@@ -16,8 +16,7 @@ from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
 
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
-                                             monkey_patch_cogvlm,
-                                             monkey_patch_quantizer)
+                                             monkey_patch_cogvlm)
 from auto_captioning.enums import CaptionPosition, Device, ModelType
 from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
@@ -155,9 +154,6 @@ class CaptioningThread(QThread):
             processor = processor_class.from_pretrained(model_id,
                                                         trust_remote_code=True)
         self.parent().processor = processor
-        if (model_type in (ModelType.COGAGENT, ModelType.COGVLM)
-                and load_in_4_bit):
-            monkey_patch_quantizer()
         if model_type == ModelType.XCOMPOSER2 and load_in_4_bit:
             with redirect_stdout(None):
                 model = InternLMXComposer2QuantizedForCausalLM.from_quantized(

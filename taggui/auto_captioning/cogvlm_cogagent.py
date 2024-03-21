@@ -7,27 +7,6 @@ from PIL import Image as PilImage
 from auto_captioning.enums import ModelType
 
 
-def monkey_patch_quantizer():
-    """Monkey patch the bitsandbytes quantizer for CogVLM and CogAgent."""
-    from bitsandbytes.nn import Linear4bit, Params4bit
-    from transformers.quantizers.quantizer_bnb_4bit import Bnb4BitHfQuantizer
-    from transformers.quantizers.quantizers_utils import get_module_from_name
-
-    def check_quantized_param(self, model, param_value, param_name,
-                              state_dict):
-        module, tensor_name = get_module_from_name(model, param_name)
-        try:
-            if isinstance(module._parameters[tensor_name], Params4bit):
-                return True
-        except KeyError:
-            return False
-        if isinstance(module, Linear4bit) and tensor_name == 'bias':
-            return True
-        return False
-
-    Bnb4BitHfQuantizer.check_quantized_param = check_quantized_param
-
-
 def monkey_patch_cogvlm(caption_start: str):
     """Monkey patch CogVLM to support `caption_start`."""
     cogvlm_module = next(module for module_name, module in sys.modules.items()
