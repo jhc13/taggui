@@ -296,11 +296,14 @@ class CaptioningThread(QThread):
         return caption
 
     def run(self):
+        model_id = self.caption_settings['model']
+        model_type = get_model_type(model_id)
         forced_words_string = self.caption_settings['forced_words']
         generation_parameters = self.caption_settings[
             'generation_parameters']
         beam_count = generation_parameters['num_beams']
-        if forced_words_string.strip() and beam_count < 2:
+        if (forced_words_string.strip() and beam_count < 2
+                and model_type != ModelType.WD_TAGGER):
             self.clear_console_text_edit_requested.emit()
             print('`Number of beams` must be greater than 1 when `Include in '
                   'caption` is not empty.')
@@ -310,8 +313,6 @@ class CaptioningThread(QThread):
         else:
             device = torch.device('cuda:0' if torch.cuda.is_available()
                                   else 'cpu')
-        model_id = self.caption_settings['model']
-        model_type = get_model_type(model_id)
         load_in_4_bit = self.caption_settings['load_in_4_bit']
         error_message = None
         if model_type == ModelType.XCOMPOSER2:
