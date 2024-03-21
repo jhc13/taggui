@@ -339,7 +339,10 @@ class CaptioningThread(QThread):
             print('Canceled captioning.')
             return
         self.clear_console_text_edit_requested.emit()
-        print(f'Captioning... (device: {device})')
+        captioning_message = ('Generating tags...'
+                              if model_type == ModelType.WD_TAGGER
+                              else f'Captioning... (device: {device})')
+        print(captioning_message)
         prompt = (None if model_type == ModelType.WD_TAGGER
                   else self.get_processed_prompt(model_type))
         caption_position = self.caption_settings['caption_position']
