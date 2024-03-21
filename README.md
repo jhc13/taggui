@@ -13,8 +13,8 @@ like Stable Diffusion.
 - Keyboard-friendly interface for fast tagging
 - Tag autocomplete based on your own most-used tags
 - Integrated Stable Diffusion token counter
-- Automatic caption generation with models including CogVLM, LLaVA, and many
-  more
+- Automatic caption and tag generation with models including CogVLM, LLaVA, WD
+  Tagger, and many more
 - Option to load auto-captioning models in 4-bit for reduced VRAM usage
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
@@ -57,8 +57,8 @@ other to create a tabbed interface.
 
 <img src='images/auto-captioner-v1.18.0.png' alt='Auto-captioner screenshot' width='100%'>
 
-In addition to manual tagging, you can automatically generate captions for your
-images inside TagGUI.
+In addition to manual tagging, you can automatically generate captions or tags
+for your images inside TagGUI.
 GPU generation requires a compatible NVIDIA GPU, and CPU generation is also
 supported.
 
@@ -99,6 +99,9 @@ generate captions that contain the word `cat` and either `orange`, `white`,
 or `black`.
 It is not guaranteed that all of your specifications will be met.
 You can escape commas and pipes with backslashes (`\,` and `\|`).
+
+`Tags to exclude` (WD Tagger models): Tags that should not be generated,
+separated by commas.
 
 Many of the other generation parameters are described in the
 [Hugging Face documentation](https://huggingface.co/docs/transformers/main/en/main_classes/text_generation#transformers.GenerationConfig).
