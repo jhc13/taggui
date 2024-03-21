@@ -2,6 +2,7 @@
 # https://huggingface.co/spaces/SmilingWolf/wd-tagger/blob/main/app.py.
 import csv
 import re
+from pathlib import Path
 
 import huggingface_hub
 import numpy as np
@@ -36,10 +37,14 @@ def get_tags_to_exclude(tags_to_exclude_string: str) -> list[str]:
 
 class WdTaggerModel:
     def __init__(self, model_id: str):
-        model_path = huggingface_hub.hf_hub_download(model_id,
-                                                     filename='model.onnx')
-        tags_path = huggingface_hub.hf_hub_download(
-            model_id, filename='selected_tags.csv')
+        model_path = Path(model_id) / 'model.onnx'
+        if not model_path.is_file():
+            model_path = huggingface_hub.hf_hub_download(model_id,
+                                                         filename='model.onnx')
+        tags_path = Path(model_id) / 'selected_tags.csv'
+        if not tags_path.is_file():
+            tags_path = huggingface_hub.hf_hub_download(
+                model_id, filename='selected_tags.csv')
         self.inference_session = InferenceSession(model_path)
         self.tags = []
         self.rating_tags_indices = []

@@ -119,7 +119,9 @@ class CaptioningThread(QThread):
                          and device.type == 'cuda')
         if self.models_directory_path:
             config_path = self.models_directory_path / model_id / 'config.json'
-            if config_path.is_file():
+            tags_path = (self.models_directory_path / model_id
+                         / 'selected_tags.csv')
+            if config_path.is_file() or tags_path.is_file():
                 model_id = str(self.models_directory_path / model_id)
         if (model and self.parent().model_id == model_id
                 and self.parent().model_device_type == device.type

@@ -262,7 +262,8 @@ class CaptionSettingsForm(QVBoxLayout):
         model_directory_paths = [
             str(directory_path.relative_to(models_directory_path))
             for directory_path in directory_paths
-            if (directory_path / 'config.json').is_file()
+            if ((directory_path / 'config.json').is_file()
+                or (directory_path / 'selected_tags.csv').is_file())
         ]
         model_directory_paths.sort()
         print(f'Loaded {len(model_directory_paths)} model '
