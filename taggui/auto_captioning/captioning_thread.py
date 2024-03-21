@@ -29,6 +29,7 @@ from auto_captioning.xcomposer2 import (InternLMXComposer2QuantizedForCausalLM,
                                         get_xcomposer2_inputs)
 from models.image_list_model import ImageListModel
 from utils.image import Image
+from utils.settings import get_tag_separator
 
 
 def get_tokenizer_from_processor(model_type: ModelType, processor):
@@ -70,20 +71,22 @@ def add_caption_to_tags(tags: list[str], caption: str,
                         caption_position: CaptionPosition) -> list[str]:
     if caption_position == CaptionPosition.DO_NOT_ADD:
         return tags
+    tag_separator = get_tag_separator()
+    new_tags = caption.split(tag_separator)
     # Make a copy of the tags so that the tags in the image list model are not
     # modified.
     tags = tags.copy()
     if caption_position == CaptionPosition.BEFORE_FIRST_TAG:
-        tags.insert(0, caption)
+        tags[:0] = new_tags
     elif caption_position == CaptionPosition.AFTER_LAST_TAG:
-        tags.append(caption)
+        tags.extend(new_tags)
     elif caption_position == CaptionPosition.OVERWRITE_FIRST_TAG:
         if tags:
-            tags[0] = caption
+            tags[:1] = new_tags
         else:
-            tags.append(caption)
+            tags = new_tags
     elif caption_position == CaptionPosition.OVERWRITE_ALL_TAGS:
-        tags = [caption]
+        tags = new_tags
     return tags
 
 
