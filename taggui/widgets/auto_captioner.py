@@ -125,9 +125,10 @@ class CaptionSettingsForm(QVBoxLayout):
         wd_tagger_settings_form.setLabelAlignment(Qt.AlignRight)
         wd_tagger_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        self.threshold_spinbox = FocusedScrollSettingsDoubleSpinBox(
-            key='wd_tagger_threshold', default=0.5, minimum=0.01, maximum=1)
-        self.threshold_spinbox.setSingleStep(0.01)
+        self.min_probability_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='wd_tagger_min_probability', default=0.5, minimum=0.01,
+            maximum=1)
+        self.min_probability_spin_box.setSingleStep(0.01)
         self.max_tags_spin_box = FocusedScrollSettingsSpinBox(
             key='wd_tagger_max_tags', default=30, minimum=1, maximum=999)
         tags_to_exclude_form = QFormLayout()
@@ -141,7 +142,7 @@ class CaptionSettingsForm(QVBoxLayout):
                                     self.tags_to_exclude_text_edit)
         set_text_edit_height(self.tags_to_exclude_text_edit, 4)
         wd_tagger_settings_form.addRow('Minimum probability',
-                                       self.threshold_spinbox)
+                                       self.min_probability_spin_box)
         wd_tagger_settings_form.addRow('Maximum tags', self.max_tags_spin_box)
         wd_tagger_settings_form.addRow(tags_to_exclude_form)
 
@@ -330,7 +331,7 @@ class CaptionSettingsForm(QVBoxLayout):
                     self.no_repeat_ngram_size_spin_box.value()
             },
             'wd_tagger_settings': {
-                'threshold': self.threshold_spinbox.value(),
+                'min_probability': self.min_probability_spin_box.value(),
                 'max_tags': self.max_tags_spin_box.value(),
                 'tags_to_exclude':
                     self.tags_to_exclude_text_edit.toPlainText()

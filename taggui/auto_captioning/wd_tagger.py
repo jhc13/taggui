@@ -90,12 +90,12 @@ class WdTaggerModel:
             probability for index, probability in enumerate(probabilities)
             if index not in self.rating_tags_indices
         ])
-        threshold = wd_tagger_settings['threshold']
+        min_probability = wd_tagger_settings['min_probability']
         tags_to_exclude_string = wd_tagger_settings['tags_to_exclude']
         tags_to_exclude = get_tags_to_exclude(tags_to_exclude_string)
         tags_and_probabilities = []
         for tag, probability in zip(tags, probabilities):
-            if probability < threshold or tag in tags_to_exclude:
+            if probability < min_probability or tag in tags_to_exclude:
                 continue
             tags_and_probabilities.append((tag, probability))
         # Sort the tags by probability.
