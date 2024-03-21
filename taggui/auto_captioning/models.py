@@ -19,7 +19,15 @@ MODELS = [
     'Salesforce/blip2-opt-6.7b-coco',
     'Salesforce/blip2-flan-t5-xl',
     'Salesforce/blip2-flan-t5-xxl',
-    'microsoft/kosmos-2-patch14-224'
+    'microsoft/kosmos-2-patch14-224',
+    'SmilingWolf/wd-swinv2-tagger-v3',
+    'SmilingWolf/wd-convnext-tagger-v3',
+    'SmilingWolf/wd-vit-tagger-v3',
+    'SmilingWolf/wd-v1-4-moat-tagger-v2',
+    'SmilingWolf/wd-v1-4-swinv2-tagger-v2',
+    'SmilingWolf/wd-v1-4-convnext-tagger-v2',
+    'SmilingWolf/wd-v1-4-convnextv2-tagger-v2',
+    'SmilingWolf/wd-v1-4-vit-tagger-v2'
 ]
 
 
@@ -34,6 +42,8 @@ def get_model_type(model_id: str) -> ModelType:
         return ModelType.LLAVA
     if 'moondream' in model_id.lower():
         return ModelType.MOONDREAM
+    if 'wd' in model_id.lower() and 'tagger' in model_id.lower():
+        return ModelType.WD_TAGGER
     if 'xcomposer2' in model_id.lower():
         return ModelType.XCOMPOSER2
     return ModelType.OTHER

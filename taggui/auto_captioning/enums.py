@@ -16,10 +16,11 @@ class Device(str, Enum):
 
 
 class ModelType(Enum):
-    LLAVA = auto()
-    KOSMOS = auto()
-    COGVLM = auto()
     COGAGENT = auto()
-    XCOMPOSER2 = auto()
+    COGVLM = auto()
+    KOSMOS = auto()
+    LLAVA = auto()
     MOONDREAM = auto()
+    WD_TAGGER = auto()
+    XCOMPOSER2 = auto()
     OTHER = auto()
