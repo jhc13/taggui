@@ -128,7 +128,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.show_probabilities_check_box = SettingsBigCheckBox(
             key='wd_tagger_show_probabilities', default=True)
         self.min_probability_spin_box = FocusedScrollSettingsDoubleSpinBox(
-            key='wd_tagger_min_probability', default=0.5, minimum=0.01,
+            key='wd_tagger_min_probability', default=0.4, minimum=0.01,
             maximum=1)
         self.min_probability_spin_box.setSingleStep(0.01)
         self.max_tags_spin_box = FocusedScrollSettingsSpinBox(
