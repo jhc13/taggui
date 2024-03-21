@@ -78,10 +78,10 @@ class WdTaggerModel:
         return image_array
 
     def generate_tags(self, image_array: np.ndarray,
-                      wd_tagger_settings: dict) -> list:
+                      wd_tagger_settings: dict) -> tuple[tuple, tuple]:
         input_name = self.inference_session.get_inputs()[0].name
         output_name = self.inference_session.get_outputs()[0].name
-        probabilities: np.ndarray = self.inference_session.run(
+        probabilities = self.inference_session.run(
             [output_name], {input_name: image_array})[0][0].astype(np.float32)
         # Exclude the rating tags.
         tags = [tag for index, tag in enumerate(self.tags)
@@ -102,5 +102,5 @@ class WdTaggerModel:
         tags_and_probabilities.sort(key=lambda x: x[1], reverse=True)
         max_tags = wd_tagger_settings['max_tags']
         tags_and_probabilities = tags_and_probabilities[:max_tags]
-        tags = [tag for tag, _ in tags_and_probabilities]
-        return tags
+        tags, probabilities = zip(*tags_and_probabilities)
+        return tags, probabilities

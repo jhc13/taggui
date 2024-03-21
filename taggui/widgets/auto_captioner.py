@@ -125,6 +125,8 @@ class CaptionSettingsForm(QVBoxLayout):
         wd_tagger_settings_form.setLabelAlignment(Qt.AlignRight)
         wd_tagger_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        self.show_probabilities_check_box = SettingsBigCheckBox(
+            key='wd_tagger_show_probabilities', default=True)
         self.min_probability_spin_box = FocusedScrollSettingsDoubleSpinBox(
             key='wd_tagger_min_probability', default=0.5, minimum=0.01,
             maximum=1)
@@ -141,6 +143,8 @@ class CaptionSettingsForm(QVBoxLayout):
         tags_to_exclude_form.addRow('Tags to exclude',
                                     self.tags_to_exclude_text_edit)
         set_text_edit_height(self.tags_to_exclude_text_edit, 4)
+        wd_tagger_settings_form.addRow('Show probabilities',
+                                       self.show_probabilities_check_box)
         wd_tagger_settings_form.addRow('Minimum probability',
                                        self.min_probability_spin_box)
         wd_tagger_settings_form.addRow('Maximum tags', self.max_tags_spin_box)
@@ -331,6 +335,8 @@ class CaptionSettingsForm(QVBoxLayout):
                     self.no_repeat_ngram_size_spin_box.value()
             },
             'wd_tagger_settings': {
+                'show_probabilities':
+                    self.show_probabilities_check_box.isChecked(),
                 'min_probability': self.min_probability_spin_box.value(),
                 'max_tags': self.max_tags_spin_box.value(),
                 'tags_to_exclude':

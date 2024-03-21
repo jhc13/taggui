@@ -365,11 +365,18 @@ class CaptioningThread(QThread):
                 print(f'Skipping {image.path.name} because its file format is '
                       'not supported.')
                 continue
+            console_output_caption = None
             if model_type == ModelType.WD_TAGGER:
                 wd_tagger_settings = self.caption_settings[
                     'wd_tagger_settings']
-                tags = model.generate_tags(model_inputs, wd_tagger_settings)
+                tags, probabilities = model.generate_tags(model_inputs,
+                                                          wd_tagger_settings)
                 caption = self.tag_separator.join(tags)
+                if wd_tagger_settings['show_probabilities']:
+                    console_output_caption = self.tag_separator.join(
+                        f'{tag} ({probability:.2f})'
+                        for tag, probability in zip(tags, probabilities)
+                    )
             else:
                 bad_words_string = self.caption_settings['bad_words']
                 tokenizer = get_tokenizer_from_processor(model_type, processor)
@@ -392,8 +399,10 @@ class CaptioningThread(QThread):
                 self.progress_bar_update_requested.emit(i + 1)
             if i == 0:
                 self.clear_console_text_edit_requested.emit()
+            if console_output_caption is None:
+                console_output_caption = caption
             print(f'{image.path.name} ({perf_counter() - start_time:.1f} s):\n'
-                  f'{caption}')
+                  f'{console_output_caption}')
 
     def write(self, text: str):
         self.text_outputted.emit(text)
