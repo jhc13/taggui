@@ -14,19 +14,6 @@ KAOMOJIS = ['0_0', '(o)_(o)', '+_+', '+_-', '._.', '<o>_<o>', '<|>_<|>', '=_=',
             '|_|', '||_||']
 
 
-def get_mcut_threshold(probabilities: np.ndarray) -> float:
-    """
-    Find the largest gap between the probabilities and use its midpoint as the
-    threshold.
-    """
-    probabilities = np.sort(probabilities)
-    differences = np.diff(probabilities)
-    max_difference_index = np.argmax(differences)
-    threshold = np.mean([probabilities[max_difference_index],
-                         probabilities[max_difference_index + 1]])
-    return threshold
-
-
 def get_tags_to_exclude(tags_to_exclude_string: str) -> list[str]:
     if not tags_to_exclude_string.strip():
         return []
@@ -103,9 +90,7 @@ class WdTaggerModel:
             probability for index, probability in enumerate(probabilities)
             if index not in self.rating_tags_indices
         ])
-        threshold = (get_mcut_threshold(probabilities)
-                     if wd_tagger_settings['use_mcut_threshold']
-                     else wd_tagger_settings['threshold'])
+        threshold = wd_tagger_settings['threshold']
         tags_to_exclude_string = wd_tagger_settings['tags_to_exclude']
         tags_to_exclude = get_tags_to_exclude(tags_to_exclude_string)
         tags_and_probabilities = []

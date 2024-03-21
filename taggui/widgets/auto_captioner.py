@@ -125,8 +125,6 @@ class CaptionSettingsForm(QVBoxLayout):
         wd_tagger_settings_form.setLabelAlignment(Qt.AlignRight)
         wd_tagger_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        self.use_mcut_threshold_check_box = SettingsBigCheckBox(
-            key='wd_tagger_use_mcut_threshold', default=False)
         self.threshold_spinbox = FocusedScrollSettingsDoubleSpinBox(
             key='wd_tagger_threshold', default=0.5, minimum=0.01, maximum=1)
         self.threshold_spinbox.setSingleStep(0.01)
@@ -142,10 +140,7 @@ class CaptionSettingsForm(QVBoxLayout):
         tags_to_exclude_form.addRow('Tags to exclude',
                                     self.tags_to_exclude_text_edit)
         set_text_edit_height(self.tags_to_exclude_text_edit, 4)
-        wd_tagger_settings_form.addRow('Use MCut threshold',
-                                       self.use_mcut_threshold_check_box)
-        self.threshold_label = QLabel('Threshold')
-        wd_tagger_settings_form.addRow(self.threshold_label,
+        wd_tagger_settings_form.addRow('Minimum probability',
                                        self.threshold_spinbox)
         wd_tagger_settings_form.addRow('Maximum tags', self.max_tags_spin_box)
         wd_tagger_settings_form.addRow(tags_to_exclude_form)
@@ -229,8 +224,6 @@ class CaptionSettingsForm(QVBoxLayout):
             self.show_settings_for_model)
         self.device_combo_box.currentTextChanged.connect(
             self.set_load_in_4_bit_visibility)
-        self.use_mcut_threshold_check_box.toggled.connect(
-            self.set_threshold_visibility)
         self.toggle_advanced_settings_form_button.clicked.connect(
             self.toggle_advanced_settings_form)
         # Make sure the minimum new token count is less than or equal to the
@@ -242,8 +235,6 @@ class CaptionSettingsForm(QVBoxLayout):
 
         self.show_settings_for_model(self.model_combo_box.currentText())
         self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
-        self.set_threshold_visibility(
-            self.use_mcut_threshold_check_box.isChecked())
         if not self.is_bitsandbytes_available:
             self.load_in_4_bit_check_box.setChecked(False)
 
@@ -302,11 +293,6 @@ class CaptionSettingsForm(QVBoxLayout):
                                       and device == Device.GPU)
         self.load_in_4_bit_container.setVisible(is_load_in_4_bit_available)
 
-    @Slot(bool)
-    def set_threshold_visibility(self, use_mcut_threshold: bool):
-        self.threshold_label.setHidden(use_mcut_threshold)
-        self.threshold_spinbox.setHidden(use_mcut_threshold)
-
     @Slot()
     def toggle_advanced_settings_form(self):
         if self.advanced_settings_form_container.isHidden():
@@ -344,8 +330,6 @@ class CaptionSettingsForm(QVBoxLayout):
                     self.no_repeat_ngram_size_spin_box.value()
             },
             'wd_tagger_settings': {
-                'use_mcut_threshold':
-                    self.use_mcut_threshold_check_box.isChecked(),
                 'threshold': self.threshold_spinbox.value(),
                 'max_tags': self.max_tags_spin_box.value(),
                 'tags_to_exclude':
