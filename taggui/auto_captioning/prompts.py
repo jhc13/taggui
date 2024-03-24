@@ -1,3 +1,5 @@
+import re
+
 from auto_captioning.enums import ModelType
 
 
@@ -35,3 +37,29 @@ def format_prompt(prompt: str, model_type: ModelType) -> str:
         return (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
                 f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n')
     return prompt
+
+
+def postprocess_prompt_and_generated_text(model_type: ModelType, processor,
+                                          prompt: str,
+                                          generated_text: str) -> tuple:
+    if model_type == ModelType.COGAGENT:
+        prompt = f'<EOI>Question: {prompt} Answer:'
+    elif model_type == ModelType.COGVLM:
+        prompt = f'Question: {prompt} Answer:'
+    elif model_type == ModelType.KOSMOS:
+        generated_text, _ = processor.post_process_generation(
+            generated_text)
+        prompt = prompt.replace('<grounding>', '')
+    elif model_type in (ModelType.LLAVA_1_5, ModelType.LLAVA_NEXT_MISTRAL,
+                        ModelType.LLAVA_NEXT_VICUNA):
+        prompt = prompt.replace('<image>', ' ')
+    elif model_type == ModelType.LLAVA_NEXT_34B:
+        prompt = prompt.replace('<|im_start|>', '<|im_start|> ')
+        prompt = prompt.replace('<|im_end|>', ' ')
+        prompt = prompt.replace('<image>', '')
+    elif model_type == ModelType.MOONDREAM:
+        generated_text = re.sub('END$', '', generated_text)
+        generated_text = re.sub('<$', '', generated_text)
+    elif model_type == ModelType.XCOMPOSER2:
+        generated_text = generated_text.split('[UNUSED_TOKEN_145]')[0]
+    return prompt, generated_text

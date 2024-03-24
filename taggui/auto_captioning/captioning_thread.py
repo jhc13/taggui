@@ -22,7 +22,8 @@ from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
                                        get_moondream_inputs,
                                        monkey_patch_moondream1)
-from auto_captioning.prompts import format_prompt, get_default_prompt
+from auto_captioning.prompts import (format_prompt, get_default_prompt,
+                                     postprocess_prompt_and_generated_text)
 from auto_captioning.wd_tagger import WdTaggerModel
 from auto_captioning.xcomposer2 import (InternLMXComposer2QuantizedForCausalLM,
                                         get_xcomposer2_error_message,
@@ -257,28 +258,9 @@ class CaptioningThread(QThread):
             model_type: ModelType) -> str:
         generated_text = processor.batch_decode(
             generated_token_ids, skip_special_tokens=True)[0]
-        # Postprocess the generated text.
+        prompt, generated_text = postprocess_prompt_and_generated_text(
+            model_type, processor, prompt, generated_text)
         caption_start = self.caption_settings['caption_start']
-        if model_type == ModelType.COGAGENT:
-            prompt = f'<EOI>Question: {prompt} Answer:'
-        elif model_type == ModelType.COGVLM:
-            prompt = f'Question: {prompt} Answer:'
-        elif model_type == ModelType.KOSMOS:
-            generated_text, _ = processor.post_process_generation(
-                generated_text)
-            prompt = prompt.replace('<grounding>', '')
-        elif model_type in (ModelType.LLAVA_1_5, ModelType.LLAVA_NEXT_MISTRAL,
-                            ModelType.LLAVA_NEXT_VICUNA):
-            prompt = prompt.replace('<image>', ' ')
-        elif model_type == ModelType.LLAVA_NEXT_34B:
-            prompt = prompt.replace('<|im_start|>', '<|im_start|> ')
-            prompt = prompt.replace('<|im_end|>', ' ')
-            prompt = prompt.replace('<image>', '')
-        elif model_type == ModelType.MOONDREAM:
-            generated_text = re.sub('END$', '', generated_text)
-            generated_text = re.sub('<$', '', generated_text)
-        elif model_type == ModelType.XCOMPOSER2:
-            generated_text = generated_text.split('[UNUSED_TOKEN_145]')[0]
         if prompt.strip() and generated_text.startswith(prompt):
             caption = generated_text[len(prompt):]
         elif (caption_start.strip()
