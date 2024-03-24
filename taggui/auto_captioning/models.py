@@ -19,9 +19,9 @@ MODELS = [
     'SmilingWolf/wd-v1-4-convnext-tagger-v2',
     'SmilingWolf/wd-v1-4-convnextv2-tagger-v2',
     'SmilingWolf/wd-v1-4-vit-tagger-v2',
-    # 'llava-hf/llava-1.5-7b-hf',
-    # 'llava-hf/llava-1.5-13b-hf',
-    # 'llava-hf/bakLlava-v1-hf',
+    'llava-hf/llava-1.5-7b-hf',
+    'llava-hf/llava-1.5-13b-hf',
+    'llava-hf/bakLlava-v1-hf',
     'Salesforce/instructblip-vicuna-7b',
     'Salesforce/instructblip-vicuna-13b',
     'Salesforce/instructblip-flan-t5-xl',
@@ -31,7 +31,7 @@ MODELS = [
     'Salesforce/blip2-opt-6.7b-coco',
     'Salesforce/blip2-flan-t5-xl',
     'Salesforce/blip2-flan-t5-xxl',
-    'microsoft/kosmos-2-patch14-224',
+    'microsoft/kosmos-2-patch14-224'
 ]
 
 
