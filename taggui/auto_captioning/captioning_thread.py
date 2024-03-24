@@ -22,6 +22,7 @@ from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
                                        get_moondream_inputs,
                                        monkey_patch_moondream1)
+from auto_captioning.prompts import format_prompt, get_default_prompt
 from auto_captioning.wd_tagger import WdTaggerModel
 from auto_captioning.xcomposer2 import (InternLMXComposer2QuantizedForCausalLM,
                                         get_xcomposer2_error_message,
@@ -206,40 +207,6 @@ class CaptioningThread(QThread):
         self.parent().is_model_loaded_in_4_bit = load_in_4_bit
         return processor, model
 
-    def get_formatted_prompt(self, model_type: ModelType) -> str:
-        prompt = self.caption_settings['prompt']
-        if not prompt:
-            if model_type in (ModelType.COGAGENT, ModelType.COGVLM,
-                              ModelType.LLAVA_1_5, ModelType.MOONDREAM):
-                prompt = 'Describe the image in twenty words or less.'
-            elif model_type in (ModelType.LLAVA_NEXT_34B,
-                                ModelType.LLAVA_NEXT_MISTRAL,
-                                ModelType.LLAVA_NEXT_VICUNA):
-                prompt = 'Describe the image in one sentence.'
-            elif model_type == ModelType.XCOMPOSER2:
-                prompt = 'Concisely describe the image.'
-        if model_type == ModelType.KOSMOS:
-            return f'<grounding>{prompt}'
-        if model_type == ModelType.LLAVA_1_5:
-            return f'USER: <image>\n{prompt}\nASSISTANT:'
-        if model_type == ModelType.LLAVA_NEXT_34B:
-            return (f'<|im_start|>system\nAnswer the questions.<|im_end|>'
-                    f'<|im_start|>user\n<image>\n{prompt}<|im_end|>'
-                    f'<|im_start|>assistant\n')
-        if model_type == ModelType.LLAVA_NEXT_MISTRAL:
-            return f'[INST] <image>\n{prompt} [/INST]'
-        if model_type == ModelType.LLAVA_NEXT_VICUNA:
-            return (f"A chat between a curious human and an artificial "
-                    f"intelligence assistant. The assistant gives helpful, "
-                    f"detailed, and polite answers to the human's questions. "
-                    f"USER: <image>\n{prompt} ASSISTANT:")
-        if model_type == ModelType.MOONDREAM:
-            return f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
-        if model_type == ModelType.XCOMPOSER2:
-            return (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
-                    f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n')
-        return prompt
-
     def get_model_inputs(self, image: Image, prompt: str | None,
                          model_type: ModelType, device: torch.device, model,
                          processor) -> BatchFeature | dict | np.ndarray:
@@ -372,8 +339,13 @@ class CaptioningThread(QThread):
                               if model_type == ModelType.WD_TAGGER
                               else f'Captioning... (device: {device})')
         print(captioning_message)
-        prompt = (None if model_type == ModelType.WD_TAGGER
-                  else self.get_formatted_prompt(model_type))
+        if model_type == ModelType.WD_TAGGER:
+            prompt = None
+        else:
+            prompt = self.caption_settings['prompt']
+            if not prompt:
+                prompt = get_default_prompt(model_type)
+            prompt = format_prompt(prompt, model_type)
         caption_position = self.caption_settings['caption_position']
         are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
