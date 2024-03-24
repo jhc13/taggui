@@ -18,7 +18,6 @@ from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
                                              monkey_patch_cogvlm)
 from auto_captioning.enums import CaptionPosition, Device, ModelType
-from auto_captioning.llava_next import get_llava_next_formatted_prompt
 from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
                                        get_moondream_inputs,
@@ -220,18 +219,25 @@ class CaptioningThread(QThread):
             elif model_type == ModelType.XCOMPOSER2:
                 prompt = 'Concisely describe the image.'
         if model_type == ModelType.KOSMOS:
-            prompt = f'<grounding>{prompt}'
-        elif model_type == ModelType.LLAVA_1_5:
-            prompt = f'USER: <image>\n{prompt}\nASSISTANT:'
-        elif model_type in (ModelType.LLAVA_NEXT_34B,
-                            ModelType.LLAVA_NEXT_MISTRAL,
-                            ModelType.LLAVA_NEXT_VICUNA):
-            prompt = get_llava_next_formatted_prompt(model_type, prompt)
-        elif model_type == ModelType.MOONDREAM:
-            prompt = f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
-        elif model_type == ModelType.XCOMPOSER2:
-            prompt = (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
-                      f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n')
+            return f'<grounding>{prompt}'
+        if model_type == ModelType.LLAVA_1_5:
+            return f'USER: <image>\n{prompt}\nASSISTANT:'
+        if model_type == ModelType.LLAVA_NEXT_34B:
+            return (f'<|im_start|>system\nAnswer the questions.<|im_end|>'
+                    f'<|im_start|>user\n<image>\n{prompt}<|im_end|>'
+                    f'<|im_start|>assistant\n')
+        if model_type == ModelType.LLAVA_NEXT_MISTRAL:
+            return f'[INST] <image>\n{prompt} [/INST]'
+        if model_type == ModelType.LLAVA_NEXT_VICUNA:
+            return (f"A chat between a curious human and an artificial "
+                    f"intelligence assistant. The assistant gives helpful, "
+                    f"detailed, and polite answers to the human's questions. "
+                    f"USER: <image>\n{prompt} ASSISTANT:")
+        if model_type == ModelType.MOONDREAM:
+            return f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
+        if model_type == ModelType.XCOMPOSER2:
+            return (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
+                    f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n')
         return prompt
 
     def get_model_inputs(self, image: Image, prompt: str | None,
