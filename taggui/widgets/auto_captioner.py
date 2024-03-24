@@ -45,18 +45,6 @@ class HorizontalLine(QFrame):
         self.setFrameShadow(QFrame.Shadow.Raised)
 
 
-def get_directory_paths(directory_path: Path) -> list[Path]:
-    """
-    Recursively get all directory paths in a directory, including those in
-    subdirectories.
-    """
-    directory_paths = [directory_path]
-    for path in directory_path.iterdir():
-        if path.is_dir():
-            directory_paths.extend(get_directory_paths(path))
-    return directory_paths
-
-
 class CaptionSettingsForm(QVBoxLayout):
     def __init__(self):
         super().__init__()
@@ -250,17 +238,15 @@ class CaptionSettingsForm(QVBoxLayout):
         if not models_directory_path:
             return []
         models_directory_path: Path = Path(models_directory_path)
-        if not models_directory_path.is_dir():
-            return []
         print(f'Loading local auto-captioning model paths under '
               f'{models_directory_path}...')
-        directory_paths = get_directory_paths(models_directory_path)
-        model_directory_paths = [
-            str(directory_path.relative_to(models_directory_path))
-            for directory_path in directory_paths
-            if ((directory_path / 'config.json').is_file()
-                or (directory_path / 'selected_tags.csv').is_file())
-        ]
+        # Auto-captioning models have a `config.json` file.
+        config_paths = set(models_directory_path.glob('**/config.json'))
+        # WD Tagger models have a `selected_tags.csv` file.
+        selected_tags_paths = set(
+            models_directory_path.glob('**/selected_tags.csv'))
+        model_directory_paths = [str(path.parent) for path
+                                 in config_paths | selected_tags_paths]
         model_directory_paths.sort()
         print(f'Loaded {len(model_directory_paths)} model '
               f'{pluralize("path", len(model_directory_paths))}.')
