@@ -58,8 +58,18 @@ class FilterLineEdit(QLineEdit):
         try:
             filter_ = self.filter_text_parser.parse_string(
                 filter_text, parse_all=True).as_list()[0]
+            # Replace escaped wildcard characters to make them compatible with
+            # the `fnmatch` module.
+            if isinstance(filter_, str):
+                filter_ = [filter_]
+            replaced_filter = []
+            for element in filter_:
+                element = element.replace(r'\?', '[?]').replace(r'\*', '[*]')
+                replaced_filter.append(element)
+            if len(replaced_filter) == 1:
+                replaced_filter = replaced_filter[0]
             self.setStyleSheet('padding: 8px;')
-            return filter_
+            return replaced_filter
         except ParseException:
             # Change the background color when the filter text is invalid.
             if self.palette().color(self.backgroundRole()).lightness() < 128:

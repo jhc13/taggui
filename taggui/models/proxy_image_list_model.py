@@ -1,4 +1,5 @@
 import operator
+from fnmatch import fnmatchcase
 
 from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt
 from transformers import PreTrainedTokenizerBase
@@ -19,21 +20,23 @@ class ProxyImageListModel(QSortFilterProxyModel):
     def does_image_match_filter(self, image: Image,
                                 filter_: list | str) -> bool:
         if isinstance(filter_, str):
-            return (filter_ in self.tag_separator.join(image.tags) or
-                    filter_ in str(image.path))
+            return (fnmatchcase(self.tag_separator.join(image.tags),
+                                f'*{filter_}*')
+                    or fnmatchcase(str(image.path), f'*{filter_}*'))
         if len(filter_) == 1:
             return self.does_image_match_filter(image, filter_[0])
         if len(filter_) == 2:
             if filter_[0] == 'NOT':
                 return not self.does_image_match_filter(image, filter_[1])
             if filter_[0] == 'tag':
-                return filter_[1] in image.tags
+                return any(fnmatchcase(tag, filter_[1]) for tag in image.tags)
             if filter_[0] == 'caption':
-                return filter_[1] in self.tag_separator.join(image.tags)
+                caption = self.tag_separator.join(image.tags)
+                return fnmatchcase(caption, f'*{filter_[1]}*')
             if filter_[0] == 'name':
-                return filter_[1] in image.path.name
+                return fnmatchcase(image.path.name, f'*{filter_[1]}*')
             if filter_[0] == 'path':
-                return filter_[1] in str(image.path)
+                return fnmatchcase(str(image.path), f'*{filter_[1]}*')
         if filter_[1] == 'AND':
             return (self.does_image_match_filter(image, filter_[0])
                     and self.does_image_match_filter(image, filter_[2:]))
