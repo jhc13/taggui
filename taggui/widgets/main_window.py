@@ -494,15 +494,11 @@ class MainWindow(QMainWindow):
             self.image_list_model.add_tags)
 
     @Slot()
-    def set_image_list_filter_text(self, selected: QItemSelection, _):
+    def set_image_list_filter_text(self, selected_tag: str):
         """
         Construct and set the image list filter text from the selected tag in
         the all tags list.
         """
-        selected_indices = selected.indexes()
-        if not selected_indices:
-            return
-        selected_tag = selected_indices[0].data(role=Qt.EditRole)
         escaped_selected_tag = (selected_tag.replace('\\', '\\\\')
                                 .replace('"', r'\"').replace("'", r"\'"))
         self.image_list.filter_line_edit.setText(
@@ -516,23 +512,18 @@ class MainWindow(QMainWindow):
     def connect_all_tags_editor_signals(self):
         self.all_tags_editor.clear_filter_button.clicked.connect(
             self.image_list.filter_line_edit.clear)
-        all_tags_list_selection_model = (self.all_tags_editor.all_tags_list
-                                         .selectionModel())
-        # `selectionChanged` must be used and not `currentChanged` because
-        # `currentChanged` is not emitted when the same tag is deselected and
-        # selected again.
-        all_tags_list_selection_model.selectionChanged.connect(
-            self.set_image_list_filter_text)
         self.tag_counter_model.tag_renaming_requested.connect(
             self.image_list_model.rename_tag)
         self.tag_counter_model.tag_renaming_requested.connect(
             self.image_list.filter_line_edit.clear)
+        self.all_tags_editor.all_tags_list.image_list_filter_requested.connect(
+            self.set_image_list_filter_text)
+        self.all_tags_editor.all_tags_list.tag_addition_requested.connect(
+            self.add_tag_to_selected_images)
         self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
             self.image_list_model.delete_tag)
         self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
             self.image_list.filter_line_edit.clear)
-        self.all_tags_editor.all_tags_list.tag_addition_requested.connect(
-            self.add_tag_to_selected_images)
         self.all_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_all_tags_editor_action.setChecked(
                 self.all_tags_editor.isVisible()))

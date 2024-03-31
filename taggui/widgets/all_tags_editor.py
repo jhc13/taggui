@@ -1,6 +1,6 @@
 from enum import Enum
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QItemSelection, Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (QDockWidget, QHBoxLayout, QLabel, QLineEdit,
                                QListView, QMessageBox, QVBoxLayout, QWidget)
@@ -28,8 +28,9 @@ class ClickAction(str, Enum):
 
 
 class AllTagsList(QListView):
-    tag_deletion_requested = Signal(str)
+    image_list_filter_requested = Signal(str)
     tag_addition_requested = Signal(str)
+    tag_deletion_requested = Signal(str)
 
     def __init__(self, proxy_tag_counter_model: ProxyTagCounterModel,
                  all_tags_editor: 'AllTagsEditor'):
@@ -38,6 +39,22 @@ class AllTagsList(QListView):
         self.all_tags_editor = all_tags_editor
         self.setItemDelegate(TextEditItemDelegate(self))
         self.setWordWrap(True)
+        # `selectionChanged` must be used and not `currentChanged` because
+        # `currentChanged` is not emitted when the same tag is deselected and
+        # selected again.
+        self.selectionModel().selectionChanged.connect(
+            self.handle_selection_change)
+
+    def mousePressEvent(self, event: QMouseEvent):
+        click_action = (self.all_tags_editor.click_action_combo_box
+                        .currentText())
+        index = self.indexAt(event.pos())
+        tag = index.data(Qt.EditRole)
+        if click_action == ClickAction.FILTER_IMAGES:
+            self.image_list_filter_requested.emit(tag)
+        elif click_action == ClickAction.ADD_TO_SELECTED:
+            self.tag_addition_requested.emit(tag)
+        super().mousePressEvent(event)
 
     def keyPressEvent(self, event: QKeyEvent):
         """
@@ -60,16 +77,15 @@ class AllTagsList(QListView):
         if reply == QMessageBox.StandardButton.Yes:
             self.tag_deletion_requested.emit(tag)
 
-    def mousePressEvent(self, event: QMouseEvent):
+    def handle_selection_change(self, selected: QItemSelection, _):
         click_action = (self.all_tags_editor.click_action_combo_box
                         .currentText())
-        if click_action == ClickAction.FILTER_IMAGES:
-            super().mousePressEvent(event)
+        if click_action != ClickAction.FILTER_IMAGES:
             return
-        if click_action == ClickAction.ADD_TO_SELECTED:
-            index = self.indexAt(event.pos())
-            tag = index.data(Qt.EditRole)
-            self.tag_addition_requested.emit(tag)
+        if not selected.indexes():
+            return
+        selected_tag = selected.indexes()[0].data(Qt.EditRole)
+        self.image_list_filter_requested.emit(selected_tag)
 
 
 class AllTagsEditor(QDockWidget):
