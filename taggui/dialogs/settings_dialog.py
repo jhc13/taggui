@@ -54,6 +54,7 @@ class SettingsDialog(QDialog):
             key='models_directory_path',
             default=DEFAULT_SETTINGS['models_directory_path'])
         self.models_directory_line_edit.setMinimumWidth(300)
+        self.models_directory_line_edit.setClearButtonEnabled(True)
         self.models_directory_line_edit.textChanged.connect(
             self.show_restart_warning)
         models_directory_button = QPushButton('Select Directory...')

@@ -68,6 +68,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.prompt_text_edit = SettingsPlainTextEdit(key='prompt')
         set_text_edit_height(self.prompt_text_edit, 4)
         self.caption_start_line_edit = SettingsLineEdit(key='caption_start')
+        self.caption_start_line_edit.setClearButtonEnabled(True)
         self.caption_position_combo_box = FocusedScrollSettingsComboBox(
             key='caption_position')
         self.caption_position_combo_box.addItems(list(CaptionPosition))
@@ -153,7 +154,9 @@ class CaptionSettingsForm(QVBoxLayout):
         bad_forced_words_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.bad_words_line_edit = SettingsLineEdit(key='bad_words')
+        self.bad_words_line_edit.setClearButtonEnabled(True)
         self.forced_words_line_edit = SettingsLineEdit(key='forced_words')
+        self.forced_words_line_edit.setClearButtonEnabled(True)
         bad_forced_words_form.addRow('Discourage from caption',
                                      self.bad_words_line_edit)
         bad_forced_words_form.addRow('Include in caption',
