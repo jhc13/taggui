@@ -9,10 +9,10 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QVBoxLayout, QWidget)
 
 from auto_captioning.captioning_thread import CaptioningThread
-from auto_captioning.enums import CaptionPosition, Device, ModelType
 from auto_captioning.models import MODELS, get_model_type
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
+from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsDoubleSpinBox,
@@ -73,7 +73,7 @@ class CaptionSettingsForm(QVBoxLayout):
             key='caption_position')
         self.caption_position_combo_box.addItems(list(CaptionPosition))
         self.device_combo_box = FocusedScrollSettingsComboBox(key='device')
-        self.device_combo_box.addItems(list(Device))
+        self.device_combo_box.addItems(list(CaptionDevice))
         self.load_in_4_bit_container = QWidget()
         load_in_4_bit_layout = QHBoxLayout()
         load_in_4_bit_layout.setAlignment(Qt.AlignLeft)
@@ -271,7 +271,8 @@ class CaptionSettingsForm(QVBoxLayout):
             self.toggle_advanced_settings_form_button,
             self.advanced_settings_form_container
         ]
-        is_wd_tagger_model = get_model_type(model) == ModelType.WD_TAGGER
+        is_wd_tagger_model = (get_model_type(model)
+                              == CaptionModelType.WD_TAGGER)
         for widget in wd_tagger_widgets:
             widget.setVisible(is_wd_tagger_model)
         for widget in non_wd_tagger_widgets:
@@ -280,11 +281,11 @@ class CaptionSettingsForm(QVBoxLayout):
     @Slot(str)
     def set_load_in_4_bit_visibility(self, device: str):
         model_type = get_model_type(self.model_combo_box.currentText())
-        if model_type == ModelType.WD_TAGGER:
+        if model_type == CaptionModelType.WD_TAGGER:
             self.load_in_4_bit_container.setVisible(False)
             return
         is_load_in_4_bit_available = (self.is_bitsandbytes_available
-                                      and device == Device.GPU)
+                                      and device == CaptionDevice.GPU)
         self.load_in_4_bit_container.setVisible(is_load_in_4_bit_available)
 
     @Slot()

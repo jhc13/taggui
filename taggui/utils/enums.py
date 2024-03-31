@@ -2,6 +2,17 @@ from enum import Enum, auto
 
 
 # `StrEnum` is a Python 3.11 feature that can be used here.
+class AllTagsSortBy(str, Enum):
+    FREQUENCY = 'Frequency'
+    NAME = 'Name'
+    LENGTH = 'Length'
+
+
+class SortOrder(str, Enum):
+    ASCENDING = 'Ascending'
+    DESCENDING = 'Descending'
+
+
 class CaptionPosition(str, Enum):
     BEFORE_FIRST_TAG = 'Insert before first tag'
     AFTER_LAST_TAG = 'Insert after last tag'
@@ -10,12 +21,12 @@ class CaptionPosition(str, Enum):
     DO_NOT_ADD = 'Do not add to tags'
 
 
-class Device(str, Enum):
+class CaptionDevice(str, Enum):
     GPU = 'GPU if available'
     CPU = 'CPU'
 
 
-class ModelType(Enum):
+class CaptionModelType(Enum):
     COGAGENT = auto()
     COGVLM = auto()
     KOSMOS = auto()

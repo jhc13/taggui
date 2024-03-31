@@ -1,4 +1,4 @@
-from auto_captioning.enums import ModelType
+from utils.enums import CaptionModelType
 
 MODELS = [
     'internlm/internlm-xcomposer2-vl-7b-4bit',
@@ -35,26 +35,26 @@ MODELS = [
 ]
 
 
-def get_model_type(model_id: str) -> ModelType:
+def get_model_type(model_id: str) -> CaptionModelType:
     lowercase_model_id = model_id.lower()
     if 'cogagent' in lowercase_model_id:
-        return ModelType.COGAGENT
+        return CaptionModelType.COGAGENT
     if 'cogvlm' in lowercase_model_id:
-        return ModelType.COGVLM
+        return CaptionModelType.COGVLM
     if 'kosmos' in lowercase_model_id:
-        return ModelType.KOSMOS
+        return CaptionModelType.KOSMOS
     if 'llava' in lowercase_model_id and '1.6' not in lowercase_model_id:
-        return ModelType.LLAVA_1_5
+        return CaptionModelType.LLAVA_1_5
     if 'llava-v1.6-34b' in lowercase_model_id:
-        return ModelType.LLAVA_NEXT_34B
+        return CaptionModelType.LLAVA_NEXT_34B
     if 'llava-v1.6-mistral' in lowercase_model_id:
-        return ModelType.LLAVA_NEXT_MISTRAL
+        return CaptionModelType.LLAVA_NEXT_MISTRAL
     if 'llava-v1.6-vicuna' in lowercase_model_id:
-        return ModelType.LLAVA_NEXT_VICUNA
+        return CaptionModelType.LLAVA_NEXT_VICUNA
     if 'moondream' in lowercase_model_id:
-        return ModelType.MOONDREAM
+        return CaptionModelType.MOONDREAM
     if 'wd' in lowercase_model_id and 'tagger' in lowercase_model_id:
-        return ModelType.WD_TAGGER
+        return CaptionModelType.WD_TAGGER
     if 'xcomposer2' in lowercase_model_id:
-        return ModelType.XCOMPOSER2
-    return ModelType.OTHER
+        return CaptionModelType.XCOMPOSER2
+    return CaptionModelType.OTHER

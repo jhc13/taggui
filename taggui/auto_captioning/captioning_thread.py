@@ -17,7 +17,6 @@ from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
                                              monkey_patch_cogvlm)
-from auto_captioning.enums import CaptionPosition, Device, ModelType
 from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
                                        get_moondream_inputs,
@@ -29,13 +28,14 @@ from auto_captioning.xcomposer2 import (InternLMXComposer2QuantizedForCausalLM,
                                         get_xcomposer2_error_message,
                                         get_xcomposer2_inputs)
 from models.image_list_model import ImageListModel
+from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
 from utils.image import Image
 from utils.settings import get_tag_separator
 
 
-def get_tokenizer_from_processor(model_type: ModelType, processor):
-    if model_type in (ModelType.COGAGENT, ModelType.COGVLM,
-                      ModelType.MOONDREAM, ModelType.XCOMPOSER2):
+def get_tokenizer_from_processor(model_type: CaptionModelType, processor):
+    if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
+                      CaptionModelType.MOONDREAM, CaptionModelType.XCOMPOSER2):
         return processor
     return processor.tokenizer
 
@@ -113,7 +113,7 @@ class CaptioningThread(QThread):
         self.is_canceled = False
 
     def load_processor_and_model(self, device: torch.device,
-                                 model_type: ModelType) -> tuple:
+                                 model_type: CaptionModelType) -> tuple:
         # If the processor and model were previously loaded, use them.
         processor = self.parent().processor
         model = self.parent().model
@@ -142,29 +142,29 @@ class CaptioningThread(QThread):
             gc.collect()
         self.clear_console_text_edit_requested.emit()
         print(f'Loading {model_id}...')
-        if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
+        if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
-        elif model_type == ModelType.WD_TAGGER:
+        elif model_type == CaptionModelType.WD_TAGGER:
             processor = None
         else:
-            if model_type == ModelType.MOONDREAM:
+            if model_type == CaptionModelType.MOONDREAM:
                 processor_class = CodeGenTokenizerFast
-            elif model_type == ModelType.XCOMPOSER2:
+            elif model_type == CaptionModelType.XCOMPOSER2:
                 processor_class = AutoTokenizer
             else:
                 processor_class = AutoProcessor
             processor = processor_class.from_pretrained(model_id,
                                                         trust_remote_code=True)
-        if model_type in (ModelType.LLAVA_NEXT_34B,
-                          ModelType.LLAVA_NEXT_MISTRAL,
-                          ModelType.LLAVA_NEXT_VICUNA):
+        if model_type in (CaptionModelType.LLAVA_NEXT_34B,
+                          CaptionModelType.LLAVA_NEXT_MISTRAL,
+                          CaptionModelType.LLAVA_NEXT_VICUNA):
             processor.tokenizer.padding_side = 'left'
         self.parent().processor = processor
-        if model_type == ModelType.XCOMPOSER2 and load_in_4_bit:
+        if model_type == CaptionModelType.XCOMPOSER2 and load_in_4_bit:
             with redirect_stdout(None):
                 model = InternLMXComposer2QuantizedForCausalLM.from_quantized(
                     model_id, trust_remote_code=True, device=str(device))
-        elif model_type == ModelType.WD_TAGGER:
+        elif model_type == CaptionModelType.WD_TAGGER:
             model = WdTaggerModel(model_id)
         else:
             if load_in_4_bit:
@@ -180,16 +180,16 @@ class CaptioningThread(QThread):
                 dtype_argument = ({'torch_dtype': torch.float16}
                                   if device.type == 'cuda' else {})
             model_class = (AutoModelForCausalLM
-                           if model_type in (ModelType.COGAGENT,
-                                             ModelType.COGVLM,
-                                             ModelType.MOONDREAM,
-                                             ModelType.XCOMPOSER2)
+                           if model_type in (CaptionModelType.COGAGENT,
+                                             CaptionModelType.COGVLM,
+                                             CaptionModelType.MOONDREAM,
+                                             CaptionModelType.XCOMPOSER2)
                            else AutoModelForVision2Seq)
             # Some models print unnecessary messages while loading, so
             # temporarily suppress printing for them.
             context_manager = (redirect_stdout(None)
-                               if model_type in (ModelType.COGAGENT,
-                                                 ModelType.XCOMPOSER2)
+                               if model_type in (CaptionModelType.COGAGENT,
+                                                 CaptionModelType.XCOMPOSER2)
                                else nullcontext())
             with context_manager:
                 model = model_class.from_pretrained(
@@ -197,7 +197,7 @@ class CaptioningThread(QThread):
                     quantization_config=quantization_config, **dtype_argument)
         if 'moondream1' in model_id:
             model = monkey_patch_moondream1(device, model_id)
-        if model_type != ModelType.WD_TAGGER:
+        if model_type != CaptionModelType.WD_TAGGER:
             model.eval()
         self.parent().model = model
         self.parent().model_id = model_id
@@ -206,22 +206,22 @@ class CaptioningThread(QThread):
         return processor, model
 
     def get_model_inputs(self, image: Image, prompt: str | None,
-                         model_type: ModelType, device: torch.device, model,
-                         processor) -> BatchFeature | dict | np.ndarray:
+                         model_type: CaptionModelType, device: torch.device,
+                         model, processor) -> BatchFeature | dict | np.ndarray:
         # Load the image.
         pil_image = PilImage.open(image.path)
         # Rotate the image according to the orientation tag.
         pil_image = exif_transpose(pil_image)
-        mode = 'RGBA' if model_type == ModelType.WD_TAGGER else 'RGB'
+        mode = 'RGBA' if model_type == CaptionModelType.WD_TAGGER else 'RGB'
         pil_image = pil_image.convert(mode)
-        if model_type == ModelType.WD_TAGGER:
+        if model_type == CaptionModelType.WD_TAGGER:
             return model.get_inputs(pil_image)
         # Prepare the input text.
         caption_start = self.caption_settings['caption_start']
-        if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
+        if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
             # `caption_start` is added later.
             text = prompt
-        elif model_type == ModelType.XCOMPOSER2:
+        elif model_type == CaptionModelType.XCOMPOSER2:
             text = prompt + caption_start
         elif prompt and caption_start:
             text = f'{prompt} {caption_start}'
@@ -230,16 +230,16 @@ class CaptioningThread(QThread):
         # Convert the text and image to model inputs.
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
-        if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
+        if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
             beam_count = self.caption_settings['generation_parameters'][
                 'num_beams']
             model_inputs = get_cogvlm_cogagent_inputs(
                 model_type, model, processor, text, pil_image, beam_count,
                 device, dtype_argument)
-        elif model_type == ModelType.MOONDREAM:
+        elif model_type == CaptionModelType.MOONDREAM:
             model_inputs = get_moondream_inputs(
                 model, processor, text, pil_image, device, dtype_argument)
-        elif model_type == ModelType.XCOMPOSER2:
+        elif model_type == CaptionModelType.XCOMPOSER2:
             load_in_4_bit = self.caption_settings['load_in_4_bit']
             model_inputs = get_xcomposer2_inputs(
                 model, processor, load_in_4_bit, text, pil_image, device,
@@ -252,7 +252,7 @@ class CaptioningThread(QThread):
 
     def get_caption_from_generated_tokens(
             self, generated_token_ids: torch.Tensor, prompt: str, processor,
-            model_type: ModelType) -> str:
+            model_type: CaptionModelType) -> str:
         generated_text = processor.batch_decode(
             generated_token_ids, skip_special_tokens=True)[0]
         prompt, generated_text = postprocess_prompt_and_generated_text(
@@ -278,22 +278,22 @@ class CaptioningThread(QThread):
             'generation_parameters']
         beam_count = generation_parameters['num_beams']
         if (forced_words_string.strip() and beam_count < 2
-                and model_type != ModelType.WD_TAGGER):
+                and model_type != CaptionModelType.WD_TAGGER):
             self.clear_console_text_edit_requested.emit()
             print('`Number of beams` must be greater than 1 when `Include in '
                   'caption` is not empty.')
             return
-        if self.caption_settings['device'] == Device.CPU:
+        if self.caption_settings['device'] == CaptionDevice.CPU:
             device = torch.device('cpu')
         else:
             device = torch.device('cuda:0' if torch.cuda.is_available()
                                   else 'cpu')
         load_in_4_bit = self.caption_settings['load_in_4_bit']
         error_message = None
-        if model_type == ModelType.XCOMPOSER2:
+        if model_type == CaptionModelType.XCOMPOSER2:
             error_message = get_xcomposer2_error_message(
                 model_id, self.caption_settings['device'], load_in_4_bit)
-        elif model_type == ModelType.MOONDREAM:
+        elif model_type == CaptionModelType.MOONDREAM:
             beam_count = self.caption_settings['generation_parameters'][
                 'num_beams']
             error_message = get_moondream_error_message(load_in_4_bit,
@@ -306,19 +306,19 @@ class CaptioningThread(QThread):
         # CogVLM and CogAgent have to be monkey patched every time because
         # `caption_start` might have changed.
         caption_start = self.caption_settings['caption_start']
-        if model_type == ModelType.COGVLM:
+        if model_type == CaptionModelType.COGVLM:
             monkey_patch_cogvlm(caption_start)
-        elif model_type == ModelType.COGAGENT:
+        elif model_type == CaptionModelType.COGAGENT:
             monkey_patch_cogagent(model, caption_start)
         if self.is_canceled:
             print('Canceled captioning.')
             return
         self.clear_console_text_edit_requested.emit()
         captioning_message = ('Generating tags...'
-                              if model_type == ModelType.WD_TAGGER
+                              if model_type == CaptionModelType.WD_TAGGER
                               else f'Captioning... (device: {device})')
         print(captioning_message)
-        if model_type == ModelType.WD_TAGGER:
+        if model_type == CaptionModelType.WD_TAGGER:
             prompt = None
         else:
             prompt = self.caption_settings['prompt']
@@ -341,7 +341,7 @@ class CaptioningThread(QThread):
                       'not supported.')
                 continue
             console_output_caption = None
-            if model_type == ModelType.WD_TAGGER:
+            if model_type == CaptionModelType.WD_TAGGER:
                 wd_tagger_settings = self.caption_settings[
                     'wd_tagger_settings']
                 tags, probabilities = model.generate_tags(model_inputs,
@@ -359,7 +359,7 @@ class CaptioningThread(QThread):
                 forced_words_ids = get_forced_words_ids(forced_words_string,
                                                         tokenizer)
                 generation_model = (model.text_model
-                                    if model_type == ModelType.MOONDREAM
+                                    if model_type == CaptionModelType.MOONDREAM
                                     else model)
                 with torch.inference_mode():
                     generated_token_ids = generation_model.generate(

@@ -1,18 +1,15 @@
-from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal, Slot
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent
-from PySide6.QtWidgets import (QDockWidget, QLabel, QLineEdit, QListView,
-                               QMessageBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QDockWidget, QHBoxLayout, QLabel, QLineEdit,
+                               QListView, QMessageBox, QVBoxLayout, QWidget)
 
+from models.proxy_tag_counter_model import ProxyTagCounterModel
 from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import TallPushButton
+from utils.enums import AllTagsSortBy, SortOrder
+from utils.settings_widgets import SettingsComboBox
 from utils.text_edit_item_delegate import TextEditItemDelegate
 from utils.utils import get_confirmation_dialog_reply, pluralize
-
-
-class ProxyTagCounterModel(QSortFilterProxyModel):
-    def __init__(self, tag_counter_model: TagCounterModel):
-        super().__init__()
-        self.setSourceModel(tag_counter_model)
 
 
 class FilterLineEdit(QLineEdit):
@@ -70,6 +67,19 @@ class AllTagsEditor(QDockWidget):
         self.clear_filter_button = TallPushButton('Clear Image Filter')
         self.clear_filter_button.setFixedHeight(
             self.clear_filter_button.sizeHint().height() * 1.5)
+        sort_layout = QHBoxLayout()
+        sort_label = QLabel('Sort by')
+        self.sort_by_combo_box = SettingsComboBox(key='all_tags_sort_by',
+                                                  default='Frequency')
+        self.sort_by_combo_box.addItems(list(AllTagsSortBy))
+        self.sort_by_combo_box.currentTextChanged.connect(self.sort_tags)
+        self.sort_order_combo_box = SettingsComboBox(key='all_tags_sort_order',
+                                                     default='Descending')
+        self.sort_order_combo_box.addItems(list(SortOrder))
+        self.sort_order_combo_box.currentTextChanged.connect(self.sort_tags)
+        sort_layout.addWidget(sort_label)
+        sort_layout.addWidget(self.sort_by_combo_box, stretch=1)
+        sort_layout.addWidget(self.sort_order_combo_box, stretch=1)
         self.all_tags_list = AllTagsList(self.proxy_tag_counter_model)
         self.tag_count_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
@@ -77,6 +87,7 @@ class AllTagsEditor(QDockWidget):
         layout = QVBoxLayout(container)
         layout.addWidget(self.filter_line_edit)
         layout.addWidget(self.clear_filter_button)
+        layout.addLayout(sort_layout)
         layout.addWidget(self.all_tags_list)
         layout.addWidget(self.tag_count_label)
         self.setWidget(container)
@@ -89,6 +100,19 @@ class AllTagsEditor(QDockWidget):
             self.update_tag_count_label)
         self.proxy_tag_counter_model.rowsRemoved.connect(
             self.update_tag_count_label)
+        self.sort_tags()
+
+    @Slot()
+    def sort_tags(self):
+        self.proxy_tag_counter_model.sort_by = (self.sort_by_combo_box
+                                                .currentText())
+        if self.sort_order_combo_box.currentText() == SortOrder.ASCENDING:
+            sort_order = Qt.AscendingOrder
+        else:
+            sort_order = Qt.DescendingOrder
+        # `invalidate()` must be called to force the proxy model to re-sort.
+        self.proxy_tag_counter_model.invalidate()
+        self.proxy_tag_counter_model.sort(0, sort_order)
 
     @Slot()
     def update_tag_count_label(self):

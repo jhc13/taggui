@@ -1,10 +1,10 @@
 import torch
 from PIL import Image as PilImage
 
-from auto_captioning.enums import Device
+from utils.enums import CaptionDevice
 
 
-def get_xcomposer2_error_message(model_id: str, device: Device,
+def get_xcomposer2_error_message(model_id: str, device: CaptionDevice,
                                  load_in_4_bit: bool) -> str | None:
     is_4_bit_model = '4bit' in model_id
     if is_4_bit_model:
@@ -15,7 +15,7 @@ def get_xcomposer2_error_message(model_id: str, device: Device,
                     'package, which is only available on Linux and Windows. '
                     'Select internlm/internlm-xcomposer2-vl-7b if you are '
                     'using a different operating system.')
-        if device == Device.CPU:
+        if device == CaptionDevice.CPU:
             return ('This version of the model can only be loaded on a GPU. '
                     'Select internlm/internlm-xcomposer2-vl-7b if you want to '
                     'load the model on the CPU.')

@@ -4,7 +4,7 @@ from inspect import getsource
 import torch
 from PIL import Image as PilImage
 
-from auto_captioning.enums import ModelType
+from utils.enums import CaptionModelType
 
 
 def monkey_patch_cogvlm(caption_start: str):
@@ -49,11 +49,11 @@ def monkey_patch_cogagent(model, caption_start: str):
     }
 
 
-def get_cogvlm_cogagent_inputs(model_type: ModelType, model, processor,
+def get_cogvlm_cogagent_inputs(model_type: CaptionModelType, model, processor,
                                text: str, pil_image: PilImage, beam_count: int,
                                device: torch.device,
                                dtype_argument: dict) -> dict:
-    template_version = ('chat_old' if model_type == ModelType.COGAGENT
+    template_version = ('chat_old' if model_type == CaptionModelType.COGAGENT
                         else None)
     model_inputs = model.build_conversation_input_ids(
         processor, query=text, images=[pil_image],
@@ -70,7 +70,7 @@ def get_cogvlm_cogagent_inputs(model_type: ModelType, model, processor,
             for _ in range(beam_count)
         ]
     }
-    if model_type == ModelType.COGAGENT:
+    if model_type == CaptionModelType.COGAGENT:
         model_inputs['cross_images'] = [
             [cross_images[0].to(device, **dtype_argument)]
             for _ in range(beam_count)
