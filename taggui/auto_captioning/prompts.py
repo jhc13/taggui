@@ -55,8 +55,8 @@ def postprocess_prompt_and_generated_text(model_type: ModelType, processor,
         prompt = prompt.replace('<image>', ' ')
     elif model_type == ModelType.LLAVA_NEXT_34B:
         prompt = prompt.replace('<|im_start|>', '<|im_start|> ')
-        prompt = prompt.replace('<|im_end|>', ' ')
-        prompt = prompt.replace('<image>', '')
+        prompt = prompt.replace('<|im_end|>', '')
+        prompt = prompt.replace('<image>', ' ')
     elif model_type == ModelType.MOONDREAM:
         generated_text = re.sub('END$', '', generated_text)
         generated_text = re.sub('<$', '', generated_text)

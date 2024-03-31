@@ -12,7 +12,7 @@ from PySide6.QtCore import QModelIndex, QThread, Qt, Signal
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           AutoProcessor, AutoTokenizer, BatchFeature,
                           BitsAndBytesConfig, CodeGenTokenizerFast,
-                          LlamaTokenizer, LlavaNextProcessor)
+                          LlamaTokenizer)
 
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
@@ -144,9 +144,6 @@ class CaptioningThread(QThread):
         print(f'Loading {model_id}...')
         if model_type in (ModelType.COGAGENT, ModelType.COGVLM):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
-        elif model_type == ModelType.LLAVA_NEXT_34B:
-            processor = LlavaNextProcessor.from_pretrained(model_id,
-                                                           use_fast=False)
         elif model_type == ModelType.WD_TAGGER:
             processor = None
         else:
