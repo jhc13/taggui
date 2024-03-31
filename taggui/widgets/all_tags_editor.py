@@ -138,8 +138,8 @@ class AllTagsEditor(QDockWidget):
         layout.addWidget(self.tag_count_label)
         self.setWidget(container)
 
-        self.filter_line_edit.textChanged.connect(
-            self.proxy_tag_counter_model.setFilterFixedString)
+        self.filter_line_edit.textChanged.connect(self.set_filter)
+        self.filter_line_edit.textChanged.connect(self.update_tag_count_label)
         self.proxy_tag_counter_model.modelReset.connect(
             self.update_tag_count_label)
         self.proxy_tag_counter_model.rowsInserted.connect(
@@ -159,6 +159,15 @@ class AllTagsEditor(QDockWidget):
         # `invalidate()` must be called to force the proxy model to re-sort.
         self.proxy_tag_counter_model.invalidate()
         self.proxy_tag_counter_model.sort(0, sort_order)
+
+    @Slot(str)
+    def set_filter(self, filter_):
+        # Replace escaped wildcard characters to make them compatible with
+        # the `fnmatch` module.
+        filter_ = filter_.replace(r'\?', '[?]').replace(r'\*', '[*]')
+        self.proxy_tag_counter_model.filter = filter_
+        # `invalidate()` must be called to force the proxy model to re-filter.
+        self.proxy_tag_counter_model.invalidate()
 
     @Slot()
     def update_tag_count_label(self):
