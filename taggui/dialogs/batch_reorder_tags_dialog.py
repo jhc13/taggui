@@ -1,5 +1,6 @@
 import re
 
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
 
 from models.image_list_model import ImageListModel
@@ -64,6 +65,7 @@ class BatchReorderTagsDialog(QDialog):
         self.move_tags_line_edit.textChanged.emit(
             self.move_tags_line_edit.text())
 
+    @Slot()
     def move_tags_to_front(self):
         tags = re.split(r'(?<!\\),', self.move_tags_line_edit.text())
         tags = [tag.strip().replace(r'\,', ',') for tag in tags]
