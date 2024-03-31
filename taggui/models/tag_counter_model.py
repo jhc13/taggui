@@ -35,6 +35,8 @@ class TagCounterModel(QAbstractListModel):
         if not value or role != Qt.EditRole:
             return False
         tag, count = self.data(index, Qt.UserRole)
+        if value == tag:
+            return False
         question = (f'Rename {count} {pluralize("instance", count)} of tag '
                     f'"{tag}" to "{value}"?')
         reply = get_confirmation_dialog_reply(title='Rename Tag',
