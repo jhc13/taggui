@@ -508,6 +508,11 @@ class MainWindow(QMainWindow):
         self.image_list.filter_line_edit.setText(
             f'tag:"{escaped_selected_tag}"')
 
+    @Slot(str)
+    def add_tag_to_selected_images(self, tag: str):
+        selected_image_indices = self.image_list.get_selected_image_indices()
+        self.image_list_model.add_tags([tag], selected_image_indices)
+
     def connect_all_tags_editor_signals(self):
         self.all_tags_editor.clear_filter_button.clicked.connect(
             self.image_list.filter_line_edit.clear)
@@ -526,6 +531,8 @@ class MainWindow(QMainWindow):
             self.image_list_model.delete_tag)
         self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
             self.image_list.filter_line_edit.clear)
+        self.all_tags_editor.all_tags_list.tag_addition_requested.connect(
+            self.add_tag_to_selected_images)
         self.all_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_all_tags_editor_action.setChecked(
                 self.all_tags_editor.isVisible()))

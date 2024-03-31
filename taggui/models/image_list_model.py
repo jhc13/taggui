@@ -410,6 +410,8 @@ class ImageListModel(QAbstractListModel):
     @Slot(list, list)
     def add_tags(self, tags: list[str], image_indices: list[QModelIndex]):
         """Add one or more tags to one or more images."""
+        if not image_indices:
+            return
         action_name = 'Add Tag' if len(tags) == 1 else 'Add Tags'
         should_ask_for_confirmation = len(image_indices) > 1
         self.add_to_undo_stack(action_name, should_ask_for_confirmation)

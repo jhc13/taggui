@@ -1,5 +1,7 @@
+from enum import Enum
+
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QKeyEvent
+from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (QDockWidget, QHBoxLayout, QLabel, QLineEdit,
                                QListView, QMessageBox, QVBoxLayout, QWidget)
 
@@ -20,12 +22,20 @@ class FilterLineEdit(QLineEdit):
         self.setClearButtonEnabled(True)
 
 
+class ClickAction(str, Enum):
+    FILTER_IMAGES = 'Filter images for tag'
+    ADD_TO_SELECTED = 'Add tag to selected images'
+
+
 class AllTagsList(QListView):
     tag_deletion_requested = Signal(str)
+    tag_addition_requested = Signal(str)
 
-    def __init__(self, proxy_tag_counter_model: ProxyTagCounterModel):
+    def __init__(self, proxy_tag_counter_model: ProxyTagCounterModel,
+                 all_tags_editor: 'AllTagsEditor'):
         super().__init__()
         self.setModel(proxy_tag_counter_model)
+        self.all_tags_editor = all_tags_editor
         self.setItemDelegate(TextEditItemDelegate(self))
         self.setWordWrap(True)
 
@@ -50,6 +60,17 @@ class AllTagsList(QListView):
         if reply == QMessageBox.StandardButton.Yes:
             self.tag_deletion_requested.emit(tag)
 
+    def mousePressEvent(self, event: QMouseEvent):
+        click_action = (self.all_tags_editor.click_action_combo_box
+                        .currentText())
+        if click_action == ClickAction.FILTER_IMAGES:
+            super().mousePressEvent(event)
+            return
+        if click_action == ClickAction.ADD_TO_SELECTED:
+            index = self.indexAt(event.pos())
+            tag = index.data(Qt.EditRole)
+            self.tag_addition_requested.emit(tag)
+
 
 class AllTagsEditor(QDockWidget):
     def __init__(self, tag_counter_model: TagCounterModel):
@@ -67,6 +88,13 @@ class AllTagsEditor(QDockWidget):
         self.clear_filter_button = TallPushButton('Clear Image Filter')
         self.clear_filter_button.setFixedHeight(
             self.clear_filter_button.sizeHint().height() * 1.5)
+        click_action_layout = QHBoxLayout()
+        click_action_label = QLabel('Tag click action')
+        self.click_action_combo_box = SettingsComboBox(
+            key='all_tags_click_action')
+        self.click_action_combo_box.addItems(list(ClickAction))
+        click_action_layout.addWidget(click_action_label)
+        click_action_layout.addWidget(self.click_action_combo_box, stretch=1)
         sort_layout = QHBoxLayout()
         sort_label = QLabel('Sort by')
         self.sort_by_combo_box = SettingsComboBox(key='all_tags_sort_by',
@@ -80,13 +108,15 @@ class AllTagsEditor(QDockWidget):
         sort_layout.addWidget(sort_label)
         sort_layout.addWidget(self.sort_by_combo_box, stretch=1)
         sort_layout.addWidget(self.sort_order_combo_box, stretch=1)
-        self.all_tags_list = AllTagsList(self.proxy_tag_counter_model)
+        self.all_tags_list = AllTagsList(self.proxy_tag_counter_model,
+                                         all_tags_editor=self)
         self.tag_count_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.addWidget(self.filter_line_edit)
         layout.addWidget(self.clear_filter_button)
+        layout.addLayout(click_action_layout)
         layout.addLayout(sort_layout)
         layout.addWidget(self.all_tags_list)
         layout.addWidget(self.tag_count_label)
