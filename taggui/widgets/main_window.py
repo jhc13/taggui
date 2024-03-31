@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtCore import (QItemSelection, QKeyCombination, QModelIndex, QUrl,
-                            Qt, Slot)
+from PySide6.QtCore import QKeyCombination, QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
                            QKeySequence, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
