@@ -4,28 +4,28 @@ ExifRead==3.0.0
 imagesize==1.4.1
 Pillow==10.2.0
 pyparsing==3.1.2
-PySide6==6.6.2
+PySide6==6.6.3
 transformers==4.39.1
 
 # PyTorch
-torch==2.2.1; platform_system != "Windows"
-https://download.pytorch.org/whl/cu121/torch-2.2.1%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
-https://download.pytorch.org/whl/cu121/torch-2.2.1%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
+torch==2.2.2; platform_system != "Windows"
+https://download.pytorch.org/whl/cu121/torch-2.2.2%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
+https://download.pytorch.org/whl/cu121/torch-2.2.2%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
 
 # CogAgent
 timm==0.9.16
 
 # CogVLM
 einops==0.7.0
-protobuf==5.26.0
+protobuf==5.26.1
 sentencepiece==0.2.0
-torchvision==0.17.1
-xformers==0.0.25
+torchvision==0.17.2
+xformers==0.0.25.post1
 
 # InternLM-XComposer2
 auto-gptq==0.7.1; platform_system == "Linux" or platform_system == "Windows"
 
 # WD Tagger
-huggingface-hub==0.21.4
+huggingface-hub==0.22.2
 numpy==1.26.4
 onnxruntime==1.17.1
