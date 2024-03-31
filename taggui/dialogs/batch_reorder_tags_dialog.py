@@ -1,38 +1,70 @@
+import re
+
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QVBoxLayout
 
 from models.image_list_model import ImageListModel
 from models.tag_counter_model import TagCounterModel
-from utils.settings_widgets import SettingsBigCheckBox
+from utils.settings_widgets import SettingsBigCheckBox, SettingsLineEdit
+from widgets.auto_captioner import HorizontalLine
 
 
 class BatchReorderTagsDialog(QDialog):
     def __init__(self, parent, image_list_model: ImageListModel,
                  tag_counter_model: TagCounterModel):
         super().__init__(parent)
+        self.image_list_model = image_list_model
         self.setWindowTitle('Batch Reorder Tags')
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        layout = QVBoxLayout(self)
+        top_layout = QHBoxLayout()
+        top_layout.setContentsMargins(20, 20, 20, 20)
+        top_layout.setSpacing(20)
         do_not_reorder_first_tag_check_box = SettingsBigCheckBox(
             key='do_not_reorder_first_tag', default=True)
         do_not_reorder_first_tag_check_box.setText('Do not reorder first tag')
-        layout.addWidget(do_not_reorder_first_tag_check_box)
-        buttons_layout = QVBoxLayout()
-        buttons_layout.setSpacing(20)
+        top_layout.addWidget(do_not_reorder_first_tag_check_box)
+        top_buttons_layout = QVBoxLayout()
+        top_buttons_layout.setSpacing(20)
         sort_alphabetically_button = QPushButton('Sort Tags Alphabetically')
         sort_alphabetically_button.clicked.connect(
-            lambda: image_list_model.sort_tags_alphabetically(
+            lambda: self.image_list_model.sort_tags_alphabetically(
                 do_not_reorder_first_tag_check_box.isChecked()))
-        buttons_layout.addWidget(sort_alphabetically_button)
+        top_buttons_layout.addWidget(sort_alphabetically_button)
         sort_by_frequency_button = QPushButton('Sort Tags by Frequency')
         sort_by_frequency_button.clicked.connect(
-            lambda: image_list_model.sort_tags_by_frequency(
+            lambda: self.image_list_model.sort_tags_by_frequency(
                 tag_counter_model.tag_counter,
                 do_not_reorder_first_tag_check_box.isChecked()))
-        buttons_layout.addWidget(sort_by_frequency_button)
+        top_buttons_layout.addWidget(sort_by_frequency_button)
         shuffle_button = QPushButton('Shuffle Tags Randomly')
         shuffle_button.clicked.connect(
-            lambda: image_list_model.shuffle_tags(
+            lambda: self.image_list_model.shuffle_tags(
                 do_not_reorder_first_tag_check_box.isChecked()))
-        buttons_layout.addWidget(shuffle_button)
-        layout.addLayout(buttons_layout)
+        top_buttons_layout.addWidget(shuffle_button)
+        top_layout.addLayout(top_buttons_layout)
+        horizontal_line = HorizontalLine()
+        bottom_layout = QVBoxLayout()
+        bottom_layout.setContentsMargins(20, 20, 20, 20)
+        bottom_layout.setSpacing(20)
+        self.move_tags_line_edit = SettingsLineEdit(key='move_to_front_tags')
+        self.move_tags_line_edit.setPlaceholderText('Tags to move to front '
+                                                    '(comma-separated)')
+        self.move_tags_line_edit.setClearButtonEnabled(True)
+        self.move_tags_line_edit.textChanged.connect(
+            lambda: self.move_tags_button.setEnabled(
+                bool(self.move_tags_line_edit.text())))
+        self.move_tags_button = QPushButton('Move Tags to Front')
+        self.move_tags_button.setEnabled(False)
+        self.move_tags_button.clicked.connect(self.move_tags_to_front)
+        bottom_layout.addWidget(self.move_tags_line_edit)
+        bottom_layout.addWidget(self.move_tags_button)
+        layout.addLayout(top_layout)
+        layout.addWidget(horizontal_line)
+        layout.addLayout(bottom_layout)
+
+        self.move_tags_line_edit.textChanged.emit(
+            self.move_tags_line_edit.text())
+
+    def move_tags_to_front(self):
+        tags = re.split(r'(?<!\\),', self.move_tags_line_edit.text())
+        tags = [tag.strip().replace(r'\,', ',') for tag in tags]
+        self.image_list_model.move_tags_to_front(tags)

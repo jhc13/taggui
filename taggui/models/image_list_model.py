@@ -330,6 +330,28 @@ class ImageListModel(QAbstractListModel):
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
 
+    def move_tags_to_front(self, tags_to_move: list[str]):
+        """
+        Move one or more tags to the front of the tags list for each image.
+        """
+        self.add_to_undo_stack(action_name='Move Tags to Front',
+                               should_ask_for_confirmation=True)
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            if not any(tag in image.tags for tag in tags_to_move):
+                continue
+            old_caption = self.tag_separator.join(image.tags)
+            moved_tags = [tag for tag in tags_to_move if tag in image.tags]
+            unmoved_tags = [tag for tag in image.tags if tag not in moved_tags]
+            image.tags = moved_tags + unmoved_tags
+            new_caption = self.tag_separator.join(image.tags)
+            if new_caption != old_caption:
+                changed_image_indices.append(image_index)
+                self.write_image_tags_to_disk(image)
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
+
     def remove_duplicate_tags(self) -> int:
         """
         Remove duplicate tags for each image. Return the number of removed
