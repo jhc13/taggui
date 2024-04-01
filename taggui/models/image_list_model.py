@@ -310,6 +310,24 @@ class ImageListModel(QAbstractListModel):
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
 
+    def reverse_tags_order(self, do_not_reorder_first_tag: bool):
+        """Reverse the order of the tags for each image."""
+        self.add_to_undo_stack(action_name='Reverse Order of Tags',
+                               should_ask_for_confirmation=True)
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            if len(image.tags) < 2:
+                continue
+            changed_image_indices.append(image_index)
+            if do_not_reorder_first_tag:
+                image.tags = [image.tags[0]] + list(reversed(image.tags[1:]))
+            else:
+                image.tags = list(reversed(image.tags))
+            self.write_image_tags_to_disk(image)
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
+
     def shuffle_tags(self, do_not_reorder_first_tag: bool):
         """Shuffle the tags for each image randomly."""
         self.add_to_undo_stack(action_name='Shuffle Tags',

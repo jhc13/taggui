@@ -36,6 +36,11 @@ class BatchReorderTagsDialog(QDialog):
                 tag_counter_model.tag_counter,
                 do_not_reorder_first_tag_check_box.isChecked()))
         top_buttons_layout.addWidget(sort_by_frequency_button)
+        reverse_button = QPushButton('Reverse Order of Tags')
+        reverse_button.clicked.connect(
+            lambda: self.image_list_model.reverse_tags_order(
+                do_not_reorder_first_tag_check_box.isChecked()))
+        top_buttons_layout.addWidget(reverse_button)
         shuffle_button = QPushButton('Shuffle Tags Randomly')
         shuffle_button.clicked.connect(
             lambda: self.image_list_model.shuffle_tags(
