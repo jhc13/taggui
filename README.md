@@ -6,7 +6,7 @@ Cross-platform desktop application for quickly adding and editing image tags
 and captions, aimed towards creators of image datasets for generative AI models
 like Stable Diffusion.
 
-<img src='images/screenshot-v1.9.0.png' alt='TagGUI screenshot' width='100%'>
+<img src='images/screenshot-v1.20.0.png' alt='TagGUI screenshot' width='100%'>
 
 ## Features
 
@@ -48,10 +48,6 @@ Tags are loaded from `.txt` files in the directory with the same names as the
 images.
 Any changes you make to the tags are also automatically saved to these `.txt`
 files.
-
-You can change the settings in `File` -> `Settings`.
-Panes can be resized, undocked, moved around, or placed on top of each
-other to create a tabbed interface.
 
 ## Automatic Captioning
 
@@ -171,6 +167,13 @@ For example, you can use `tag:"orange \"cat\""` for the tag `orange "cat"`.
 An alternative is to use different types of quotes for the outer and inner
 quotes, like so: `tag:'orange "cat"'`.
 
+### Wildcards
+
+You can use the `*` character as a wildcard to match any number of any
+characters, and the `?` character to match any single character.
+For example, `tag:*cat` will match images with tags like `orange cat`,
+`large cat`, and `cat`.
+
 ### Combining filters
 
 Logical operators can be used to combine multiple filters:
@@ -203,7 +206,7 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 - Jump to the first untagged image: `Ctrl`+`J`
 - Focus the `Filter Images` box: `Alt`+`F`
 - Focus the `Add Tag` box: `Alt`+`A`
-- Focus the image tags list: `Alt`+`I`
+- Focus the `Image Tags` list: `Alt`+`I`
 - Focus the `Search Tags` box: `Alt`+`S`
 - Focus the `Start Auto-Captioning` button: `Alt`+`C`
 
@@ -230,8 +233,13 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 
 ### All Tags pane
 
-- Show all images containing a tag: Select the tag
-- Go back to showing all images: Click the `Clear Image Filter` button
+- Show all images containing a tag: Select the tag (When `Tag click action` is
+  set to `Filter images for tag`)
+- Add a tag to selected images: Click the tag (When `Tag click action` is set
+  to `Add tag to selected images`)
 - Delete all instances of a tag: Select the tag and press `Delete`
 - Rename all instances of a tag: Double-click the tag, or select the tag and
   press `F2`
+
+The `Edit` menu contains additional features for batch tag operations, such as
+`Find and Replace` (`Ctrl`+`R`) and `Batch Reorder Tags` (`Ctrl`+`B`).
