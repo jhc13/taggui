@@ -178,6 +178,14 @@ class ImageTagsEditor(QDockWidget):
             proxy_image_index)
         image: Image = self.proxy_image_list_model.data(proxy_image_index,
                                                         Qt.UserRole)
+        # If the string list already contains the image's tags, do not reload
+        # them. This is the case when the tags are edited directly through the
+        # image tags editor. Removing this check breaks the functionality of
+        # reordering multiple tags at the same time because it gets interrupted
+        # after one tag is moved.
+        current_string_list = self.image_tag_list_model.stringList()
+        if current_string_list == image.tags:
+            return
         self.image_tag_list_model.setStringList(image.tags)
         self.count_tokens()
         if self.image_tags_list.hasFocus():
@@ -188,11 +196,7 @@ class ImageTagsEditor(QDockWidget):
                                      last_changed_index: QModelIndex):
         """
         Reload the tags for the current image if its index is in the range of
-        changed indices. In order to preserve the functionality of deleting or
-        reordering multiple tags at once, use this slot instead of connecting
-        to the `dataChanged` signal of the image list model. Otherwise, the
-        image tags get reloaded after the first tag is deleted or moved,
-        preventing the remaining tags from being deleted or moved.
+        changed indices.
         """
         if (first_changed_index.row() <= self.image_index.row()
                 <= last_changed_index.row()):
