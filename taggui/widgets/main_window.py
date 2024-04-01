@@ -507,6 +507,7 @@ class MainWindow(QMainWindow):
     def add_tag_to_selected_images(self, tag: str):
         selected_image_indices = self.image_list.get_selected_image_indices()
         self.image_list_model.add_tags([tag], selected_image_indices)
+        self.image_tags_editor.select_last_tag()
 
     def connect_all_tags_editor_signals(self):
         self.all_tags_editor.clear_filter_button.clicked.connect(

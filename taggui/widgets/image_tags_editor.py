@@ -183,6 +183,12 @@ class ImageTagsEditor(QDockWidget):
             return
         self.image_tags_list.select_tag(0)
 
+    def select_last_tag(self):
+        tag_count = self.image_tag_list_model.rowCount()
+        if tag_count == 0:
+            return
+        self.image_tags_list.select_tag(tag_count - 1)
+
     @Slot()
     def load_image_tags(self, proxy_image_index: QModelIndex):
         self.image_index = self.proxy_image_list_model.mapToSource(
