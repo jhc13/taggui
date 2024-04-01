@@ -99,10 +99,27 @@ class ImageTagsList(QListView):
             super().keyPressEvent(event)
             return
         rows_to_remove = [index.row() for index in self.selectedIndexes()]
+        if not rows_to_remove:
+            return
         remaining_tags = [tag for i, tag
                           in enumerate(self.image_tag_list_model.stringList())
                           if i not in rows_to_remove]
         self.image_tag_list_model.setStringList(remaining_tags)
+        min_removed_row = min(rows_to_remove)
+        remaining_row_count = self.image_tag_list_model.rowCount()
+        if min_removed_row < remaining_row_count:
+            self.select_tag(min_removed_row)
+        elif remaining_row_count:
+            # Select the last tag.
+            self.select_tag(remaining_row_count - 1)
+
+    def select_tag(self, row: int):
+        # If the current index is not set, using the arrow keys to navigate
+        # through the tags after selecting the tag will not work.
+        self.setCurrentIndex(self.image_tag_list_model.index(row))
+        self.selectionModel().select(
+            self.image_tag_list_model.index(row),
+            QItemSelectionModel.SelectionFlag.ClearAndSelect)
 
 
 class ImageTagsEditor(QDockWidget):
@@ -164,13 +181,7 @@ class ImageTagsEditor(QDockWidget):
     def select_first_tag(self):
         if self.image_tag_list_model.rowCount() == 0:
             return
-        # If the current index is not set, the `Down` key has to be pressed
-        # twice to select the second tag.
-        self.image_tags_list.setCurrentIndex(
-            self.image_tag_list_model.index(0))
-        self.image_tags_list.selectionModel().select(
-            self.image_tag_list_model.index(0),
-            QItemSelectionModel.SelectionFlag.ClearAndSelect)
+        self.image_tags_list.select_tag(0)
 
     @Slot()
     def load_image_tags(self, proxy_image_index: QModelIndex):
