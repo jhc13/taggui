@@ -359,7 +359,10 @@ class ImageListModel(QAbstractListModel):
             if not any(tag in image.tags for tag in tags_to_move):
                 continue
             old_caption = self.tag_separator.join(image.tags)
-            moved_tags = [tag for tag in tags_to_move if tag in image.tags]
+            moved_tags = []
+            for tag in tags_to_move:
+                tag_count = image.tags.count(tag)
+                moved_tags.extend([tag] * tag_count)
             unmoved_tags = [tag for tag in image.tags if tag not in moved_tags]
             image.tags = moved_tags + unmoved_tags
             new_caption = self.tag_separator.join(image.tags)
