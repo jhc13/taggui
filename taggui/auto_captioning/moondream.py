@@ -5,12 +5,15 @@ import torch
 from PIL import Image as PilImage
 from transformers import AutoModelForCausalLM
 
+from utils.enums import CaptionModelType
 
-def get_moondream_error_message(load_in_4_bit: bool,
+
+def get_moondream_error_message(model_type: CaptionModelType,
+                                load_in_4_bit: bool,
                                 beam_count: int) -> str | None:
     if load_in_4_bit:
         return 'This model cannot be loaded in 4-bit.'
-    if beam_count > 1:
+    if model_type == CaptionModelType.MOONDREAM1 and beam_count > 1:
         return 'This model only supports `Number of beams` set to 1.'
     return None
 
@@ -40,10 +43,13 @@ def monkey_patch_moondream1(device: torch.device, model_id: str):
     return model
 
 
-def get_moondream_inputs(model, processor, text: str, pil_image: PilImage,
-                         device: torch.device, dtype_argument: dict) -> dict:
+def get_moondream_inputs(model_type: CaptionModelType, model, processor,
+                         text: str, pil_image: PilImage, device: torch.device,
+                         dtype_argument: dict) -> dict:
     encoded_image = model.encode_image(pil_image)
-    eos_tokens_ids = processor('<END>').input_ids
+    eos_text = ('<END>' if model_type == CaptionModelType.MOONDREAM1
+                else '\n\nQuestion')
+    eos_tokens_ids = processor(eos_text).input_ids
     inputs_embeds = model.input_embeds(text, encoded_image, processor)
     model_inputs = {
         'inputs_embeds': inputs_embeds,
