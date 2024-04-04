@@ -35,8 +35,7 @@ from utils.settings import get_tag_separator
 
 def get_tokenizer_from_processor(model_type: CaptionModelType, processor):
     if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
-                      CaptionModelType.MOONDREAM1, CaptionModelType.MOONDREAM2,
-                      CaptionModelType.XCOMPOSER2):
+                      CaptionModelType.MOONDREAM, CaptionModelType.XCOMPOSER2):
         return processor
     return processor.tokenizer
 
@@ -148,10 +147,9 @@ class CaptioningThread(QThread):
         elif model_type == CaptionModelType.WD_TAGGER:
             processor = None
         else:
-            if model_type == CaptionModelType.MOONDREAM1:
+            if model_type == CaptionModelType.MOONDREAM:
                 processor_class = CodeGenTokenizerFast
-            elif model_type in (CaptionModelType.MOONDREAM2,
-                                CaptionModelType.XCOMPOSER2):
+            elif model_type == CaptionModelType.XCOMPOSER2:
                 processor_class = AutoTokenizer
             else:
                 processor_class = AutoProcessor
@@ -184,8 +182,7 @@ class CaptioningThread(QThread):
             model_class = (AutoModelForCausalLM
                            if model_type in (CaptionModelType.COGAGENT,
                                              CaptionModelType.COGVLM,
-                                             CaptionModelType.MOONDREAM1,
-                                             CaptionModelType.MOONDREAM2,
+                                             CaptionModelType.MOONDREAM,
                                              CaptionModelType.XCOMPOSER2)
                            else AutoModelForVision2Seq)
             # Some models print unnecessary messages while loading, so
@@ -239,11 +236,9 @@ class CaptioningThread(QThread):
             model_inputs = get_cogvlm_cogagent_inputs(
                 model_type, model, processor, text, pil_image, beam_count,
                 device, dtype_argument)
-        elif model_type in (CaptionModelType.MOONDREAM1,
-                            CaptionModelType.MOONDREAM2):
-            model_inputs = get_moondream_inputs(model_type, model, processor,
-                                                text, pil_image, device,
-                                                dtype_argument)
+        elif model_type == CaptionModelType.MOONDREAM:
+            model_inputs = get_moondream_inputs(
+                model, processor, text, pil_image, device, dtype_argument)
         elif model_type == CaptionModelType.XCOMPOSER2:
             load_in_4_bit = self.caption_settings['load_in_4_bit']
             model_inputs = get_xcomposer2_inputs(
@@ -298,12 +293,11 @@ class CaptioningThread(QThread):
         if model_type == CaptionModelType.XCOMPOSER2:
             error_message = get_xcomposer2_error_message(
                 model_id, self.caption_settings['device'], load_in_4_bit)
-        elif model_type in (CaptionModelType.MOONDREAM1,
-                            CaptionModelType.MOONDREAM2):
+        elif model_type == CaptionModelType.MOONDREAM:
             beam_count = self.caption_settings['generation_parameters'][
                 'num_beams']
-            error_message = get_moondream_error_message(
-                model_type, load_in_4_bit, beam_count)
+            error_message = get_moondream_error_message(load_in_4_bit,
+                                                        beam_count)
         if error_message:
             self.clear_console_text_edit_requested.emit()
             print(error_message)
@@ -364,12 +358,9 @@ class CaptioningThread(QThread):
                 bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
                 forced_words_ids = get_forced_words_ids(forced_words_string,
                                                         tokenizer)
-                generation_model = (
-                    model.text_model
-                    if model_type in (CaptionModelType.MOONDREAM1,
-                                      CaptionModelType.MOONDREAM2)
-                    else model
-                )
+                generation_model = (model.text_model
+                                    if model_type == CaptionModelType.MOONDREAM
+                                    else model)
                 with torch.inference_mode():
                     generated_token_ids = generation_model.generate(
                         **model_inputs, bad_words_ids=bad_words_ids,

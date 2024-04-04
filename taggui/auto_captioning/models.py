@@ -51,10 +51,8 @@ def get_model_type(model_id: str) -> CaptionModelType:
         return CaptionModelType.LLAVA_NEXT_MISTRAL
     if 'llava-v1.6-vicuna' in lowercase_model_id:
         return CaptionModelType.LLAVA_NEXT_VICUNA
-    if 'moondream1' in lowercase_model_id:
-        return CaptionModelType.MOONDREAM1
-    if 'moondream2' in lowercase_model_id:
-        return CaptionModelType.MOONDREAM2
+    if 'moondream' in lowercase_model_id:
+        return CaptionModelType.MOONDREAM
     if 'wd' in lowercase_model_id and 'tagger' in lowercase_model_id:
         return CaptionModelType.WD_TAGGER
     if 'xcomposer2' in lowercase_model_id:
