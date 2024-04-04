@@ -5,7 +5,8 @@ from utils.enums import CaptionModelType
 
 def get_default_prompt(model_type: CaptionModelType) -> str:
     if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
-                      CaptionModelType.LLAVA_1_5, CaptionModelType.MOONDREAM):
+                      CaptionModelType.LLAVA_1_5, CaptionModelType.MOONDREAM1,
+                      CaptionModelType.MOONDREAM2):
         return 'Describe the image in twenty words or less.'
     if model_type in (CaptionModelType.LLAVA_NEXT_34B,
                       CaptionModelType.LLAVA_NEXT_MISTRAL,
@@ -32,7 +33,8 @@ def format_prompt(prompt: str, model_type: CaptionModelType) -> str:
                 f"intelligence assistant. The assistant gives helpful, "
                 f"detailed, and polite answers to the human's questions. "
                 f"USER: <image>\n{prompt} ASSISTANT:")
-    if model_type == CaptionModelType.MOONDREAM:
+    if model_type in (CaptionModelType.MOONDREAM1,
+                      CaptionModelType.MOONDREAM2):
         return f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
     if model_type == CaptionModelType.XCOMPOSER2:
         return (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
@@ -59,7 +61,8 @@ def postprocess_prompt_and_generated_text(model_type: CaptionModelType,
         prompt = prompt.replace('<|im_start|>', '<|im_start|> ')
         prompt = prompt.replace('<|im_end|>', '')
         prompt = prompt.replace('<image>', ' ')
-    elif model_type == CaptionModelType.MOONDREAM:
+    elif model_type in (CaptionModelType.MOONDREAM1,
+                        CaptionModelType.MOONDREAM2):
         generated_text = re.sub('END$', '', generated_text)
         generated_text = re.sub('<$', '', generated_text)
     elif model_type == CaptionModelType.XCOMPOSER2:
