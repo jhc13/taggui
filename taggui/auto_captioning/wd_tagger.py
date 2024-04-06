@@ -102,5 +102,8 @@ class WdTaggerModel:
         tags_and_probabilities.sort(key=lambda x: x[1], reverse=True)
         max_tags = wd_tagger_settings['max_tags']
         tags_and_probabilities = tags_and_probabilities[:max_tags]
-        tags, probabilities = zip(*tags_and_probabilities)
+        if tags_and_probabilities:
+            tags, probabilities = zip(*tags_and_probabilities)
+        else:
+            tags, probabilities = (), ()
         return tags, probabilities

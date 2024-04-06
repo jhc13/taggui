@@ -71,7 +71,7 @@ def get_forced_words_ids(forced_words_string: str,
 
 def add_caption_to_tags(tags: list[str], caption: str,
                         caption_position: CaptionPosition) -> list[str]:
-    if caption_position == CaptionPosition.DO_NOT_ADD:
+    if caption_position == CaptionPosition.DO_NOT_ADD or not caption:
         return tags
     tag_separator = get_tag_separator()
     new_tags = caption.split(tag_separator)
