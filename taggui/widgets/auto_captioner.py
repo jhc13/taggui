@@ -186,6 +186,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.repetition_penalty_spin_box.setSingleStep(0.01)
         self.no_repeat_ngram_size_spin_box = FocusedScrollSettingsSpinBox(
             key='no_repeat_ngram_size', default=3, minimum=0, maximum=5)
+        self.gpu_index_spin_box = FocusedScrollSettingsSpinBox(
+            key='gpu_index', default=0, minimum=0, maximum=9)
         advanced_settings_form.addRow(bad_forced_words_form)
         advanced_settings_form.addRow(HorizontalLine())
         advanced_settings_form.addRow('Minimum tokens',
@@ -206,6 +208,8 @@ class CaptionSettingsForm(QVBoxLayout):
                                       self.repetition_penalty_spin_box)
         advanced_settings_form.addRow('No repeat n-gram size',
                                       self.no_repeat_ngram_size_spin_box)
+        advanced_settings_form.addRow(HorizontalLine())
+        advanced_settings_form.addRow('GPU index', self.gpu_index_spin_box)
         self.advanced_settings_form_container.hide()
 
         self.addLayout(basic_settings_form)
@@ -277,6 +281,7 @@ class CaptionSettingsForm(QVBoxLayout):
             widget.setVisible(is_wd_tagger_model)
         for widget in non_wd_tagger_widgets:
             widget.setVisible(not is_wd_tagger_model)
+        self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
 
     @Slot(str)
     def set_load_in_4_bit_visibility(self, device: str):
@@ -306,6 +311,7 @@ class CaptionSettingsForm(QVBoxLayout):
             'caption_start': self.caption_start_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
+            'gpu_index': self.gpu_index_spin_box.value(),
             'load_in_4_bit': self.load_in_4_bit_check_box.isChecked(),
             'remove_tag_separators':
                 self.remove_tag_separators_check_box.isChecked(),

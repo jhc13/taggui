@@ -295,8 +295,9 @@ class CaptioningThread(QThread):
         if self.caption_settings['device'] == CaptionDevice.CPU:
             device = torch.device('cpu')
         else:
-            device = torch.device('cuda:0' if torch.cuda.is_available()
-                                  else 'cpu')
+            gpu_index = self.caption_settings['gpu_index']
+            device = torch.device(f'cuda:{gpu_index}'
+                                  if torch.cuda.is_available() else 'cpu')
         load_in_4_bit = self.caption_settings['load_in_4_bit']
         error_message = None
         if model_type == CaptionModelType.XCOMPOSER2:
