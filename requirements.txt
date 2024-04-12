@@ -1,10 +1,10 @@
-accelerate==0.28.0
-bitsandbytes==0.43.0
+accelerate==0.29.2
+bitsandbytes==0.43.1
 ExifRead==3.0.0
 imagesize==1.4.1
 Pillow==10.3.0
 pyparsing==3.1.2
-PySide6==6.6.3.1
+PySide6==6.7.0
 transformers==4.39.3
 
 # PyTorch
