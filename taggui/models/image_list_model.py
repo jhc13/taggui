@@ -3,6 +3,7 @@ from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+import magic
 
 import exifread
 import imagesize
@@ -15,7 +16,7 @@ from utils.image import Image
 from utils.utils import get_confirmation_dialog_reply
 
 UNDO_STACK_SIZE = 32
-NON_IMAGE_SUFFIXES = ['.json', '.jsonl', '.npz']
+NON_IMAGE_SUFFIXES = ['.json', '.jsonl', '.npz', '.psd', '.tga']
 
 
 class Scope(str, Enum):
@@ -37,6 +38,11 @@ def get_file_paths(directory_path: Path) -> set[Path]:
             file_paths.update(get_file_paths(path))
     return file_paths
 
+
+def is_image(path):
+    mime = magic.Magic(mime=True)
+    fileType = mime.from_file(str(path))
+    return fileType.startswith('image/')
 
 @dataclass
 class HistoryItem:
@@ -107,7 +113,8 @@ class ImageListModel(QAbstractListModel):
                            if path.suffix == '.txt'}
         image_paths = file_paths - text_file_paths
         image_paths = {path for path in image_paths
-                       if path.suffix.lower() not in NON_IMAGE_SUFFIXES}
+                       if path.suffix.lower() not in NON_IMAGE_SUFFIXES} #wanted to remove, but leaving here for manually ignored. ie: psd.
+        image_paths = {path for path in image_paths if is_image(path)}
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
