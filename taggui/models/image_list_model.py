@@ -12,11 +12,10 @@ from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
 from utils.image import Image
+from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.utils import get_confirmation_dialog_reply
-from utils.settings import get_settings, DEFAULT_SETTINGS
 
 UNDO_STACK_SIZE = 32
-NON_IMAGE_SUFFIXES = ['.json', '.jsonl', '.npz']
 
 
 class Scope(str, Enum):
@@ -104,18 +103,20 @@ class ImageListModel(QAbstractListModel):
         self.redo_stack.clear()
         self.update_undo_and_redo_actions_requested.emit()
         file_paths = get_file_paths(directory_path)
-        text_file_paths = {path for path in file_paths
-                           if path.suffix == '.txt'}
-        image_paths = file_paths - text_file_paths
-        #image_paths = {path for path in image_paths
-        #               if path.suffix.lower() not in NON_IMAGE_SUFFIXES}
         settings = get_settings()
-        supported_formats = settings.value('supportedImageFormats', DEFAULT_SETTINGS['supportedImageFormats'], type=str)
-        print(supported_formats)
-        image_paths = {path for path in image_paths
-                       if path.suffix.lower() in supported_formats}
-
-
+        image_suffixes_string = settings.value(
+            'image_list_file_formats',
+            defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)
+        image_suffixes = []
+        for suffix in image_suffixes_string.split(','):
+            suffix = suffix.strip().lower()
+            if not suffix.startswith('.'):
+                suffix = '.' + suffix
+            image_suffixes.append(suffix)
+        image_paths = [path for path in file_paths
+                       if path.suffix.lower() in image_suffixes]
+        text_file_paths = [path for path in file_paths
+                           if path.suffix == '.txt']
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
