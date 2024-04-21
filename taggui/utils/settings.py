@@ -3,6 +3,8 @@ from PySide6.QtCore import QSettings
 # Defaults for settings that are accessed from multiple places.
 DEFAULT_SETTINGS = {
     'font_size': 16,
+    # Common image formats that are supported in PySide6.
+    'image_list_file_formats': 'bmp, gif, jpg, jpeg, png, tif, tiff, webp',
     'image_list_image_width': 200,
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
