@@ -55,7 +55,7 @@ class SettingsDialog(QDialog):
         self.models_directory_line_edit = SettingsLineEdit(
             key='models_directory_path',
             default=DEFAULT_SETTINGS['models_directory_path'])
-        self.models_directory_line_edit.setMinimumWidth(300)
+        self.models_directory_line_edit.setMinimumWidth(400)
         self.models_directory_line_edit.setClearButtonEnabled(True)
         self.models_directory_line_edit.textChanged.connect(
             self.show_restart_warning)
@@ -66,7 +66,7 @@ class SettingsDialog(QDialog):
         file_types_line_edit = SettingsLineEdit(
             key='image_list_file_formats',
             default=DEFAULT_SETTINGS['image_list_file_formats'])
-        file_types_line_edit.setMinimumWidth(300)
+        file_types_line_edit.setMinimumWidth(400)
         file_types_line_edit.textChanged.connect(self.show_restart_warning)
 
         grid_layout.addWidget(font_size_spin_box, 0, 1, Qt.AlignLeft)
