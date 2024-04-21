@@ -6,7 +6,8 @@ DEFAULT_SETTINGS = {
     'image_list_image_width': 200,
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
-    'models_directory_path': ''
+    'models_directory_path': '',
+    'supportedImageFormats': '.png;.jpg;.jfif;.jxl'
 }
 
 

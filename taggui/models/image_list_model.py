@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from utils.image import Image
 from utils.utils import get_confirmation_dialog_reply
+from utils.settings import get_settings, DEFAULT_SETTINGS
 
 UNDO_STACK_SIZE = 32
 NON_IMAGE_SUFFIXES = ['.json', '.jsonl', '.npz']
@@ -106,8 +107,15 @@ class ImageListModel(QAbstractListModel):
         text_file_paths = {path for path in file_paths
                            if path.suffix == '.txt'}
         image_paths = file_paths - text_file_paths
+        #image_paths = {path for path in image_paths
+        #               if path.suffix.lower() not in NON_IMAGE_SUFFIXES}
+        settings = get_settings()
+        supported_formats = settings.value('supportedImageFormats', DEFAULT_SETTINGS['supportedImageFormats'], type=str)
+        print(supported_formats)
         image_paths = {path for path in image_paths
-                       if path.suffix.lower() not in NON_IMAGE_SUFFIXES}
+                       if path.suffix.lower() in supported_formats}
+
+
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)

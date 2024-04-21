@@ -25,6 +25,7 @@ class SettingsDialog(QDialog):
                               Qt.AlignRight)
         grid_layout.addWidget(QLabel('Auto-captioning models directory'), 4, 0,
                               Qt.AlignRight)
+        grid_layout.addWidget(QLabel('List of supported formats'), 6, 0, Qt.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
             key='font_size', default=DEFAULT_SETTINGS['font_size'],
@@ -61,6 +62,14 @@ class SettingsDialog(QDialog):
         models_directory_button.setFixedWidth(
             models_directory_button.sizeHint().width() * 1.3)
         models_directory_button.clicked.connect(self.set_models_directory_path)
+        self.supported = SettingsLineEdit(
+            key='supportedImageFormats',
+            default=DEFAULT_SETTINGS['supportedImageFormats'])
+        self.supported.setMinimumWidth(300)
+        self.supported.setClearButtonEnabled(True)
+        self.supported.textChanged.connect(
+            self.show_restart_warning)
+
 
         grid_layout.addWidget(font_size_spin_box, 0, 1, Qt.AlignLeft)
         grid_layout.addWidget(image_list_image_width_spin_box, 1, 1,
@@ -71,6 +80,7 @@ class SettingsDialog(QDialog):
         grid_layout.addWidget(self.models_directory_line_edit, 4, 1,
                               Qt.AlignLeft)
         grid_layout.addWidget(models_directory_button, 5, 1, Qt.AlignLeft)
+        grid_layout.addWidget(self.supported, 6, 1, Qt.AlignLeft)
         layout.addLayout(grid_layout)
 
         # Prevent the grid layout from moving to the center when the warning
