@@ -18,14 +18,15 @@ class SettingsDialog(QDialog):
 
         grid_layout = QGridLayout()
         grid_layout.addWidget(QLabel('Font size (pt)'), 0, 0, Qt.AlignRight)
-        grid_layout.addWidget(QLabel('Image width in image list (px)'), 1, 0,
+        grid_layout.addWidget(QLabel('File types to show in image list'), 1, 0,
                               Qt.AlignRight)
-        grid_layout.addWidget(QLabel('Tag separator'), 2, 0, Qt.AlignRight)
-        grid_layout.addWidget(QLabel('Insert space after tag separator'), 3, 0,
+        grid_layout.addWidget(QLabel('Image width in image list (px)'), 2, 0,
                               Qt.AlignRight)
-        grid_layout.addWidget(QLabel('Auto-captioning models directory'), 4, 0,
+        grid_layout.addWidget(QLabel('Tag separator'), 3, 0, Qt.AlignRight)
+        grid_layout.addWidget(QLabel('Insert space after tag separator'), 4, 0,
                               Qt.AlignRight)
-        grid_layout.addWidget(QLabel('List of supported formats'), 6, 0, Qt.AlignRight)
+        grid_layout.addWidget(QLabel('Auto-captioning models directory'), 5, 0,
+                              Qt.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
             key='font_size', default=DEFAULT_SETTINGS['font_size'],
@@ -62,25 +63,22 @@ class SettingsDialog(QDialog):
         models_directory_button.setFixedWidth(
             models_directory_button.sizeHint().width() * 1.3)
         models_directory_button.clicked.connect(self.set_models_directory_path)
-        self.supported = SettingsLineEdit(
-            key='supportedImageFormats',
-            default=DEFAULT_SETTINGS['supportedImageFormats'])
-        self.supported.setMinimumWidth(300)
-        self.supported.setClearButtonEnabled(True)
-        self.supported.textChanged.connect(
-            self.show_restart_warning)
-
+        file_types_line_edit = SettingsLineEdit(
+            key='image_list_file_formats',
+            default=DEFAULT_SETTINGS['image_list_file_formats'])
+        file_types_line_edit.setMinimumWidth(300)
+        file_types_line_edit.textChanged.connect(self.show_restart_warning)
 
         grid_layout.addWidget(font_size_spin_box, 0, 1, Qt.AlignLeft)
-        grid_layout.addWidget(image_list_image_width_spin_box, 1, 1,
+        grid_layout.addWidget(file_types_line_edit, 1, 1, Qt.AlignLeft)
+        grid_layout.addWidget(image_list_image_width_spin_box, 2, 1,
                               Qt.AlignLeft)
-        grid_layout.addWidget(tag_separator_line_edit, 2, 1, Qt.AlignLeft)
-        grid_layout.addWidget(insert_space_after_tag_separator_check_box, 3, 1,
+        grid_layout.addWidget(tag_separator_line_edit, 3, 1, Qt.AlignLeft)
+        grid_layout.addWidget(insert_space_after_tag_separator_check_box, 4, 1,
                               Qt.AlignLeft)
-        grid_layout.addWidget(self.models_directory_line_edit, 4, 1,
+        grid_layout.addWidget(self.models_directory_line_edit, 5, 1,
                               Qt.AlignLeft)
-        grid_layout.addWidget(models_directory_button, 5, 1, Qt.AlignLeft)
-        grid_layout.addWidget(self.supported, 6, 1, Qt.AlignLeft)
+        grid_layout.addWidget(models_directory_button, 6, 1, Qt.AlignLeft)
         layout.addLayout(grid_layout)
 
         # Prevent the grid layout from moving to the center when the warning
