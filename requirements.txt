@@ -1,11 +1,11 @@
-accelerate==0.29.2
+accelerate==0.29.3
 bitsandbytes==0.43.1
 ExifRead==3.0.0
 imagesize==1.4.1
 Pillow==10.3.0
 pyparsing==3.1.2
 PySide6==6.7.0
-transformers==4.39.3
+transformers==4.40.0
 
 # PyTorch
 torch==2.2.2; platform_system != "Windows"
@@ -28,4 +28,4 @@ auto-gptq==0.7.1; platform_system == "Linux" or platform_system == "Windows"
 # WD Tagger
 huggingface-hub==0.22.2
 numpy==1.26.4
-onnxruntime==1.17.1
+onnxruntime==1.17.3
