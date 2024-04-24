@@ -26,6 +26,7 @@ from widgets.auto_captioner import AutoCaptioner
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer
+from widgets.compableImages import CompList
 
 ICON_PATH = Path('images/icon.ico')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
@@ -73,8 +74,14 @@ class MainWindow(QMainWindow):
         self.auto_captioner = AutoCaptioner(self.image_list_model,
                                             self.image_list)
         self.addDockWidget(Qt.RightDockWidgetArea, self.auto_captioner)
-        self.tabifyDockWidget(self.all_tags_editor, self.auto_captioner)
         self.all_tags_editor.raise_()
+        self.tabifyDockWidget(self.all_tags_editor, self.auto_captioner)
+
+        self.compable_image_list = CompList(self.proxy_image_list_model,
+                                            self.image_list)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.compable_image_list)
+        self.tabifyDockWidget(self.image_tags_editor, self.compable_image_list)
+
         # Set default widths for the dock widgets.
         # Temporarily set a size for the window so that the dock widgets can be
         # expanded to their default widths. If the window geometry was
@@ -527,6 +534,10 @@ class MainWindow(QMainWindow):
         self.all_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_all_tags_editor_action.setChecked(
                 self.all_tags_editor.isVisible()))
+        
+        
+    def connect_compable_image_list_signals(self):
+        return
 
     def connect_auto_captioner_signals(self):
         self.auto_captioner.caption_generated.connect(
