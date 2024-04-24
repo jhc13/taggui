@@ -55,4 +55,10 @@ class ImageComparator:
     def pixel_comparison(self, img_path2):
         img1 = cv2.imread(self.baseline)
         img2 = cv2.imread(img_path2)
+
+        # Convert both images to a common color space
+        img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGBA)
+        img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGBA)
+
         return np.array_equal(img1, img2)
+
