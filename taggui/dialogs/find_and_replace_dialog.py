@@ -74,11 +74,11 @@ class FindAndReplaceDialog(QDialog):
         if self.whole_tags_only_check_box.isChecked():
             replace_text = self.replace_line_edit.text()
             if replace_text:
-                self.image_list_model.rename_tag(self.find_line_edit.text(),
-                                                 replace_text, scope)
+                self.image_list_model.rename_tags([self.find_line_edit.text()],
+                                                  replace_text, scope)
             else:
-                self.image_list_model.delete_tag(self.find_line_edit.text(),
-                                                 scope)
+                self.image_list_model.delete_tags([self.find_line_edit.text()],
+                                                  scope)
         else:
             self.image_list_model.find_and_replace(
                 self.find_line_edit.text(), self.replace_line_edit.text(),

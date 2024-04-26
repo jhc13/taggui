@@ -21,6 +21,14 @@ def pluralize(word: str, count: int):
     return f'{word}s'
 
 
+def list_with_and(items: list[str]) -> str:
+    if len(items) == 1:
+        return items[0]
+    if len(items) == 2:
+        return f'{items[0]} and {items[1]}'
+    return ', '.join(items[:-1]) + f', and {items[-1]}'
+
+
 def get_confirmation_dialog_reply(title: str,
                                   question: str) -> QMessageBox.StandardButton:
     """Display a confirmation dialog and return the user's reply."""

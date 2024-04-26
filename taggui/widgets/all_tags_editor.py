@@ -1,9 +1,11 @@
 from enum import Enum
 
-from PySide6.QtCore import QItemSelection, Qt, Signal, Slot
+from PySide6.QtCore import (QItemSelection, QItemSelectionModel, Qt, Signal,
+                            Slot)
 from PySide6.QtGui import QKeyEvent, QMouseEvent
-from PySide6.QtWidgets import (QDockWidget, QHBoxLayout, QLabel, QLineEdit,
-                               QListView, QMessageBox, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QDockWidget, QHBoxLayout,
+                               QLabel, QLineEdit, QListView, QMessageBox,
+                               QVBoxLayout, QWidget)
 
 from models.proxy_tag_counter_model import ProxyTagCounterModel
 from models.tag_counter_model import TagCounterModel
@@ -11,7 +13,7 @@ from utils.big_widgets import TallPushButton
 from utils.enums import AllTagsSortBy, SortOrder
 from utils.settings_widgets import SettingsComboBox
 from utils.text_edit_item_delegate import TextEditItemDelegate
-from utils.utils import get_confirmation_dialog_reply, pluralize
+from utils.utils import get_confirmation_dialog_reply, list_with_and, pluralize
 
 
 class FilterLineEdit(QLineEdit):
@@ -30,13 +32,15 @@ class ClickAction(str, Enum):
 class AllTagsList(QListView):
     image_list_filter_requested = Signal(str)
     tag_addition_requested = Signal(str)
-    tag_deletion_requested = Signal(str)
+    tags_deletion_requested = Signal(list)
 
     def __init__(self, proxy_tag_counter_model: ProxyTagCounterModel,
                  all_tags_editor: 'AllTagsEditor'):
         super().__init__()
         self.setModel(proxy_tag_counter_model)
         self.all_tags_editor = all_tags_editor
+        self.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setItemDelegate(TextEditItemDelegate(self))
         self.setWordWrap(True)
         # `selectionChanged` must be used and not `currentChanged` because
@@ -48,11 +52,9 @@ class AllTagsList(QListView):
     def mousePressEvent(self, event: QMouseEvent):
         click_action = (self.all_tags_editor.click_action_combo_box
                         .currentText())
-        index = self.indexAt(event.pos())
-        tag = index.data(Qt.EditRole)
-        if click_action == ClickAction.FILTER_IMAGES:
-            self.image_list_filter_requested.emit(tag)
-        elif click_action == ClickAction.ADD_TO_SELECTED:
+        if click_action == ClickAction.ADD_TO_SELECTED:
+            index = self.indexAt(event.pos())
+            tag = index.data(Qt.ItemDataRole.EditRole)
             self.tag_addition_requested.emit(tag)
         super().mousePressEvent(event)
 
@@ -67,15 +69,24 @@ class AllTagsList(QListView):
         selected_indices = self.selectedIndexes()
         if not selected_indices:
             return
-        selected_index = selected_indices[0]
-        tag, count = selected_index.data(Qt.UserRole)
-        # Display a confirmation dialog.
-        question = (f'Delete {count} {pluralize("instance", count)} of tag '
-                    f'"{tag}"?')
-        reply = get_confirmation_dialog_reply(title='Delete Tag',
-                                              question=question)
+        tags = []
+        tags_count = 0
+        for selected_index in selected_indices:
+            tag, tag_count = selected_index.data(Qt.ItemDataRole.UserRole)
+            tags.append(tag)
+            tags_count += tag_count
+        question = (f'Delete {tags_count} {pluralize("instance", tags_count)} '
+                    f'of ')
+        if len(tags) < 10:
+            quoted_tags = [f'"{tag}"' for tag in tags]
+            question += (f'{pluralize("tag", len(tags))} '
+                         f'{list_with_and(quoted_tags)}?')
+        else:
+            question += f'{len(tags)} tags?'
+        reply = get_confirmation_dialog_reply(
+            title=f'Delete {pluralize("Tag", len(tags))}', question=question)
         if reply == QMessageBox.StandardButton.Yes:
-            self.tag_deletion_requested.emit(tag)
+            self.tags_deletion_requested.emit(tags)
 
     def handle_selection_change(self, selected: QItemSelection, _):
         click_action = (self.all_tags_editor.click_action_combo_box
@@ -84,7 +95,7 @@ class AllTagsList(QListView):
             return
         if not selected.indexes():
             return
-        selected_tag = selected.indexes()[0].data(Qt.EditRole)
+        selected_tag = selected.indexes()[0].data(Qt.ItemDataRole.EditRole)
         self.image_list_filter_requested.emit(selected_tag)
 
 
@@ -138,14 +149,17 @@ class AllTagsEditor(QDockWidget):
         layout.addWidget(self.tag_count_label)
         self.setWidget(container)
 
-        self.filter_line_edit.textChanged.connect(self.set_filter)
-        self.filter_line_edit.textChanged.connect(self.update_tag_count_label)
         self.proxy_tag_counter_model.modelReset.connect(
             self.update_tag_count_label)
         self.proxy_tag_counter_model.rowsInserted.connect(
             self.update_tag_count_label)
         self.proxy_tag_counter_model.rowsRemoved.connect(
             self.update_tag_count_label)
+        self.filter_line_edit.textChanged.connect(self.set_filter)
+        self.filter_line_edit.textChanged.connect(self.update_tag_count_label)
+        self.click_action_combo_box.currentTextChanged.connect(
+            self.set_selection_mode)
+        self.set_selection_mode(self.click_action_combo_box.currentText())
         self.sort_tags()
 
     @Slot()
@@ -175,3 +189,15 @@ class AllTagsEditor(QDockWidget):
         filtered_tag_count = self.proxy_tag_counter_model.rowCount()
         self.tag_count_label.setText(f'{filtered_tag_count} / '
                                      f'{total_tag_count} Tags')
+
+    @Slot(str)
+    def set_selection_mode(self, click_action: str):
+        if click_action == ClickAction.FILTER_IMAGES:
+            self.all_tags_list.setSelectionMode(
+                QAbstractItemView.SelectionMode.ExtendedSelection)
+        elif click_action == ClickAction.ADD_TO_SELECTED:
+            self.all_tags_list.setSelectionMode(
+                QAbstractItemView.SelectionMode.SingleSelection)
+            self.all_tags_list.selectionModel().select(
+                self.all_tags_list.selectionModel().currentIndex(),
+                QItemSelectionModel.SelectionFlag.ClearAndSelect)

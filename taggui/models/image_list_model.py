@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
-from utils.utils import get_confirmation_dialog_reply
+from utils.utils import get_confirmation_dialog_reply, pluralize
 
 UNDO_STACK_SIZE = 32
 
@@ -442,7 +442,7 @@ class ImageListModel(QAbstractListModel):
         """Add one or more tags to one or more images."""
         if not image_indices:
             return
-        action_name = 'Add Tag' if len(tags) == 1 else 'Add Tags'
+        action_name = f'Add {pluralize("Tag", len(tags))}'
         should_ask_for_confirmation = len(image_indices) > 1
         self.add_to_undo_stack(action_name, should_ask_for_confirmation)
         for image_index in image_indices:
@@ -453,37 +453,42 @@ class ImageListModel(QAbstractListModel):
         max_image_index = max(image_indices, key=lambda index: index.row())
         self.dataChanged.emit(min_image_index, max_image_index)
 
-    @Slot(str, str)
-    def rename_tag(self, old_tag: str, new_tag: str,
-                   scope: Scope | str = Scope.ALL_IMAGES):
-        self.add_to_undo_stack(action_name='Rename Tag',
-                               should_ask_for_confirmation=True)
+    @Slot(list, str)
+    def rename_tags(self, old_tags: list[str], new_tag: str,
+                    scope: Scope | str = Scope.ALL_IMAGES):
+        self.add_to_undo_stack(
+            action_name=f'Rename {pluralize("Tag", len(old_tags))}',
+            should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
-            if old_tag in image.tags:
-                changed_image_indices.append(image_index)
-                image.tags = [new_tag if image_tag == old_tag else image_tag
-                              for image_tag in image.tags]
-                self.write_image_tags_to_disk(image)
+            if not any(old_tag in image.tags for old_tag in old_tags):
+                continue
+            changed_image_indices.append(image_index)
+            image.tags = [new_tag if image_tag in old_tags else image_tag
+                          for image_tag in image.tags]
+            self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
 
-    @Slot(str)
-    def delete_tag(self, tag: str, scope: Scope | str = Scope.ALL_IMAGES):
-        self.add_to_undo_stack(action_name='Delete Tag',
-                               should_ask_for_confirmation=True)
+    @Slot(list)
+    def delete_tags(self, tags: list[str],
+                    scope: Scope | str = Scope.ALL_IMAGES):
+        self.add_to_undo_stack(
+            action_name=f'Delete {pluralize("Tag", len(tags))}',
+            should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
-            if tag in image.tags:
-                changed_image_indices.append(image_index)
-                image.tags = [image_tag for image_tag in image.tags
-                              if image_tag != tag]
-                self.write_image_tags_to_disk(image)
+            if not any(tag in image.tags for tag in tags):
+                continue
+            changed_image_indices.append(image_index)
+            image.tags = [image_tag for image_tag in image.tags
+                          if image_tag not in tags]
+            self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
