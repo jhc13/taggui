@@ -1,4 +1,5 @@
 import random
+import sys
 from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
@@ -10,6 +11,7 @@ from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
+from exifread.heic import NoParser
 
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
@@ -120,19 +122,25 @@ class ImageListModel(QAbstractListModel):
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
-                # Check the orientation tag and rotate the dimensions if
+                # Check the Exif orientation tag and rotate the dimensions if
                 # necessary.
                 with open(image_path, 'rb') as image_file:
-                    exif_tags = exifread.process_file(
-                        image_file, details=False,
-                        stop_tag='Image Orientation')
-                    if 'Image Orientation' in exif_tags:
-                        if any(value in exif_tags['Image Orientation'].values
-                               for value in (5, 6, 7, 8)):
-                            dimensions = (dimensions[1], dimensions[0])
+                    try:
+                        exif_tags = exifread.process_file(
+                            image_file, details=False,
+                            stop_tag='Image Orientation')
+                        if 'Image Orientation' in exif_tags:
+                            orientations = (exif_tags['Image Orientation']
+                                            .values)
+                            if any(value in orientations
+                                   for value in (5, 6, 7, 8)):
+                                dimensions = (dimensions[1], dimensions[0])
+                    except NoParser as exception:
+                        print(f'Failed to get Exif tags for {image_path}: '
+                              f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
                 print(f'Failed to get dimensions for {image_path}: '
-                      f'{exception}')
+                      f'{exception}', file=sys.stderr)
                 dimensions = None
             tags = []
             text_file_path = image_path.with_suffix('.txt')

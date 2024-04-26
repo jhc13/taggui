@@ -349,7 +349,7 @@ class CaptioningThread(QThread):
                                                      device, model, processor)
             except UnidentifiedImageError:
                 print(f'Skipping {image.path.name} because its file format is '
-                      'not supported.')
+                      'not supported or it is a corrupted image.')
                 continue
             console_output_caption = None
             if model_type == CaptionModelType.WD_TAGGER:
