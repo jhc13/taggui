@@ -38,7 +38,7 @@ class TagInputBox(QLineEdit):
             lambda: QTimer.singleShot(0, self.clear))
 
     def keyPressEvent(self, event: QKeyEvent):
-        if not (event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter):
+        if event.key() not in (Qt.Key_Return, Qt.Key_Enter):
             super().keyPressEvent(event)
             return
         # If Ctrl+Enter is pressed and the completer is visible, add the first
