@@ -494,22 +494,16 @@ class MainWindow(QMainWindow):
         self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
             self.image_list_model.add_tags)
 
-    @Slot(list)
-    def set_image_list_filter_text(self, selected_tags: list[str]):
+    @Slot()
+    def set_image_list_filter_text(self, selected_tag: str):
         """
         Construct and set the image list filter text from the selected tag in
         the all tags list.
         """
-        if not selected_tags:
-            self.image_list.filter_line_edit.clear()
-            return
-        filters = []
-        for selected_tag in selected_tags:
-            escaped_selected_tag = (selected_tag.replace('\\', '\\\\')
-                                    .replace('"', r'\"').replace("'", r"\'"))
-            filter_ = f'tag:"{escaped_selected_tag}"'
-            filters.append(filter_)
-        self.image_list.filter_line_edit.setText(' OR '.join(filters))
+        escaped_selected_tag = (selected_tag.replace('\\', '\\\\')
+                                .replace('"', r'\"').replace("'", r"\'"))
+        self.image_list.filter_line_edit.setText(
+            f'tag:"{escaped_selected_tag}"')
 
     @Slot(str)
     def add_tag_to_selected_images(self, tag: str):

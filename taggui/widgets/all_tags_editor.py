@@ -1,6 +1,7 @@
 from enum import Enum
 
-from PySide6.QtCore import QItemSelectionModel, Qt, Signal, Slot
+from PySide6.QtCore import (QItemSelection, QItemSelectionModel, Qt, Signal,
+                            Slot)
 from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (QAbstractItemView, QDockWidget, QHBoxLayout,
                                QLabel, QLineEdit, QListView, QMessageBox,
@@ -24,12 +25,12 @@ class FilterLineEdit(QLineEdit):
 
 
 class ClickAction(str, Enum):
-    FILTER_IMAGES = 'Filter images for tag(s)'
+    FILTER_IMAGES = 'Filter images for tag'
     ADD_TO_SELECTED = 'Add tag to selected images'
 
 
 class AllTagsList(QListView):
-    image_list_filter_requested = Signal(list)
+    image_list_filter_requested = Signal(str)
     tag_addition_requested = Signal(str)
     tags_deletion_requested = Signal(list)
 
@@ -87,14 +88,15 @@ class AllTagsList(QListView):
         if reply == QMessageBox.StandardButton.Yes:
             self.tags_deletion_requested.emit(tags)
 
-    def handle_selection_change(self, *_):
+    def handle_selection_change(self, selected: QItemSelection, _):
         click_action = (self.all_tags_editor.click_action_combo_box
                         .currentText())
         if click_action != ClickAction.FILTER_IMAGES:
             return
-        selected_tags = [index.data(Qt.ItemDataRole.EditRole)
-                         for index in self.selectedIndexes()]
-        self.image_list_filter_requested.emit(selected_tags)
+        if not selected.indexes():
+            return
+        selected_tag = selected.indexes()[0].data(Qt.ItemDataRole.EditRole)
+        self.image_list_filter_requested.emit(selected_tag)
 
 
 class AllTagsEditor(QDockWidget):
