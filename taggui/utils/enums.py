@@ -31,6 +31,7 @@ class CaptionModelType(Enum):
     COGVLM = auto()
     KOSMOS = auto()
     LLAVA_1_5 = auto()
+    LLAVA_LLAMA_3 = auto()
     LLAVA_NEXT_34B = auto()
     LLAVA_NEXT_MISTRAL = auto()
     LLAVA_NEXT_VICUNA = auto()

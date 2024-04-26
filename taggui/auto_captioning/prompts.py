@@ -8,7 +8,8 @@ def get_default_prompt(model_type: CaptionModelType) -> str:
                       CaptionModelType.LLAVA_1_5, CaptionModelType.MOONDREAM1,
                       CaptionModelType.MOONDREAM2):
         return 'Describe the image in twenty words or less.'
-    if model_type in (CaptionModelType.LLAVA_NEXT_34B,
+    if model_type in (CaptionModelType.LLAVA_LLAMA_3,
+                      CaptionModelType.LLAVA_NEXT_34B,
                       CaptionModelType.LLAVA_NEXT_MISTRAL,
                       CaptionModelType.LLAVA_NEXT_VICUNA):
         return 'Describe the image in one sentence.'
@@ -22,6 +23,10 @@ def format_prompt(prompt: str, model_type: CaptionModelType) -> str:
         return f'<grounding>{prompt}'
     if model_type == CaptionModelType.LLAVA_1_5:
         return f'USER: <image>\n{prompt}\nASSISTANT:'
+    if model_type == CaptionModelType.LLAVA_LLAMA_3:
+        return (f'<|start_header_id|>user<|end_header_id|>\n\n<image>\n'
+                f'{prompt}<|eot_id|><|start_header_id|>assistant'
+                f'<|end_header_id|>\n\n')
     if model_type == CaptionModelType.LLAVA_NEXT_34B:
         return (f'<|im_start|>system\nAnswer the questions.<|im_end|>'
                 f'<|im_start|>user\n<image>\n{prompt}<|im_end|>'
@@ -57,6 +62,11 @@ def postprocess_prompt_and_generated_text(model_type: CaptionModelType,
                         CaptionModelType.LLAVA_NEXT_MISTRAL,
                         CaptionModelType.LLAVA_NEXT_VICUNA):
         prompt = prompt.replace('<image>', ' ')
+    elif model_type == CaptionModelType.LLAVA_LLAMA_3:
+        prompt = prompt.replace('<|start_header_id|>', '')
+        prompt = prompt.replace('<|end_header_id|>', '')
+        prompt = prompt.replace('<image>', '')
+        prompt = prompt.replace('<|eot_id|>', '')
     elif model_type == CaptionModelType.LLAVA_NEXT_34B:
         prompt = prompt.replace('<|im_start|>', '<|im_start|> ')
         prompt = prompt.replace('<|im_end|>', '')

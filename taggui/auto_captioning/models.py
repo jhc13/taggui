@@ -9,6 +9,7 @@ MODELS = [
     'llava-hf/llava-v1.6-vicuna-7b-hf',
     'llava-hf/llava-v1.6-vicuna-13b-hf',
     'llava-hf/llava-v1.6-34b-hf',
+    'xtuner/llava-llama-3-8b-v1_1-transformers',
     'vikhyatk/moondream2',
     'vikhyatk/moondream1',
     'SmilingWolf/wd-swinv2-tagger-v3',
@@ -43,14 +44,16 @@ def get_model_type(model_id: str) -> CaptionModelType:
         return CaptionModelType.COGVLM
     if 'kosmos' in lowercase_model_id:
         return CaptionModelType.KOSMOS
-    if 'llava' in lowercase_model_id and '1.6' not in lowercase_model_id:
-        return CaptionModelType.LLAVA_1_5
     if 'llava-v1.6-34b' in lowercase_model_id:
         return CaptionModelType.LLAVA_NEXT_34B
     if 'llava-v1.6-mistral' in lowercase_model_id:
         return CaptionModelType.LLAVA_NEXT_MISTRAL
     if 'llava-v1.6-vicuna' in lowercase_model_id:
         return CaptionModelType.LLAVA_NEXT_VICUNA
+    if 'llava-llama-3' in lowercase_model_id:
+        return CaptionModelType.LLAVA_LLAMA_3
+    if 'llava' in lowercase_model_id:
+        return CaptionModelType.LLAVA_1_5
     if 'moondream1' in lowercase_model_id:
         return CaptionModelType.MOONDREAM1
     if 'moondream2' in lowercase_model_id:

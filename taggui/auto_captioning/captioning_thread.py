@@ -364,22 +364,29 @@ class CaptioningThread(QThread):
                         for tag, probability in zip(tags, probabilities)
                     )
             else:
-                bad_words_string = self.caption_settings['bad_words']
-                tokenizer = get_tokenizer_from_processor(model_type, processor)
-                bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
-                forced_words_ids = get_forced_words_ids(forced_words_string,
-                                                        tokenizer)
                 generation_model = (
                     model.text_model
                     if model_type in (CaptionModelType.MOONDREAM1,
                                       CaptionModelType.MOONDREAM2)
                     else model
                 )
+                bad_words_string = self.caption_settings['bad_words']
+                tokenizer = get_tokenizer_from_processor(model_type, processor)
+                bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
+                forced_words_ids = get_forced_words_ids(forced_words_string,
+                                                        tokenizer)
+                if model_type == CaptionModelType.LLAVA_LLAMA_3:
+                    eos_token_id = (tokenizer('<|eot_id|>',
+                                              add_special_tokens=False)
+                                    .input_ids)[0]
+                    eos_token_id_argument = {'eos_token_id': eos_token_id}
+                else:
+                    eos_token_id_argument = {}
                 with torch.inference_mode():
                     generated_token_ids = generation_model.generate(
                         **model_inputs, bad_words_ids=bad_words_ids,
                         force_words_ids=forced_words_ids,
-                        **generation_parameters)
+                        **eos_token_id_argument, **generation_parameters)
                 caption = self.get_caption_from_generated_tokens(
                     generated_token_ids, prompt, processor, model_type)
             tags = add_caption_to_tags(image.tags, caption, caption_position)
