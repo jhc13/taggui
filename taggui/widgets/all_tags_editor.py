@@ -1,6 +1,6 @@
 from enum import Enum
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QItemSelectionModel, Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (QAbstractItemView, QDockWidget, QHBoxLayout,
                                QLabel, QLineEdit, QListView, QMessageBox,
@@ -147,14 +147,17 @@ class AllTagsEditor(QDockWidget):
         layout.addWidget(self.tag_count_label)
         self.setWidget(container)
 
-        self.filter_line_edit.textChanged.connect(self.set_filter)
-        self.filter_line_edit.textChanged.connect(self.update_tag_count_label)
         self.proxy_tag_counter_model.modelReset.connect(
             self.update_tag_count_label)
         self.proxy_tag_counter_model.rowsInserted.connect(
             self.update_tag_count_label)
         self.proxy_tag_counter_model.rowsRemoved.connect(
             self.update_tag_count_label)
+        self.filter_line_edit.textChanged.connect(self.set_filter)
+        self.filter_line_edit.textChanged.connect(self.update_tag_count_label)
+        self.click_action_combo_box.currentTextChanged.connect(
+            self.set_selection_mode)
+        self.set_selection_mode(self.click_action_combo_box.currentText())
         self.sort_tags()
 
     @Slot()
@@ -184,3 +187,15 @@ class AllTagsEditor(QDockWidget):
         filtered_tag_count = self.proxy_tag_counter_model.rowCount()
         self.tag_count_label.setText(f'{filtered_tag_count} / '
                                      f'{total_tag_count} Tags')
+
+    @Slot(str)
+    def set_selection_mode(self, click_action: str):
+        if click_action == ClickAction.FILTER_IMAGES:
+            self.all_tags_list.setSelectionMode(
+                QAbstractItemView.SelectionMode.ExtendedSelection)
+        elif click_action == ClickAction.ADD_TO_SELECTED:
+            self.all_tags_list.setSelectionMode(
+                QAbstractItemView.SelectionMode.SingleSelection)
+            self.all_tags_list.selectionModel().select(
+                self.all_tags_list.selectionModel().currentIndex(),
+                QItemSelectionModel.SelectionFlag.ClearAndSelect)
