@@ -69,6 +69,8 @@ class MainWindow(QMainWindow):
             tag_separator)
         self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
+        self.tag_counter_model.all_tags_list = (self.all_tags_editor
+                                                .all_tags_list)
         self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
         self.auto_captioner = AutoCaptioner(self.image_list_model,
                                             self.image_list)
@@ -492,16 +494,22 @@ class MainWindow(QMainWindow):
         self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
             self.image_list_model.add_tags)
 
-    @Slot()
-    def set_image_list_filter_text(self, selected_tag: str):
+    @Slot(list)
+    def set_image_list_filter_text(self, selected_tags: list[str]):
         """
         Construct and set the image list filter text from the selected tag in
         the all tags list.
         """
-        escaped_selected_tag = (selected_tag.replace('\\', '\\\\')
-                                .replace('"', r'\"').replace("'", r"\'"))
-        self.image_list.filter_line_edit.setText(
-            f'tag:"{escaped_selected_tag}"')
+        if not selected_tags:
+            self.image_list.filter_line_edit.clear()
+            return
+        filters = []
+        for selected_tag in selected_tags:
+            escaped_selected_tag = (selected_tag.replace('\\', '\\\\')
+                                    .replace('"', r'\"').replace("'", r"\'"))
+            filter_ = f'tag:"{escaped_selected_tag}"'
+            filters.append(filter_)
+        self.image_list.filter_line_edit.setText(' OR '.join(filters))
 
     @Slot(str)
     def add_tag_to_selected_images(self, tag: str):
@@ -512,17 +520,17 @@ class MainWindow(QMainWindow):
     def connect_all_tags_editor_signals(self):
         self.all_tags_editor.clear_filter_button.clicked.connect(
             self.image_list.filter_line_edit.clear)
-        self.tag_counter_model.tag_renaming_requested.connect(
-            self.image_list_model.rename_tag)
-        self.tag_counter_model.tag_renaming_requested.connect(
+        self.tag_counter_model.tags_renaming_requested.connect(
+            self.image_list_model.rename_tags)
+        self.tag_counter_model.tags_renaming_requested.connect(
             self.image_list.filter_line_edit.clear)
         self.all_tags_editor.all_tags_list.image_list_filter_requested.connect(
             self.set_image_list_filter_text)
         self.all_tags_editor.all_tags_list.tag_addition_requested.connect(
             self.add_tag_to_selected_images)
-        self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
-            self.image_list_model.delete_tag)
-        self.all_tags_editor.all_tags_list.tag_deletion_requested.connect(
+        self.all_tags_editor.all_tags_list.tags_deletion_requested.connect(
+            self.image_list_model.delete_tags)
+        self.all_tags_editor.all_tags_list.tags_deletion_requested.connect(
             self.image_list.filter_line_edit.clear)
         self.all_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_all_tags_editor_action.setChecked(

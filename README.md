@@ -234,7 +234,7 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 ### All Tags pane
 
 - Show all images containing a tag: Select the tag (When `Tag click action` is
-  set to `Filter images for tag`)
+  set to `Filter images for tag(s)`)
 - Add a tag to selected images: Click the tag (When `Tag click action` is set
   to `Add tag to selected images`)
 - Delete all instances of a tag: Select the tag and press `Delete`
