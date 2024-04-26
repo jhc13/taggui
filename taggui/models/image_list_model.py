@@ -18,12 +18,6 @@ from utils.utils import get_confirmation_dialog_reply, pluralize
 UNDO_STACK_SIZE = 32
 
 
-class Scope(str, Enum):
-    ALL_IMAGES = 'All images'
-    FILTERED_IMAGES = 'Filtered images'
-    SELECTED_IMAGES = 'Selected images'
-
-
 def get_file_paths(directory_path: Path) -> set[Path]:
     """
     Recursively get all file paths in a directory, including those in
@@ -43,6 +37,12 @@ class HistoryItem:
     action_name: str
     tags: list[list[str]]
     should_ask_for_confirmation: bool
+
+
+class Scope(str, Enum):
+    ALL_IMAGES = 'All images'
+    FILTERED_IMAGES = 'Filtered images'
+    SELECTED_IMAGES = 'Selected images'
 
 
 class ImageListModel(QAbstractListModel):
