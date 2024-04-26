@@ -22,7 +22,8 @@ class TextEditItemDelegate(QStyledItemDelegate):
         return size
 
     def eventFilter(self, editor, event: QEvent):
-        if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Return:
+        if (event.type() == QEvent.KeyPress
+                and event.key() in (Qt.Key_Return, Qt.Key_Enter)):
             self.commitData.emit(editor)
             self.closeEditor.emit(editor)
             self.parent().setCurrentIndex(
