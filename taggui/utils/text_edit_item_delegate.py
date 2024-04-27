@@ -11,7 +11,8 @@ class TextEditItemDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
         editor = QPlainTextEdit(parent)
         editor.setFrameStyle(QFrame.Shape.NoFrame)
-        editor.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        editor.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         editor.setStyleSheet('padding-left: 3px;')
         editor.index = index
         return editor
@@ -23,7 +24,7 @@ class TextEditItemDelegate(QStyledItemDelegate):
 
     def eventFilter(self, editor, event: QEvent):
         if (event.type() == QEvent.KeyPress
-                and event.key() in (Qt.Key_Return, Qt.Key_Enter)):
+                and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)):
             self.commitData.emit(editor)
             self.closeEditor.emit(editor)
             self.parent().setCurrentIndex(

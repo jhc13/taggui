@@ -21,16 +21,17 @@ class TagCounterModel(QAbstractListModel):
 
     def data(self, index, role=None) -> tuple[str, int] | str:
         tag, count = self.most_common_tags[index.row()]
-        if role == Qt.UserRole:
+        if role == Qt.ItemDataRole.UserRole:
             return tag, count
-        if role == Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             return f'{tag} ({count})'
-        if role == Qt.EditRole:
+        if role == Qt.ItemDataRole.EditRole:
             return tag
 
-    def flags(self, index) -> Qt.ItemFlags:
+    def flags(self, index) -> Qt.ItemFlag:
         """Make the tags editable."""
-        return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
+        return (Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEditable
+                | Qt.ItemFlag.ItemIsEnabled)
 
     def setData(self, index, value: str,
                 role=Qt.ItemDataRole.EditRole) -> bool:

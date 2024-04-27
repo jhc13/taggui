@@ -1,3 +1,5 @@
+from typing import Callable
+
 from PySide6.QtCore import QEvent, QObject, Qt
 
 
@@ -19,7 +21,10 @@ class UnfocusedScrollIgnorer(QObject):
 
 
 class FocusedScrollMixin:
+    setFocusPolicy: Callable[[Qt.FocusPolicy], None]
+    installEventFilter: Callable[[QObject], None]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setFocusPolicy(Qt.StrongFocus)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.installEventFilter(UnfocusedScrollIgnorer(self))

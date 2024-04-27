@@ -38,15 +38,15 @@ class TagInputBox(QLineEdit):
             lambda: QTimer.singleShot(0, self.clear))
 
     def keyPressEvent(self, event: QKeyEvent):
-        if event.key() not in (Qt.Key_Return, Qt.Key_Enter):
+        if event.key() not in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             super().keyPressEvent(event)
             return
         # If Ctrl+Enter is pressed and the completer is visible, add the first
         # tag in the completer popup.
-        if (event.modifiers() == Qt.ControlModifier
+        if (event.modifiers() == Qt.KeyboardModifier.ControlModifier
                 and self.completer.popup().isVisible()):
             first_tag = self.completer.popup().model().data(
-                self.completer.model().index(0, 0), Qt.EditRole)
+                self.completer.model().index(0, 0), Qt.ItemDataRole.EditRole)
             self.add_tag(first_tag)
         # Otherwise, add the tag in the input box.
         else:
@@ -95,7 +95,7 @@ class ImageTagsList(QListView):
 
     def keyPressEvent(self, event: QKeyEvent):
         """Delete selected tags when the delete key is pressed."""
-        if event.key() != Qt.Key_Delete:
+        if event.key() != Qt.Key.Key_Delete:
             super().keyPressEvent(event)
             return
         rows_to_remove = [index.row() for index in self.selectedIndexes()]
@@ -137,7 +137,8 @@ class ImageTagsEditor(QDockWidget):
         # Each `QDockWidget` needs a unique object name for saving its state.
         self.setObjectName('image_tags_editor')
         self.setWindowTitle('Image Tags')
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea
+                             | Qt.DockWidgetArea.RightDockWidgetArea)
         self.tag_input_box = TagInputBox(self.image_tag_list_model,
                                          tag_counter_model, image_list,
                                          tag_separator)
@@ -193,8 +194,8 @@ class ImageTagsEditor(QDockWidget):
     def load_image_tags(self, proxy_image_index: QModelIndex):
         self.image_index = self.proxy_image_list_model.mapToSource(
             proxy_image_index)
-        image: Image = self.proxy_image_list_model.data(proxy_image_index,
-                                                        Qt.UserRole)
+        image: Image = self.proxy_image_list_model.data(
+            proxy_image_index, Qt.ItemDataRole.UserRole)
         # If the string list already contains the image's tags, do not reload
         # them. This is the case when the tags are edited directly through the
         # image tags editor. Removing this check breaks the functionality of

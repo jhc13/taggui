@@ -1,4 +1,5 @@
 from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QWidget
 
 
@@ -15,6 +16,7 @@ class KeyPressForwarder(QObject):
     def eventFilter(self, _, event: QEvent) -> bool:
         if event.type() != QEvent.KeyPress:
             return False
+        event: QKeyEvent
         if event.key() in self.keys_to_forward:
             self.target.keyPressEvent(event)
             return True

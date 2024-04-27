@@ -12,8 +12,9 @@ class ImageLabel(QLabel):
     def __init__(self):
         super().__init__()
         self.image_path = None
-        self.setAlignment(Qt.AlignCenter)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding,
+                           QSizePolicy.Policy.Expanding)
         # This allows the label to shrink.
         self.setMinimumSize(QSize(1, 1))
 
@@ -30,8 +31,9 @@ class ImageLabel(QLabel):
         pixmap = QPixmap.fromImageReader(image_reader)
         pixmap.setDevicePixelRatio(self.devicePixelRatio())
         pixmap = pixmap.scaled(
-            self.size() * pixmap.devicePixelRatio(), Qt.KeepAspectRatio,
-            Qt.SmoothTransformation)
+            self.size() * pixmap.devicePixelRatio(),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation)
         self.setPixmap(pixmap)
 
 
@@ -44,6 +46,6 @@ class ImageViewer(QWidget):
 
     @Slot()
     def load_image(self, proxy_image_index: QModelIndex):
-        image: Image = self.proxy_image_list_model.data(proxy_image_index,
-                                                        Qt.UserRole)
+        image: Image = self.proxy_image_list_model.data(
+            proxy_image_index, Qt.ItemDataRole.UserRole)
         self.image_label.load_image(image.path)

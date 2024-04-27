@@ -68,7 +68,8 @@ class WdTaggerModel:
         _, input_dimension, *_ = self.inference_session.get_inputs()[0].shape
         if max_dimension != input_dimension:
             input_dimensions = (input_dimension, input_dimension)
-            image = canvas.resize(input_dimensions, resample=PilImage.BICUBIC)
+            image = canvas.resize(input_dimensions,
+                                  resample=PilImage.Resampling.BICUBIC)
         # Convert the image to a numpy array.
         image_array = np.array(image, dtype=np.float32)
         # Reverse the order of the color channels.

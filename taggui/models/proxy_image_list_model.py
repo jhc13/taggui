@@ -71,7 +71,8 @@ class ProxyImageListModel(QSortFilterProxyModel):
         if self.filter is None:
             return True
         image_index = self.sourceModel().index(source_row, 0)
-        image: Image = self.sourceModel().data(image_index, Qt.UserRole)
+        image: Image = self.sourceModel().data(image_index,
+                                               Qt.ItemDataRole.UserRole)
         return self.does_image_match_filter(image, self.filter)
 
     def is_image_in_filtered_images(self, image: Image) -> bool:

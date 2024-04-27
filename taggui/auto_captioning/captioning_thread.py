@@ -343,7 +343,8 @@ class CaptioningThread(QThread):
             if self.is_canceled:
                 print('Canceled captioning.')
                 return
-            image: Image = self.image_list_model.data(image_index, Qt.UserRole)
+            image: Image = self.image_list_model.data(image_index,
+                                                      Qt.ItemDataRole.UserRole)
             try:
                 model_inputs = self.get_model_inputs(image, prompt, model_type,
                                                      device, model, processor)

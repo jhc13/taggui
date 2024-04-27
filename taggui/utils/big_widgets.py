@@ -13,7 +13,7 @@ class BigPushButton(QPushButton):
 class TallPushButton(QPushButton):
     def __init__(self, text: str):
         super().__init__(text)
-        new_height = self.sizeHint().height() * 1.5
+        new_height = int(self.sizeHint().height() * 1.5)
         self.setFixedHeight(new_height)
 
 

@@ -29,8 +29,7 @@ def list_with_and(items: list[str]) -> str:
     return ', '.join(items[:-1]) + f', and {items[-1]}'
 
 
-def get_confirmation_dialog_reply(title: str,
-                                  question: str) -> QMessageBox.StandardButton:
+def get_confirmation_dialog_reply(title: str, question: str) -> int:
     """Display a confirmation dialog and return the user's reply."""
     confirmation_dialog = QMessageBox()
     confirmation_dialog.setWindowTitle(title)

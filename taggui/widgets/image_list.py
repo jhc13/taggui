@@ -172,7 +172,7 @@ class ImageListView(QListView):
 
     def get_selected_images(self) -> list[Image]:
         selected_image_proxy_indices = self.selectedIndexes()
-        selected_images = [index.data(Qt.UserRole)
+        selected_images = [index.data(Qt.ItemDataRole.UserRole)
                            for index in selected_image_proxy_indices]
         return selected_images
 
@@ -226,7 +226,8 @@ class ImageListView(QListView):
                    f'{pluralize("caption", selected_image_count)} to')
         settings = get_settings()
         move_directory_path = QFileDialog.getExistingDirectory(
-            parent=self, caption=caption, dir=settings.value('directory_path'))
+            parent=self, caption=caption,
+            dir=settings.value('directory_path', type=str))
         if not move_directory_path:
             return
         move_directory_path = Path(move_directory_path)
@@ -252,7 +253,8 @@ class ImageListView(QListView):
                    f'{pluralize("caption", selected_image_count)} to')
         settings = get_settings()
         copy_directory_path = QFileDialog.getExistingDirectory(
-            parent=self, caption=caption, dir=settings.value('directory_path'))
+            parent=self, caption=caption,
+            dir=settings.value('directory_path', type=str))
         if not copy_directory_path:
             return
         copy_directory_path = Path(copy_directory_path)
@@ -321,7 +323,8 @@ class ImageList(QDockWidget):
         # Each `QDockWidget` needs a unique object name for saving its state.
         self.setObjectName('image_list')
         self.setWindowTitle('Images')
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea
+                             | Qt.DockWidgetArea.RightDockWidgetArea)
 
         self.filter_line_edit = FilterLineEdit()
         self.list_view = ImageListView(self, proxy_image_list_model,
@@ -374,7 +377,7 @@ class ImageList(QDockWidget):
         for proxy_image_index in range(self.proxy_image_list_model.rowCount()):
             image: Image = self.proxy_image_list_model.data(
                 self.proxy_image_list_model.index(proxy_image_index, 0),
-                Qt.UserRole)
+                Qt.ItemDataRole.UserRole)
             if not image.tags:
                 break
         if proxy_image_index is None:

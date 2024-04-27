@@ -63,7 +63,7 @@ class AllTagsList(QListView):
         Delete all instances of the selected tag when the delete key is
         pressed.
         """
-        if event.key() != Qt.Key_Delete:
+        if event.key() != Qt.Key.Key_Delete:
             super().keyPressEvent(event)
             return
         selected_indices = self.selectedIndexes()
@@ -107,14 +107,15 @@ class AllTagsEditor(QDockWidget):
         # Each `QDockWidget` needs a unique object name for saving its state.
         self.setObjectName('all_tags_editor')
         self.setWindowTitle('All Tags')
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea
+                             | Qt.DockWidgetArea.RightDockWidgetArea)
         self.proxy_tag_counter_model = ProxyTagCounterModel(
             self.tag_counter_model)
-        self.proxy_tag_counter_model.setFilterRole(Qt.EditRole)
+        self.proxy_tag_counter_model.setFilterRole(Qt.ItemDataRole.EditRole)
         self.filter_line_edit = FilterLineEdit()
         self.clear_filter_button = TallPushButton('Clear Image Filter')
         self.clear_filter_button.setFixedHeight(
-            self.clear_filter_button.sizeHint().height() * 1.5)
+            int(self.clear_filter_button.sizeHint().height() * 1.5))
         click_action_layout = QHBoxLayout()
         click_action_label = QLabel('Tag click action')
         self.click_action_combo_box = SettingsComboBox(
@@ -167,9 +168,9 @@ class AllTagsEditor(QDockWidget):
         self.proxy_tag_counter_model.sort_by = (self.sort_by_combo_box
                                                 .currentText())
         if self.sort_order_combo_box.currentText() == SortOrder.ASCENDING:
-            sort_order = Qt.AscendingOrder
+            sort_order = Qt.SortOrder.AscendingOrder
         else:
-            sort_order = Qt.DescendingOrder
+            sort_order = Qt.SortOrder.DescendingOrder
         # `invalidate()` must be called to force the proxy model to re-sort.
         self.proxy_tag_counter_model.invalidate()
         self.proxy_tag_counter_model.sort(0, sort_order)

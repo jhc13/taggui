@@ -17,16 +17,18 @@ class SettingsDialog(QDialog):
         layout.setSpacing(20)
 
         grid_layout = QGridLayout()
-        grid_layout.addWidget(QLabel('Font size (pt)'), 0, 0, Qt.AlignRight)
+        grid_layout.addWidget(QLabel('Font size (pt)'), 0, 0,
+                              Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('File types to show in image list'), 1, 0,
-                              Qt.AlignRight)
+                              Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Image width in image list (px)'), 2, 0,
-                              Qt.AlignRight)
-        grid_layout.addWidget(QLabel('Tag separator'), 3, 0, Qt.AlignRight)
+                              Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Tag separator'), 3, 0,
+                              Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Insert space after tag separator'), 4, 0,
-                              Qt.AlignRight)
+                              Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Auto-captioning models directory'), 5, 0,
-                              Qt.AlignRight)
+                              Qt.AlignmentFlag.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
             key='font_size', default=DEFAULT_SETTINGS['font_size'],
@@ -61,7 +63,7 @@ class SettingsDialog(QDialog):
             self.show_restart_warning)
         models_directory_button = QPushButton('Select Directory...')
         models_directory_button.setFixedWidth(
-            models_directory_button.sizeHint().width() * 1.3)
+            int(models_directory_button.sizeHint().width() * 1.3))
         models_directory_button.clicked.connect(self.set_models_directory_path)
         file_types_line_edit = SettingsLineEdit(
             key='image_list_file_formats',
@@ -69,16 +71,20 @@ class SettingsDialog(QDialog):
         file_types_line_edit.setMinimumWidth(400)
         file_types_line_edit.textChanged.connect(self.show_restart_warning)
 
-        grid_layout.addWidget(font_size_spin_box, 0, 1, Qt.AlignLeft)
-        grid_layout.addWidget(file_types_line_edit, 1, 1, Qt.AlignLeft)
+        grid_layout.addWidget(font_size_spin_box, 0, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(file_types_line_edit, 1, 1,
+                              Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(image_list_image_width_spin_box, 2, 1,
-                              Qt.AlignLeft)
-        grid_layout.addWidget(tag_separator_line_edit, 3, 1, Qt.AlignLeft)
+                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(tag_separator_line_edit, 3, 1,
+                              Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(insert_space_after_tag_separator_check_box, 4, 1,
-                              Qt.AlignLeft)
+                              Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(self.models_directory_line_edit, 5, 1,
-                              Qt.AlignLeft)
-        grid_layout.addWidget(models_directory_button, 6, 1, Qt.AlignLeft)
+                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(models_directory_button, 6, 1,
+                              Qt.AlignmentFlag.AlignLeft)
         layout.addLayout(grid_layout)
 
         # Prevent the grid layout from moving to the center when the warning
@@ -87,7 +93,7 @@ class SettingsDialog(QDialog):
         self.restart_warning = ('Restart the application to apply the new '
                                 'settings.')
         self.warning_label = QLabel(self.restart_warning)
-        self.warning_label.setAlignment(Qt.AlignCenter)
+        self.warning_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.warning_label.setStyleSheet('color: red;')
         layout.addWidget(self.warning_label)
         # Fix the size of the dialog to its size when the warning label is

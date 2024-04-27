@@ -62,19 +62,23 @@ class MainWindow(QMainWindow):
         self.create_central_widget()
         self.image_list = ImageList(self.proxy_image_list_model,
                                     tag_separator, image_list_image_width)
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.image_list)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
+                           self.image_list)
         self.image_tags_editor = ImageTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
             self.image_tag_list_model, self.image_list, tokenizer,
             tag_separator)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.image_tags_editor)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
+                           self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)
         self.tag_counter_model.all_tags_list = (self.all_tags_editor
                                                 .all_tags_list)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.all_tags_editor)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
+                           self.all_tags_editor)
         self.auto_captioner = AutoCaptioner(self.image_list_model,
                                             self.image_list)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.auto_captioner)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
+                           self.auto_captioner)
         self.tabifyDockWidget(self.all_tags_editor, self.auto_captioner)
         self.all_tags_editor.raise_()
         # Set default widths for the dock widgets.
@@ -86,7 +90,7 @@ class MainWindow(QMainWindow):
         self.resizeDocks([self.image_list, self.image_tags_editor,
                           self.all_tags_editor],
                          [int(image_list_image_width * 2.5)] * 3,
-                         Qt.Horizontal)
+                         Qt.Orientation.Horizontal)
         # Disable some widgets until a directory is loaded.
         self.image_tags_editor.tag_input_box.setDisabled(True)
         self.auto_captioner.start_cancel_button.setDisabled(True)
@@ -113,13 +117,16 @@ class MainWindow(QMainWindow):
         # Forward any unhandled image changing key presses to the image list.
         key_press_forwarder = KeyPressForwarder(
             parent=self, target=self.image_list.list_view,
-            keys_to_forward=(Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp,
-                             Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End))
+            keys_to_forward=(Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_PageUp,
+                             Qt.Key.Key_PageDown, Qt.Key.Key_Home,
+                             Qt.Key.Key_End))
         self.installEventFilter(key_press_forwarder)
         # Remove the Ctrl+Z shortcut from text input boxes to prevent it from
         # conflicting with the undo action.
-        ctrl_z = QKeyCombination(Qt.ControlModifier, key=Qt.Key_Z)
-        ctrl_y = QKeyCombination(Qt.ControlModifier, key=Qt.Key_Y)
+        ctrl_z = QKeyCombination(Qt.KeyboardModifier.ControlModifier,
+                                 key=Qt.Key.Key_Z)
+        ctrl_y = QKeyCombination(Qt.KeyboardModifier.ControlModifier,
+                                 key=Qt.Key.Key_Y)
         shortcut_remover = ShortcutRemover(parent=self,
                                            shortcuts=(ctrl_z, ctrl_y))
         self.image_list.filter_line_edit.installEventFilter(shortcut_remover)
@@ -190,8 +197,8 @@ class MainWindow(QMainWindow):
         load_directory_widget = QWidget()
         load_directory_button = BigPushButton('Load Directory...')
         load_directory_button.clicked.connect(self.select_and_load_directory)
-        QVBoxLayout(load_directory_widget).addWidget(load_directory_button,
-                                                     alignment=Qt.AlignCenter)
+        QVBoxLayout(load_directory_widget).addWidget(
+            load_directory_button, alignment=Qt.AlignmentFlag.AlignCenter)
         central_widget.addWidget(load_directory_widget)
         central_widget.addWidget(self.image_viewer)
         self.setCentralWidget(central_widget)
@@ -235,7 +242,8 @@ class MainWindow(QMainWindow):
                             if self.proxy_image_list_model.filter is None
                             else 'filtered_image_index')
         select_index = self.settings.value(select_index_key, type=int) or 0
-        self.load_directory(Path(self.settings.value('directory_path')))
+        self.load_directory(Path(self.settings.value('directory_path',
+                                                     type=str)))
         self.image_list.filter_line_edit.setText(filter_text)
         # If the selected image index is out of bounds due to images being
         # deleted, select the last image.
@@ -455,7 +463,8 @@ class MainWindow(QMainWindow):
     @Slot()
     def update_image_tags(self):
         image_index = self.image_tags_editor.image_index
-        image: Image = self.image_list_model.data(image_index, Qt.UserRole)
+        image: Image = self.image_list_model.data(image_index,
+                                                  Qt.ItemDataRole.UserRole)
         old_tags = image.tags
         new_tags = self.image_tag_list_model.stringList()
         if old_tags == new_tags:
@@ -545,10 +554,10 @@ class MainWindow(QMainWindow):
     def restore(self):
         # Restore the window geometry and state.
         if self.settings.contains('geometry'):
-            self.restoreGeometry(self.settings.value('geometry'))
+            self.restoreGeometry(self.settings.value('geometry', type=bytes))
         else:
             self.showMaximized()
-        self.restoreState(self.settings.value('window_state'))
+        self.restoreState(self.settings.value('window_state', type=bytes))
         # Get the last index of the last selected image.
         if self.settings.contains('image_index'):
             image_index = self.settings.value('image_index', type=int)
@@ -556,8 +565,9 @@ class MainWindow(QMainWindow):
             image_index = 0
         # Load the last loaded directory.
         if self.settings.contains('directory_path'):
-            directory_path = Path(self.settings.value('directory_path'))
+            directory_path = Path(self.settings.value('directory_path',
+                                                      type=str))
             if directory_path.is_dir():
                 self.load_directory(
-                    Path(self.settings.value('directory_path')),
+                    Path(self.settings.value('directory_path', type=str)),
                     select_index=image_index)

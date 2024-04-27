@@ -65,16 +65,16 @@ class ImageListModel(QAbstractListModel):
 
     def data(self, index, role=None) -> Image | str | QIcon | QSize:
         image = self.images[index.row()]
-        if role == Qt.UserRole:
+        if role == Qt.ItemDataRole.UserRole:
             return image
-        if role == Qt.DisplayRole:
+        if role == Qt.ItemDataRole.DisplayRole:
             # The text shown next to the thumbnail in the image list.
             text = image.path.name
             if image.tags:
                 caption = self.tag_separator.join(image.tags)
                 text += f'\n{caption}'
             return text
-        if role == Qt.DecorationRole:
+        if role == Qt.ItemDataRole.DecorationRole:
             # The thumbnail. If the image already has a thumbnail stored, use
             # it. Otherwise, generate a thumbnail and save it to the image.
             if image.thumbnail:
@@ -83,11 +83,12 @@ class ImageListModel(QAbstractListModel):
             # Rotate the image based on the orientation tag.
             image_reader.setAutoTransform(True)
             pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
-                self.image_list_image_width, Qt.SmoothTransformation)
+                self.image_list_image_width,
+                Qt.TransformationMode.SmoothTransformation)
             thumbnail = QIcon(pixmap)
             image.thumbnail = thumbnail
             return thumbnail
-        if role == Qt.SizeHintRole:
+        if role == Qt.ItemDataRole.SizeHintRole:
             if image.thumbnail:
                 return image.thumbnail.availableSizes()[0]
             dimensions = image.dimensions
@@ -438,7 +439,7 @@ class ImageListModel(QAbstractListModel):
         return removed_tag_count
 
     def update_image_tags(self, image_index: QModelIndex, tags: list[str]):
-        image: Image = self.data(image_index, Qt.UserRole)
+        image: Image = self.data(image_index, Qt.ItemDataRole.UserRole)
         if image.tags == tags:
             return
         image.tags = tags
@@ -454,7 +455,7 @@ class ImageListModel(QAbstractListModel):
         should_ask_for_confirmation = len(image_indices) > 1
         self.add_to_undo_stack(action_name, should_ask_for_confirmation)
         for image_index in image_indices:
-            image: Image = self.data(image_index, Qt.UserRole)
+            image: Image = self.data(image_index, Qt.ItemDataRole.UserRole)
             image.tags.extend(tags)
             self.write_image_tags_to_disk(image)
         min_image_index = min(image_indices, key=lambda index: index.row())

@@ -31,10 +31,10 @@ def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
     document = text_edit.document()
     font_metrics = QFontMetrics(document.defaultFont())
     margins = text_edit.contentsMargins()
-    height = (font_metrics.lineSpacing() * line_count
-              + margins.top() + margins.bottom()
-              + document.documentMargin() * 2
-              + text_edit.frameWidth() * 2)
+    height = int(font_metrics.lineSpacing() * line_count
+                 + margins.top() + margins.bottom()
+                 + document.documentMargin() * 2
+                 + text_edit.frameWidth() * 2)
     text_edit.setFixedHeight(height)
 
 
@@ -76,7 +76,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.device_combo_box.addItems(list(CaptionDevice))
         self.load_in_4_bit_container = QWidget()
         load_in_4_bit_layout = QHBoxLayout()
-        load_in_4_bit_layout.setAlignment(Qt.AlignLeft)
+        load_in_4_bit_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         load_in_4_bit_layout.setContentsMargins(0, 0, 0, 0)
         self.load_in_4_bit_check_box = SettingsBigCheckBox(
             key='load_in_4_bit', default=True)
@@ -86,7 +86,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.remove_tag_separators_container = QWidget()
         remove_tag_separators_layout = QHBoxLayout(
             self.remove_tag_separators_container)
-        remove_tag_separators_layout.setAlignment(Qt.AlignLeft)
+        remove_tag_separators_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         remove_tag_separators_layout.setContentsMargins(0, 0, 0, 0)
         self.remove_tag_separators_check_box = SettingsBigCheckBox(
             key='remove_tag_separators', default=True)
@@ -111,7 +111,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.wd_tagger_settings_form_container = QWidget()
         wd_tagger_settings_form = QFormLayout(
             self.wd_tagger_settings_form_container)
-        wd_tagger_settings_form.setLabelAlignment(Qt.AlignRight)
+        wd_tagger_settings_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         wd_tagger_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.show_probabilities_check_box = SettingsBigCheckBox(
@@ -145,7 +145,7 @@ class CaptionSettingsForm(QVBoxLayout):
         self.advanced_settings_form_container = QWidget()
         advanced_settings_form = QFormLayout(
             self.advanced_settings_form_container)
-        advanced_settings_form.setLabelAlignment(Qt.AlignRight)
+        advanced_settings_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
         advanced_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         bad_forced_words_form = QFormLayout()
@@ -239,12 +239,12 @@ class CaptionSettingsForm(QVBoxLayout):
             self.load_in_4_bit_check_box.setChecked(False)
 
     def get_local_model_paths(self) -> list[str]:
-        models_directory_path: str = self.settings.value(
+        models_directory_path = self.settings.value(
             'models_directory_path',
             defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         if not models_directory_path:
             return []
-        models_directory_path: Path = Path(models_directory_path)
+        models_directory_path = Path(models_directory_path)
         print(f'Loading local auto-captioning model paths under '
               f'{models_directory_path}...')
         # Auto-captioning models have a `config.json` file.
@@ -370,7 +370,8 @@ class AutoCaptioner(QDockWidget):
         # Each `QDockWidget` needs a unique object name for saving its state.
         self.setObjectName('auto_captioner')
         self.setWindowTitle('Auto-Captioner')
-        self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea
+                             | Qt.DockWidgetArea.RightDockWidgetArea)
 
         self.start_cancel_button = TallPushButton('Start Auto-Captioning')
         self.progress_bar = QProgressBar()
@@ -429,9 +430,10 @@ class AutoCaptioner(QDockWidget):
         if self.replace_last_console_text_edit_block:
             self.replace_last_console_text_edit_block = False
             # Select and remove the last block of text.
-            self.console_text_edit.moveCursor(QTextCursor.End)
-            self.console_text_edit.moveCursor(QTextCursor.StartOfBlock,
-                                              QTextCursor.KeepAnchor)
+            self.console_text_edit.moveCursor(QTextCursor.MoveOperation.End)
+            self.console_text_edit.moveCursor(
+                QTextCursor.MoveOperation.StartOfBlock,
+                QTextCursor.MoveMode.KeepAnchor)
             self.console_text_edit.textCursor().removeSelectedText()
             # Delete the newline.
             self.console_text_edit.textCursor().deletePreviousChar()
@@ -459,12 +461,11 @@ class AutoCaptioner(QDockWidget):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
         tag_separator = get_tag_separator()
-        models_directory_path: str = self.settings.value(
+        models_directory_path = self.settings.value(
             'models_directory_path',
             defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
-        models_directory_path: Path | None = (Path(models_directory_path)
-                                              if models_directory_path
-                                              else None)
+        models_directory_path = (Path(models_directory_path)
+                                 if models_directory_path else None)
         self.captioning_thread = CaptioningThread(
             self, self.image_list_model, selected_image_indices,
             caption_settings, tag_separator, models_directory_path)

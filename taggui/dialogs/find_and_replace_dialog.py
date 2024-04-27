@@ -25,10 +25,14 @@ class FindAndReplaceDialog(QDialog):
         description_label.setWordWrap(True)
         layout.addWidget(description_label)
         grid_layout = QGridLayout()
-        grid_layout.addWidget(QLabel('Find text'), 0, 0, Qt.AlignRight)
-        grid_layout.addWidget(QLabel('Replace with'), 1, 0, Qt.AlignRight)
-        grid_layout.addWidget(QLabel('Scope'), 2, 0, Qt.AlignRight)
-        grid_layout.addWidget(QLabel('Whole tags only'), 3, 0, Qt.AlignRight)
+        grid_layout.addWidget(QLabel('Find text'), 0, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Replace with'), 1, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Scope'), 2, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Whole tags only'), 3, 0,
+                              Qt.AlignmentFlag.AlignRight)
         self.find_line_edit = SettingsLineEdit(key='find_text')
         self.find_line_edit.setClearButtonEnabled(True)
         self.find_line_edit.textChanged.connect(self.display_match_count)
