@@ -1,6 +1,7 @@
 import sys
 import traceback
 
+import transformers
 from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -23,6 +24,10 @@ def run_gui():
 
 
 if __name__ == '__main__':
+    # Suppress warnings when running inside a bundled version of the
+    # application.
+    if sys.stdout is None:
+        transformers.logging.set_verbosity_error()
     try:
         run_gui()
     except Exception as exception:
