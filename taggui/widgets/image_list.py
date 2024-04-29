@@ -4,8 +4,9 @@ from operator import or_
 from pathlib import Path
 
 from PySide6.QtCore import (QFile, QItemSelection, QItemSelectionModel,
-                            QItemSelectionRange, QModelIndex, QSize, Qt,
+                            QItemSelectionRange, QModelIndex, QSize, QUrl, Qt,
                             Signal, Slot)
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
                                QFileDialog, QLabel, QLineEdit, QListView,
                                QMenu, QMessageBox, QVBoxLayout, QWidget)
@@ -123,11 +124,11 @@ class ImageListView(QListView):
         self.copy_paths_action.setShortcut('Ctrl+Shift+C')
         self.copy_paths_action.triggered.connect(
             self.copy_selected_image_paths)
-        self.move_images_action = self.addAction('Move Images To...')
+        self.move_images_action = self.addAction('Move Images to...')
         self.move_images_action.setShortcut('Ctrl+M')
         self.move_images_action.triggered.connect(
             self.move_selected_images)
-        self.copy_images_action = self.addAction('Copy Images To...')
+        self.copy_images_action = self.addAction('Copy Images to...')
         self.copy_images_action.setShortcut('Ctrl+Shift+M')
         self.copy_images_action.triggered.connect(
             self.copy_selected_images)
@@ -136,6 +137,9 @@ class ImageListView(QListView):
         self.delete_images_action.setShortcut('Ctrl+Del')
         self.delete_images_action.triggered.connect(
             self.delete_selected_images)
+        self.open_image_action = self.addAction('Open Image in Default App')
+        self.open_image_action.setShortcut('Ctrl+O')
+        self.open_image_action.triggered.connect(self.open_image)
 
         self.context_menu = QMenu(self)
         self.context_menu.addAction('Select All Images', self.selectAll,
@@ -150,8 +154,9 @@ class ImageListView(QListView):
         self.context_menu.addAction(self.move_images_action)
         self.context_menu.addAction(self.copy_images_action)
         self.context_menu.addAction(self.delete_images_action)
+        self.context_menu.addAction(self.open_image_action)
         self.selectionModel().selectionChanged.connect(
-            self.update_context_menu_action_names)
+            self.update_context_menu_actions)
 
     def contextMenuEvent(self, event):
         self.context_menu.exec_(event.globalPos())
@@ -296,16 +301,22 @@ class ImageListView(QListView):
         self.directory_reload_requested.emit()
 
     @Slot()
-    def update_context_menu_action_names(self):
+    def open_image(self):
+        selected_images = self.get_selected_images()
+        image_path = selected_images[0].path
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(image_path)))
+
+    @Slot()
+    def update_context_menu_actions(self):
         selected_image_count = len(self.selectedIndexes())
         copy_file_names_action_name = (
             f'Copy File {pluralize("Name", selected_image_count)}')
         copy_paths_action_name = (f'Copy '
                                   f'{pluralize("Path", selected_image_count)}')
         move_images_action_name = (
-            f'Move {pluralize("Image", selected_image_count)} To...')
+            f'Move {pluralize("Image", selected_image_count)} to...')
         copy_images_action_name = (
-            f'Copy {pluralize("Image", selected_image_count)} To...')
+            f'Copy {pluralize("Image", selected_image_count)} to...')
         delete_images_action_name = (
             f'Delete {pluralize("Image", selected_image_count)}')
         self.copy_file_names_action.setText(copy_file_names_action_name)
@@ -313,6 +324,7 @@ class ImageListView(QListView):
         self.move_images_action.setText(move_images_action_name)
         self.copy_images_action.setText(copy_images_action_name)
         self.delete_images_action.setText(delete_images_action_name)
+        self.open_image_action.setVisible(selected_image_count == 1)
 
 
 class ImageList(QDockWidget):
