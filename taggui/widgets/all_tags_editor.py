@@ -111,9 +111,6 @@ class AllTagsEditor(QDockWidget):
             self.tag_counter_model)
         self.proxy_tag_counter_model.setFilterRole(Qt.ItemDataRole.EditRole)
         self.filter_line_edit = FilterLineEdit()
-        self.clear_filter_button = TallPushButton('Clear Image List Filter')
-        self.clear_filter_button.setFixedHeight(
-            int(self.clear_filter_button.sizeHint().height() * 1.5))
         click_action_layout = QHBoxLayout()
         click_action_label = QLabel('Tag click action')
         self.click_action_combo_box = SettingsComboBox(
@@ -134,6 +131,9 @@ class AllTagsEditor(QDockWidget):
         sort_layout.addWidget(sort_label)
         sort_layout.addWidget(self.sort_by_combo_box, stretch=1)
         sort_layout.addWidget(self.sort_order_combo_box, stretch=1)
+        self.clear_filter_button = TallPushButton('Clear Image List Filter')
+        self.clear_filter_button.setFixedHeight(
+            int(self.clear_filter_button.sizeHint().height() * 1.5))
         self.all_tags_list = AllTagsList(self.proxy_tag_counter_model,
                                          all_tags_editor=self)
         self.tag_count_label = QLabel()
@@ -141,9 +141,9 @@ class AllTagsEditor(QDockWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.addWidget(self.filter_line_edit)
-        layout.addWidget(self.clear_filter_button)
         layout.addLayout(click_action_layout)
         layout.addLayout(sort_layout)
+        layout.addWidget(self.clear_filter_button)
         layout.addWidget(self.all_tags_list)
         layout.addWidget(self.tag_count_label)
         self.setWidget(container)
