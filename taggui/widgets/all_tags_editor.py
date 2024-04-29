@@ -111,7 +111,7 @@ class AllTagsEditor(QDockWidget):
             self.tag_counter_model)
         self.proxy_tag_counter_model.setFilterRole(Qt.ItemDataRole.EditRole)
         self.filter_line_edit = FilterLineEdit()
-        self.clear_filter_button = TallPushButton('Clear Image Filter')
+        self.clear_filter_button = TallPushButton('Clear Image List Filter')
         self.clear_filter_button.setFixedHeight(
             int(self.clear_filter_button.sizeHint().height() * 1.5))
         click_action_layout = QHBoxLayout()
