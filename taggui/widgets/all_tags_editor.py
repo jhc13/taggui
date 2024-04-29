@@ -39,8 +39,6 @@ class AllTagsList(QListView):
         super().__init__()
         self.setModel(proxy_tag_counter_model)
         self.all_tags_editor = all_tags_editor
-        self.setSelectionMode(
-            QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setItemDelegate(TextEditItemDelegate(self))
         self.setWordWrap(True)
         # `selectionChanged` must be used and not `currentChanged` because

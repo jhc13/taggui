@@ -1,4 +1,5 @@
 import shutil
+from enum import Enum
 from functools import reduce
 from operator import or_
 from pathlib import Path
@@ -8,8 +9,9 @@ from PySide6.QtCore import (QFile, QItemSelection, QItemSelectionModel,
                             Signal, Slot)
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
-                               QFileDialog, QLabel, QLineEdit, QListView,
-                               QMenu, QMessageBox, QVBoxLayout, QWidget)
+                               QFileDialog, QHBoxLayout, QLabel, QLineEdit,
+                               QListView, QMenu, QMessageBox, QVBoxLayout,
+                               QWidget)
 from pyparsing import (CaselessKeyword, CaselessLiteral, Group, OpAssoc,
                        ParseException, QuotedString, Suppress, Word,
                        infix_notation, nums, one_of, printables)
@@ -17,6 +19,7 @@ from pyparsing import (CaselessKeyword, CaselessLiteral, Group, OpAssoc,
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
 from utils.settings import get_settings
+from utils.settings_widgets import SettingsComboBox
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
 
@@ -88,6 +91,11 @@ class FilterLineEdit(QLineEdit):
             return None
 
 
+class SelectionMode(str, Enum):
+    DEFAULT = 'Default'
+    TOGGLE = 'Toggle'
+
+
 class ImageListView(QListView):
     tags_paste_requested = Signal(list, list)
     directory_reload_requested = Signal()
@@ -98,8 +106,6 @@ class ImageListView(QListView):
         self.proxy_image_list_model = proxy_image_list_model
         self.tag_separator = tag_separator
         self.setModel(proxy_image_list_model)
-        self.setSelectionMode(
-            QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setWordWrap(True)
         # If the actual height of the image is greater than 3 times the width,
         # the image will be scaled down to fit.
@@ -339,6 +345,14 @@ class ImageList(QDockWidget):
                              | Qt.DockWidgetArea.RightDockWidgetArea)
 
         self.filter_line_edit = FilterLineEdit()
+        selection_mode_layout = QHBoxLayout()
+        selection_mode_label = QLabel('Selection mode')
+        self.selection_mode_combo_box = SettingsComboBox(
+            key='image_list_selection_mode')
+        self.selection_mode_combo_box.addItems(list(SelectionMode))
+        selection_mode_layout.addWidget(selection_mode_label)
+        selection_mode_layout.addWidget(self.selection_mode_combo_box,
+                                        stretch=1)
         self.list_view = ImageListView(self, proxy_image_list_model,
                                        tag_separator, image_width)
         self.image_index_label = QLabel()
@@ -346,9 +360,22 @@ class ImageList(QDockWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.addWidget(self.filter_line_edit)
+        layout.addLayout(selection_mode_layout)
         layout.addWidget(self.list_view)
         layout.addWidget(self.image_index_label)
         self.setWidget(container)
+
+        self.selection_mode_combo_box.currentTextChanged.connect(
+            self.set_selection_mode)
+        self.set_selection_mode(self.selection_mode_combo_box.currentText())
+
+    def set_selection_mode(self, selection_mode: str):
+        if selection_mode == SelectionMode.DEFAULT:
+            self.list_view.setSelectionMode(
+                QAbstractItemView.SelectionMode.ExtendedSelection)
+        elif selection_mode == SelectionMode.TOGGLE:
+            self.list_view.setSelectionMode(
+                QAbstractItemView.SelectionMode.MultiSelection)
 
     @Slot()
     def update_image_index_label(self, proxy_image_index: QModelIndex):
