@@ -229,7 +229,9 @@ class CaptioningThread(QThread):
         if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
             # `caption_start` is added later.
             text = prompt
-        elif model_type == CaptionModelType.XCOMPOSER2:
+        elif model_type in (CaptionModelType.LLAVA_LLAMA_3,
+                            CaptionModelType.LLAVA_NEXT_34B,
+                            CaptionModelType.XCOMPOSER2):
             text = prompt + caption_start
         elif prompt and caption_start:
             text = f'{prompt} {caption_start}'
