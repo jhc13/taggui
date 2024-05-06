@@ -1,4 +1,4 @@
-accelerate==0.29.3
+accelerate==0.30.0
 bitsandbytes==0.43.1
 ExifRead==3.0.0
 imagesize==1.4.1
@@ -16,7 +16,7 @@ https://download.pytorch.org/whl/cu121/torch-2.2.2%2Bcu121-cp310-cp310-win_amd64
 timm==0.9.16
 
 # CogVLM
-einops==0.7.0
+einops==0.8.0
 protobuf==5.26.1
 sentencepiece==0.2.0
 torchvision==0.17.2
