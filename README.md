@@ -6,7 +6,7 @@ Cross-platform desktop application for quickly adding and editing image tags
 and captions, aimed towards creators of image datasets for generative AI models
 like Stable Diffusion.
 
-<img src='images/screenshot-v1.20.0.png' alt='TagGUI screenshot' width='100%'>
+<img src='images/screenshot-v1.25.0.png' alt='TagGUI screenshot' width='100%'>
 
 ## Features
 
