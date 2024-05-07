@@ -39,7 +39,7 @@ def replace_template_variable(match: re.Match, image: Image) -> str:
         return ', '.join(image.tags)
     if template_variable == 'name':
         return image.path.stem
-    if template_variable == 'directory':
+    if template_variable in ('directory', 'folder'):
         return image.path.parent.name
 
 
