@@ -33,6 +33,25 @@ from utils.image import Image
 from utils.settings import get_tag_separator
 
 
+def replace_template_variable(match: re.Match, image: Image) -> str:
+    template_variable = match.group(0)[1:-1].lower()
+    if template_variable == 'tags':
+        return ', '.join(image.tags)
+    if template_variable == 'name':
+        return image.path.stem
+    if template_variable in ('directory', 'folder'):
+        return image.path.parent.name
+
+
+def replace_template_variables(text: str, image: Image) -> str:
+    # Replace template variables inside curly braces that are not escaped.
+    text = re.sub(r'(?<!\\){[^{}]+(?<!\\)}',
+                  lambda match: replace_template_variable(match, image), text)
+    # Unescape escaped curly braces.
+    text = re.sub(r'\\([{}])', r'\1', text)
+    return text
+
+
 def get_tokenizer_from_processor(model_type: CaptionModelType, processor):
     if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
                       CaptionModelType.MOONDREAM1, CaptionModelType.MOONDREAM2,
@@ -213,6 +232,18 @@ class CaptioningThread(QThread):
         self.parent().is_model_loaded_in_4_bit = load_in_4_bit
         return processor, model
 
+    def get_prompt(self, model_type: CaptionModelType,
+                   image: Image) -> str | None:
+        if model_type == CaptionModelType.WD_TAGGER:
+            return None
+        prompt = self.caption_settings['prompt']
+        if prompt:
+            prompt = replace_template_variables(prompt, image)
+        else:
+            prompt = get_default_prompt(model_type)
+        prompt = format_prompt(prompt, model_type)
+        return prompt
+
     def get_model_inputs(self, image: Image, prompt: str | None,
                          model_type: CaptionModelType, device: torch.device,
                          model, processor) -> BatchFeature | dict | np.ndarray:
@@ -331,13 +362,6 @@ class CaptioningThread(QThread):
                               if model_type == CaptionModelType.WD_TAGGER
                               else f'Captioning... (device: {device})')
         print(captioning_message)
-        if model_type == CaptionModelType.WD_TAGGER:
-            prompt = None
-        else:
-            prompt = self.caption_settings['prompt']
-            if not prompt:
-                prompt = get_default_prompt(model_type)
-            prompt = format_prompt(prompt, model_type)
         caption_position = self.caption_settings['caption_position']
         are_multiple_images_selected = len(self.selected_image_indices) > 1
         for i, image_index in enumerate(self.selected_image_indices):
@@ -347,6 +371,7 @@ class CaptioningThread(QThread):
                 return
             image: Image = self.image_list_model.data(image_index,
                                                       Qt.ItemDataRole.UserRole)
+            prompt = self.get_prompt(model_type, image)
             try:
                 model_inputs = self.get_model_inputs(image, prompt, model_type,
                                                      device, model, processor)
