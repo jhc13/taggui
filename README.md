@@ -15,7 +15,6 @@ like Stable Diffusion.
 - Integrated Stable Diffusion token counter
 - Automatic caption and tag generation with models including CogVLM, LLaVA, WD
   Tagger, and many more
-- Option to load auto-captioning models in 4-bit for reduced VRAM usage
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
 
@@ -71,6 +70,17 @@ use it, but subsequent generations will be much faster.
 
 `Prompt`: Instructions given to the captioning model.
 Prompt formats are handled automatically based on the selected model.
+You can use the following template variables to dynamically insert information
+about each image into the prompt:
+
+- `{tags}`: The tags of the image, separated by commas.
+- `{name}`: The file name of the image without the extension.
+- `{directory}` or `{folder}`: The name of the directory containing the image.
+
+An example prompt using a template variable could be
+`Describe the image using the following tags as context: {tags}`.
+With this prompt, `{tags}` would be replaced with the existing tags of each
+image before the prompt is sent to the model.
 
 `Start caption with`: Generated captions will start with this text.
 
@@ -83,7 +93,6 @@ You can separate multiple words or phrases with commas (`,`).
 For example, you can put `appears,seems,possibly` to prevent the model from
 using an uncertain tone in the captions.
 The words may still be generated due to limitations related to tokenization.
-You can escape commas with backslashes (`\,`).
 
 `Include in caption`: Words or phrases that should be present somewhere in the
 generated captions.
@@ -94,7 +103,6 @@ For example, if you put `cat,orange|white|black`, the model will attempt to
 generate captions that contain the word `cat` and either `orange`, `white`,
 or `black`.
 It is not guaranteed that all of your specifications will be met.
-You can escape commas and pipes with backslashes (`\,` and `\|`).
 
 `Tags to exclude` (WD Tagger models): Tags that should not be generated,
 separated by commas.
