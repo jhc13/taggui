@@ -5,7 +5,7 @@ imagesize==1.4.1
 Pillow==10.3.0
 pyparsing==3.1.2
 PySide6==6.7.0
-transformers==4.40.1
+transformers==4.40.2
 
 # PyTorch
 torch==2.2.2; platform_system != "Windows"
