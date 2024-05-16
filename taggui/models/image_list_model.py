@@ -136,7 +136,7 @@ class ImageListModel(QAbstractListModel):
                             if any(value in orientations
                                    for value in (5, 6, 7, 8)):
                                 dimensions = (dimensions[1], dimensions[0])
-                    except NoParser as exception:
+                    except (KeyError, NoParser) as exception:
                         print(f'Failed to get Exif tags for {image_path}: '
                               f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
