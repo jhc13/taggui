@@ -27,7 +27,9 @@ class SettingsDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Insert space after tag separator'), 4, 0,
                               Qt.AlignmentFlag.AlignRight)
-        grid_layout.addWidget(QLabel('Auto-captioning models directory'), 5, 0,
+        grid_layout.addWidget(QLabel('Autocomplete tags'), 5, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Auto-captioning models directory'), 6, 0,
                               Qt.AlignmentFlag.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
@@ -53,6 +55,11 @@ class SettingsDialog(QDialog):
             key='insert_space_after_tag_separator',
             default=DEFAULT_SETTINGS['insert_space_after_tag_separator'])
         insert_space_after_tag_separator_check_box.stateChanged.connect(
+            self.show_restart_warning)
+        autocomplete_tags_check_box = SettingsBigCheckBox(
+            key='autocomplete_tags',
+            default=DEFAULT_SETTINGS['autocomplete_tags'])
+        autocomplete_tags_check_box.stateChanged.connect(
             self.show_restart_warning)
         self.models_directory_line_edit = SettingsLineEdit(
             key='models_directory_path',
@@ -81,9 +88,11 @@ class SettingsDialog(QDialog):
                               Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(insert_space_after_tag_separator_check_box, 4, 1,
                               Qt.AlignmentFlag.AlignLeft)
-        grid_layout.addWidget(self.models_directory_line_edit, 5, 1,
+        grid_layout.addWidget(autocomplete_tags_check_box, 5, 1,
                               Qt.AlignmentFlag.AlignLeft)
-        grid_layout.addWidget(models_directory_button, 6, 1,
+        grid_layout.addWidget(self.models_directory_line_edit, 6, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(models_directory_button, 7, 1,
                               Qt.AlignmentFlag.AlignLeft)
         layout.addLayout(grid_layout)
 

@@ -67,7 +67,12 @@ class MainWindow(QMainWindow):
         self.image_tags_editor = ImageTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
             self.image_tag_list_model, self.image_list, tokenizer,
-            tag_separator)
+            tag_separator,
+            autocomplete_tags=self.settings.value(
+                'autocomplete_tags',
+                defaultValue=DEFAULT_SETTINGS['autocomplete_tags'],
+                type=bool)
+            )
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                            self.image_tags_editor)
         self.all_tags_editor = AllTagsEditor(self.tag_counter_model)

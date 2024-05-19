@@ -8,6 +8,7 @@ DEFAULT_SETTINGS = {
     'image_list_image_width': 200,
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
+    'autocomplete_tags': True,
     'models_directory_path': ''
 }
 
