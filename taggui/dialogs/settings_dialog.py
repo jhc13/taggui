@@ -27,8 +27,8 @@ class SettingsDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Insert space after tag separator'), 4, 0,
                               Qt.AlignmentFlag.AlignRight)
-        grid_layout.addWidget(QLabel('Autocomplete tags'), 5, 0,
-                              Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Show tag autocomplete suggestions'),
+                              5, 0, Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Auto-captioning models directory'), 6, 0,
                               Qt.AlignmentFlag.AlignRight)
 
