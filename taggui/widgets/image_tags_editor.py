@@ -9,6 +9,7 @@ from transformers import PreTrainedTokenizerBase
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
 from utils.image import Image
+from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.text_edit_item_delegate import TextEditItemDelegate
 from utils.utils import get_confirmation_dialog_reply
 from widgets.image_list import ImageList
@@ -27,15 +28,21 @@ class TagInputBox(QLineEdit):
         self.image_list = image_list
         self.tag_separator = tag_separator
 
-        self.completer = QCompleter(tag_counter_model)
-        self.setCompleter(self.completer)
         self.setPlaceholderText('Add Tag')
         self.setStyleSheet('padding: 8px;')
-
-        self.completer.activated.connect(lambda text: self.add_tag(text))
-        # Clear the input box after the completer inserts the tag into it.
-        self.completer.activated.connect(
-            lambda: QTimer.singleShot(0, self.clear))
+        settings = get_settings()
+        autocomplete_tags = settings.value(
+            'autocomplete_tags',
+            defaultValue=DEFAULT_SETTINGS['autocomplete_tags'], type=bool)
+        if autocomplete_tags:
+            self.completer = QCompleter(tag_counter_model)
+            self.setCompleter(self.completer)
+            self.completer.activated.connect(lambda text: self.add_tag(text))
+            # Clear the input box after the completer inserts the tag into it.
+            self.completer.activated.connect(
+                lambda: QTimer.singleShot(0, self.clear))
+        else:
+            self.completer = None
 
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() not in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
@@ -44,6 +51,7 @@ class TagInputBox(QLineEdit):
         # If Ctrl+Enter is pressed and the completer is visible, add the first
         # tag in the completer popup.
         if (event.modifiers() == Qt.KeyboardModifier.ControlModifier
+                and self.completer is not None
                 and self.completer.popup().isVisible()):
             first_tag = self.completer.popup().model().data(
                 self.completer.model().index(0, 0), Qt.ItemDataRole.EditRole)
@@ -52,7 +60,8 @@ class TagInputBox(QLineEdit):
         else:
             self.add_tag(self.text())
         self.clear()
-        self.completer.popup().hide()
+        if self.completer is not None:
+            self.completer.popup().hide()
 
     def add_tag(self, tag: str):
         if not tag:
