@@ -9,6 +9,7 @@ from transformers import PreTrainedTokenizerBase
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
 from utils.image import Image
+from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.text_edit_item_delegate import TextEditItemDelegate
 from utils.utils import get_confirmation_dialog_reply
 from widgets.image_list import ImageList
@@ -21,7 +22,7 @@ class TagInputBox(QLineEdit):
 
     def __init__(self, image_tag_list_model: QStringListModel,
                  tag_counter_model: TagCounterModel, image_list: ImageList,
-                 tag_separator: str, autocomplete_tags: bool=True):
+                 tag_separator: str):
         super().__init__()
         self.image_tag_list_model = image_tag_list_model
         self.image_list = image_list
@@ -29,11 +30,13 @@ class TagInputBox(QLineEdit):
 
         self.setPlaceholderText('Add Tag')
         self.setStyleSheet('padding: 8px;')
-
+        settings = get_settings()
+        autocomplete_tags = settings.value(
+            'autocomplete_tags',
+            defaultValue=DEFAULT_SETTINGS['autocomplete_tags'], type=bool)
         if autocomplete_tags:
             self.completer = QCompleter(tag_counter_model)
             self.setCompleter(self.completer)
-
             self.completer.activated.connect(lambda text: self.add_tag(text))
             # Clear the input box after the completer inserts the tag into it.
             self.completer.activated.connect(
@@ -48,7 +51,8 @@ class TagInputBox(QLineEdit):
         # If Ctrl+Enter is pressed and the completer is visible, add the first
         # tag in the completer popup.
         if (event.modifiers() == Qt.KeyboardModifier.ControlModifier
-                and (self.completer is not None and self.completer.popup().isVisible())):
+                and self.completer is not None
+                and self.completer.popup().isVisible()):
             first_tag = self.completer.popup().model().data(
                 self.completer.model().index(0, 0), Qt.ItemDataRole.EditRole)
             self.add_tag(first_tag)
@@ -131,7 +135,7 @@ class ImageTagsEditor(QDockWidget):
     def __init__(self, proxy_image_list_model: ProxyImageListModel,
                  tag_counter_model: TagCounterModel,
                  image_tag_list_model: QStringListModel, image_list: ImageList,
-                 tokenizer: PreTrainedTokenizerBase, tag_separator: str, autocomplete_tags: bool=True):
+                 tokenizer: PreTrainedTokenizerBase, tag_separator: str):
         super().__init__()
         self.proxy_image_list_model = proxy_image_list_model
         self.image_tag_list_model = image_tag_list_model
@@ -146,7 +150,7 @@ class ImageTagsEditor(QDockWidget):
                              | Qt.DockWidgetArea.RightDockWidgetArea)
         self.tag_input_box = TagInputBox(self.image_tag_list_model,
                                          tag_counter_model, image_list,
-                                         tag_separator, autocomplete_tags=autocomplete_tags)
+                                         tag_separator)
         self.image_tags_list = ImageTagsList(self.image_tag_list_model)
         self.token_count_label = QLabel()
         # A container widget is required to use a layout with a `QDockWidget`.
