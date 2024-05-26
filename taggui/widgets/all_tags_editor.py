@@ -1,3 +1,5 @@
+import platform
+
 from enum import Enum
 
 from PySide6.QtCore import (QItemSelection, QItemSelectionModel, Qt, Signal,
@@ -61,7 +63,9 @@ class AllTagsList(QListView):
         Delete all instances of the selected tag when the delete key is
         pressed.
         """
-        if event.key() != Qt.Key.Key_Delete:
+        if (event.key() != Qt.Key.Key_Delete and platform.system() != "Darwin") or (
+            event.key() != Qt.Key.Key_Backspace and platform.system() == "Darwin"
+        ):
             super().keyPressEvent(event)
             return
         selected_indices = self.selectedIndexes()
