@@ -14,6 +14,7 @@ from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           BitsAndBytesConfig, CodeGenTokenizerFast,
                           LlamaTokenizer)
 
+from auto_captioning.cogvlm2 import get_cogvlm2_inputs
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
                                              monkey_patch_cogvlm)
@@ -54,7 +55,8 @@ def replace_template_variables(text: str, image: Image) -> str:
 
 def get_tokenizer_from_processor(model_type: CaptionModelType, processor):
     if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
-                      CaptionModelType.MOONDREAM1, CaptionModelType.MOONDREAM2,
+                      CaptionModelType.COGVLM2, CaptionModelType.MOONDREAM1,
+                      CaptionModelType.MOONDREAM2,
                       CaptionModelType.XCOMPOSER2):
         return processor
     return processor.tokenizer
@@ -169,7 +171,8 @@ class CaptioningThread(QThread):
         else:
             if model_type == CaptionModelType.MOONDREAM1:
                 processor_class = CodeGenTokenizerFast
-            elif model_type in (CaptionModelType.MOONDREAM2,
+            elif model_type in (CaptionModelType.COGVLM2,
+                                CaptionModelType.MOONDREAM2,
                                 CaptionModelType.XCOMPOSER2):
                 processor_class = AutoTokenizer
             else:
@@ -207,10 +210,14 @@ class CaptioningThread(QThread):
             model_class = (AutoModelForCausalLM
                            if model_type in (CaptionModelType.COGAGENT,
                                              CaptionModelType.COGVLM,
+                                             CaptionModelType.COGVLM2,
                                              CaptionModelType.MOONDREAM1,
                                              CaptionModelType.MOONDREAM2,
                                              CaptionModelType.XCOMPOSER2)
                            else AutoModelForVision2Seq)
+            quantization_config_argument = {
+                'quantization_config': quantization_config
+            } if quantization_config else {}
             # Some models print unnecessary messages while loading, so
             # temporarily suppress printing for them.
             context_manager = (redirect_stdout(None)
@@ -220,8 +227,8 @@ class CaptioningThread(QThread):
             with context_manager:
                 model = model_class.from_pretrained(
                     model_id, device_map=device, trust_remote_code=True,
-                    quantization_config=quantization_config,
-                    **revision_argument, **dtype_argument)
+                    **quantization_config_argument, **revision_argument,
+                    **dtype_argument)
         if model_type == CaptionModelType.MOONDREAM1:
             model = monkey_patch_moondream1(device, model_id)
         if model_type != CaptionModelType.WD_TAGGER:
@@ -277,6 +284,10 @@ class CaptioningThread(QThread):
             model_inputs = get_cogvlm_cogagent_inputs(
                 model_type, model, processor, text, pil_image, beam_count,
                 device, dtype_argument)
+        elif model_type == CaptionModelType.COGVLM2:
+            model_inputs = get_cogvlm2_inputs(model, processor, text,
+                                              pil_image, device,
+                                              dtype_argument)
         elif model_type in (CaptionModelType.MOONDREAM1,
                             CaptionModelType.MOONDREAM2):
             model_inputs = get_moondream_inputs(
@@ -403,18 +414,23 @@ class CaptioningThread(QThread):
                 bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
                 forced_words_ids = get_forced_words_ids(forced_words_string,
                                                         tokenizer)
-                if model_type == CaptionModelType.LLAVA_LLAMA_3:
+                if model_type == CaptionModelType.COGVLM2:
+                    special_generation_parameters = {'pad_token_id': 128002}
+                elif model_type == CaptionModelType.LLAVA_LLAMA_3:
                     eos_token_id = (tokenizer('<|eot_id|>',
                                               add_special_tokens=False)
                                     .input_ids)[0]
-                    eos_token_id_argument = {'eos_token_id': eos_token_id}
+                    special_generation_parameters = {
+                        'eos_token_id': eos_token_id
+                    }
                 else:
-                    eos_token_id_argument = {}
+                    special_generation_parameters = {}
                 with torch.inference_mode():
                     generated_token_ids = generation_model.generate(
                         **model_inputs, bad_words_ids=bad_words_ids,
                         force_words_ids=forced_words_ids,
-                        **eos_token_id_argument, **generation_parameters)
+                        **generation_parameters,
+                        **special_generation_parameters)
                 caption = self.get_caption_from_generated_tokens(
                     generated_token_ids, prompt, processor, model_type)
             tags = add_caption_to_tags(image.tags, caption, caption_position)

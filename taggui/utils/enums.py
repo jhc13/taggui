@@ -29,6 +29,7 @@ class CaptionDevice(str, Enum):
 class CaptionModelType(Enum):
     COGAGENT = auto()
     COGVLM = auto()
+    COGVLM2 = auto()
     KOSMOS = auto()
     LLAVA_1_5 = auto()
     LLAVA_LLAMA_3 = auto()

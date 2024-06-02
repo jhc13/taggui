@@ -5,7 +5,8 @@ from utils.enums import CaptionModelType
 
 def get_default_prompt(model_type: CaptionModelType) -> str:
     if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
-                      CaptionModelType.LLAVA_1_5, CaptionModelType.MOONDREAM1,
+                      CaptionModelType.COGVLM2, CaptionModelType.LLAVA_1_5,
+                      CaptionModelType.MOONDREAM1,
                       CaptionModelType.MOONDREAM2):
         return 'Describe the image in twenty words or less.'
     if model_type in (CaptionModelType.LLAVA_LLAMA_3,
@@ -19,6 +20,8 @@ def get_default_prompt(model_type: CaptionModelType) -> str:
 
 
 def format_prompt(prompt: str, model_type: CaptionModelType) -> str:
+    if model_type == CaptionModelType.COGVLM2:
+        return f'Question: {prompt} Answer:'
     if model_type == CaptionModelType.KOSMOS:
         return f'<grounding>{prompt}'
     if model_type == CaptionModelType.LLAVA_1_5:
