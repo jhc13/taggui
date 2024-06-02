@@ -1,5 +1,3 @@
-import platform
-
 from PySide6.QtCore import (QItemSelectionModel, QModelIndex, QStringListModel,
                             QTimer, Qt, Signal, Slot)
 from PySide6.QtGui import QKeyEvent
@@ -105,10 +103,10 @@ class ImageTagsList(QListView):
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
 
     def keyPressEvent(self, event: QKeyEvent):
-        """Delete selected tags when the delete key is pressed."""
-        if (event.key() != Qt.Key.Key_Delete and platform.system() != "Darwin") or (
-            event.key() != Qt.Key.Key_Backspace and platform.system() == "Darwin"
-        ):
+        """
+        Delete selected tags when the delete key or backspace key is pressed.
+        """
+        if event.key() not in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace):
             super().keyPressEvent(event)
             return
         rows_to_remove = [index.row() for index in self.selectedIndexes()]
