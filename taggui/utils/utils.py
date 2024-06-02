@@ -4,7 +4,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QMessageBox
 
 
-def get_resource_path(unbundled_resource_path: Path):
+def get_resource_path(unbundled_resource_path: Path) -> Path:
     """
     Get the path to a resource, ensuring that it is valid even when the program
     is bundled with PyInstaller.
@@ -15,7 +15,7 @@ def get_resource_path(unbundled_resource_path: Path):
     return resource_path
 
 
-def pluralize(word: str, count: int):
+def pluralize(word: str, count: int) -> str:
     if count == 1:
         return word
     return f'{word}s'
