@@ -9,10 +9,10 @@ import torch
 from PIL import Image as PilImage, UnidentifiedImageError
 from PIL.ImageOps import exif_transpose
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal
-from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
-                          AutoProcessor, AutoTokenizer, BatchFeature,
-                          BitsAndBytesConfig, CodeGenTokenizerFast,
-                          LlamaTokenizer)
+from transformers import (AutoConfig, AutoModelForCausalLM,
+                          AutoModelForVision2Seq, AutoProcessor, AutoTokenizer,
+                          BatchFeature, BitsAndBytesConfig,
+                          CodeGenTokenizerFast, LlamaTokenizer)
 
 from auto_captioning.cogvlm2 import get_cogvlm2_inputs
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
@@ -195,8 +195,7 @@ class CaptioningThread(QThread):
                 revision_argument = {'revision': '2024-03-13'}
             else:
                 revision_argument = {}
-            # CogVLM2 has a predefined quantization configuration.
-            if load_in_4_bit and model_type != CaptionModelType.COGVLM2:
+            if load_in_4_bit:
                 quantization_config = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_quant_type='nf4',
@@ -204,10 +203,22 @@ class CaptioningThread(QThread):
                     bnb_4bit_use_double_quant=True
                 )
                 dtype_argument = {}
+                if model_type == CaptionModelType.COGVLM2:
+                    config = AutoConfig.from_pretrained(model_id,
+                                                        trust_remote_code=True)
+                    config.quantization_config = quantization_config
+                    quantization_config_argument = {}
+                    config_argument = {'config': config}
+                else:
+                    quantization_config_argument = {
+                        'quantization_config': quantization_config
+                    }
+                    config_argument = {}
             else:
-                quantization_config = None
                 dtype_argument = ({'torch_dtype': torch.float16}
                                   if device.type == 'cuda' else {})
+                quantization_config_argument = {}
+                config_argument = {}
             model_class = (AutoModelForCausalLM
                            if model_type in (CaptionModelType.COGAGENT,
                                              CaptionModelType.COGVLM,
@@ -216,9 +227,6 @@ class CaptioningThread(QThread):
                                              CaptionModelType.MOONDREAM2,
                                              CaptionModelType.XCOMPOSER2)
                            else AutoModelForVision2Seq)
-            quantization_config_argument = {
-                'quantization_config': quantization_config
-            } if quantization_config else {}
             # Some models print unnecessary messages while loading, so
             # temporarily suppress printing for them.
             context_manager = (redirect_stdout(None)
@@ -228,8 +236,8 @@ class CaptioningThread(QThread):
             with context_manager:
                 model = model_class.from_pretrained(
                     model_id, device_map=device, trust_remote_code=True,
-                    **quantization_config_argument, **revision_argument,
-                    **dtype_argument)
+                    **revision_argument, **dtype_argument,
+                    **quantization_config_argument, **config_argument)
         if model_type == CaptionModelType.MOONDREAM1:
             model = monkey_patch_moondream1(device, model_id)
         if model_type != CaptionModelType.WD_TAGGER:
