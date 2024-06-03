@@ -2,8 +2,29 @@ import torch
 from PIL import Image as PilImage
 from torchvision import transforms
 
+from utils.enums import CaptionDevice
+
 LANGUAGE_TOKEN_TYPE_ID = 0
 VISION_TOKEN_TYPE_ID = 1
+
+
+def get_cogvlm2_error_message(model_id: str, device: CaptionDevice,
+                              load_in_4_bit: bool) -> str | None:
+    is_4_bit_model = 'int4' in model_id
+    if is_4_bit_model:
+        if device == CaptionDevice.CPU:
+            return ('This version of the model can only be loaded on a GPU. '
+                    'Select THUDM/cogvlm2-llama3-chat-19B if you want to load '
+                    'the model on the CPU.')
+        if not load_in_4_bit:
+            return ('This version of the model can only be loaded in 4-bit. '
+                    'Select THUDM/cogvlm2-llama3-chat-19B if you do not want '
+                    'to load the model in 4-bit.')
+    elif load_in_4_bit:
+        return ('This version of the model cannot be loaded in 4-bit. Select '
+                'THUDM/cogvlm2-llama3-chat-19B-int4 if you want to load the '
+                'model in 4-bit.')
+    return None
 
 
 def get_cogvlm2_inputs(model, processor, text: str, pil_image: PilImage,

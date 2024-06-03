@@ -4,6 +4,7 @@ MODELS = [
     'internlm/internlm-xcomposer2-vl-7b-4bit',
     'internlm/internlm-xcomposer2-vl-7b',
     'THUDM/cogvlm2-llama3-chat-19B-int4',
+    'THUDM/cogvlm2-llama3-chat-19B',
     'THUDM/cogvlm-chat-hf',
     'THUDM/cogagent-vqa-hf',
     'llava-hf/llava-v1.6-mistral-7b-hf',

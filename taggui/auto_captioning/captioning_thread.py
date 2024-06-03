@@ -14,7 +14,8 @@ from transformers import (AutoConfig, AutoModelForCausalLM,
                           BatchFeature, BitsAndBytesConfig,
                           CodeGenTokenizerFast, LlamaTokenizer)
 
-from auto_captioning.cogvlm2 import get_cogvlm2_inputs
+from auto_captioning.cogvlm2 import (get_cogvlm2_error_message,
+                                     get_cogvlm2_inputs)
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
                                              monkey_patch_cogvlm)
@@ -353,8 +354,8 @@ class CaptioningThread(QThread):
                                   if torch.cuda.is_available() else 'cpu')
         load_in_4_bit = self.caption_settings['load_in_4_bit']
         error_message = None
-        if model_type == CaptionModelType.XCOMPOSER2:
-            error_message = get_xcomposer2_error_message(
+        if model_type == CaptionModelType.COGVLM2:
+            error_message = get_cogvlm2_error_message(
                 model_id, self.caption_settings['device'], load_in_4_bit)
         elif model_type in (CaptionModelType.MOONDREAM1,
                             CaptionModelType.MOONDREAM2):
@@ -362,6 +363,9 @@ class CaptioningThread(QThread):
                 'num_beams']
             error_message = get_moondream_error_message(load_in_4_bit,
                                                         beam_count)
+        elif model_type == CaptionModelType.XCOMPOSER2:
+            error_message = get_xcomposer2_error_message(
+                model_id, self.caption_settings['device'], load_in_4_bit)
         if error_message:
             self.clear_console_text_edit_requested.emit()
             print(error_message)
