@@ -7,7 +7,8 @@ VISION_TOKEN_TYPE_ID = 1
 
 
 def get_cogvlm2_inputs(model, processor, text: str, pil_image: PilImage,
-                       device: torch.device, dtype_argument: dict) -> dict:
+                       device: torch.device, dtype_argument: dict,
+                       beam_count: int) -> dict:
     image_size = model.config.vision_config['image_size']
     patch_size = model.config.vision_config['patch_size']
     vision_tokens_count = ((image_size // patch_size // 2)
@@ -35,6 +36,7 @@ def get_cogvlm2_inputs(model, processor, text: str, pil_image: PilImage,
         'input_ids': torch.tensor(input_ids).unsqueeze(0).to(device),
         'token_type_ids': torch.tensor(token_type_ids).unsqueeze(0).to(device),
         'attention_mask': torch.tensor(attention_mask).unsqueeze(0).to(device),
-        'images': [[image.to(device, **dtype_argument)]]
+        'images': [[image.to(device, **dtype_argument)]
+                   for _ in range(beam_count)]
     }
     return inputs

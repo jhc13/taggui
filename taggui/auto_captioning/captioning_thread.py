@@ -285,18 +285,18 @@ class CaptioningThread(QThread):
         else:
             text = prompt or caption_start
         # Convert the text and image to model inputs.
+        beam_count = self.caption_settings['generation_parameters'][
+            'num_beams']
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
         if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
-            beam_count = self.caption_settings['generation_parameters'][
-                'num_beams']
             model_inputs = get_cogvlm_cogagent_inputs(
                 model_type, model, processor, text, pil_image, beam_count,
                 device, dtype_argument)
         elif model_type == CaptionModelType.COGVLM2:
             model_inputs = get_cogvlm2_inputs(model, processor, text,
                                               pil_image, device,
-                                              dtype_argument)
+                                              dtype_argument, beam_count)
         elif model_type in (CaptionModelType.MOONDREAM1,
                             CaptionModelType.MOONDREAM2):
             model_inputs = get_moondream_inputs(
