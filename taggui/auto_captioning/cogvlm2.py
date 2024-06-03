@@ -32,12 +32,9 @@ def get_cogvlm2_inputs(model, processor, text: str, pil_image: PilImage,
     ])
     image = transform(pil_image)
     inputs = {
-        'input_ids': (torch.tensor(input_ids, dtype=torch.long).unsqueeze(0)
-                      .to(device)),
-        'token_type_ids': (torch.tensor(token_type_ids, dtype=torch.long)
-                           .unsqueeze(0).to(device)),
-        'attention_mask': (torch.tensor(attention_mask, dtype=torch.long)
-                           .unsqueeze(0).to(device)),
+        'input_ids': torch.tensor(input_ids).unsqueeze(0).to(device),
+        'token_type_ids': torch.tensor(token_type_ids).unsqueeze(0).to(device),
+        'attention_mask': torch.tensor(attention_mask).unsqueeze(0).to(device),
         'images': [[image.to(device, **dtype_argument)]]
     }
     return inputs
