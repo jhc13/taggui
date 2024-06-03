@@ -5,11 +5,10 @@ from utils.enums import CaptionModelType
 
 def get_default_prompt(model_type: CaptionModelType) -> str:
     if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
-                      CaptionModelType.COGVLM2, CaptionModelType.LLAVA_1_5,
-                      CaptionModelType.MOONDREAM1,
+                      CaptionModelType.LLAVA_1_5, CaptionModelType.MOONDREAM1,
                       CaptionModelType.MOONDREAM2):
         return 'Describe the image in twenty words or less.'
-    if model_type in (CaptionModelType.LLAVA_LLAMA_3,
+    if model_type in (CaptionModelType.COGVLM2, CaptionModelType.LLAVA_LLAMA_3,
                       CaptionModelType.LLAVA_NEXT_34B,
                       CaptionModelType.LLAVA_NEXT_MISTRAL,
                       CaptionModelType.LLAVA_NEXT_VICUNA):
