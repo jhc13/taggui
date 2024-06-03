@@ -1,3 +1,5 @@
+import importlib.util
+
 import torch
 from PIL import Image as PilImage
 from torchvision import transforms
@@ -10,6 +12,10 @@ VISION_TOKEN_TYPE_ID = 1
 
 def get_cogvlm2_error_message(model_id: str, device: CaptionDevice,
                               load_in_4_bit: bool) -> str | None:
+    if not importlib.util.find_spec('triton'):
+        return ('This model requires the `triton` package, which is only '
+                'available on Linux. Therefore, this model cannot be run on '
+                'this system.')
     is_4_bit_model = 'int4' in model_id
     if is_4_bit_model:
         if device == CaptionDevice.CPU:

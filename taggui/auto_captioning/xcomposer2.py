@@ -1,3 +1,5 @@
+import importlib.util
+
 import torch
 from PIL import Image as PilImage
 
@@ -8,9 +10,7 @@ def get_xcomposer2_error_message(model_id: str, device: CaptionDevice,
                                  load_in_4_bit: bool) -> str | None:
     is_4_bit_model = '4bit' in model_id
     if is_4_bit_model:
-        try:
-            import auto_gptq
-        except ImportError:
+        if not importlib.util.find_spec('auto_gptq'):
             return ('This version of the model requires the `auto-gptq` '
                     'package, which is only available on Linux and Windows. '
                     'Select internlm/internlm-xcomposer2-vl-7b if you are '
