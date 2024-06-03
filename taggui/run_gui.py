@@ -1,9 +1,9 @@
+import logging
 import os
 import sys
 import traceback
 import warnings
 
-import transformers
 from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -26,11 +26,13 @@ def run_gui():
 
 
 if __name__ == '__main__':
-    # Suppress warnings when not in a development environment.
+    # Suppress all warnings when not in a development environment.
     environment = os.getenv('TAGGUI_ENVIRONMENT')
-    if environment != 'development':
-        transformers.logging.set_verbosity_error()
-        warnings.simplefilter(action='ignore', category=FutureWarning)
+    if environment == 'development':
+        print('Running in development environment.')
+    else:
+        logging.basicConfig(level=logging.ERROR)
+        warnings.simplefilter('ignore')
     try:
         run_gui()
     except Exception as exception:
