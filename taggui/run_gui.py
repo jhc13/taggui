@@ -1,5 +1,7 @@
+import os
 import sys
 import traceback
+import warnings
 
 import transformers
 from PySide6.QtGui import QImageReader
@@ -24,10 +26,11 @@ def run_gui():
 
 
 if __name__ == '__main__':
-    # Suppress warnings when running inside a bundled version of the
-    # application.
-    if sys.stdout is None:
+    # Suppress warnings when not in a development environment.
+    environment = os.getenv('TAGGUI_ENVIRONMENT')
+    if environment != 'development':
         transformers.logging.set_verbosity_error()
+        warnings.simplefilter(action='ignore', category=FutureWarning)
     try:
         run_gui()
     except Exception as exception:
