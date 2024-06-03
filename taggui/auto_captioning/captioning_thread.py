@@ -195,7 +195,8 @@ class CaptioningThread(QThread):
                 revision_argument = {'revision': '2024-03-13'}
             else:
                 revision_argument = {}
-            if load_in_4_bit:
+            # CogVLM2 has a predefined quantization configuration.
+            if load_in_4_bit and model_type != CaptionModelType.COGVLM2:
                 quantization_config = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_quant_type='nf4',
