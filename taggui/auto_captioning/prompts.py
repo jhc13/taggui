@@ -61,9 +61,10 @@ def postprocess_prompt_and_generated_text(model_type: CaptionModelType,
             generated_text)
         prompt = prompt.replace('<grounding>', '')
     elif model_type in (CaptionModelType.LLAVA_1_5,
-                        CaptionModelType.LLAVA_NEXT_MISTRAL,
-                        CaptionModelType.LLAVA_NEXT_VICUNA):
+                        CaptionModelType.LLAVA_NEXT_MISTRAL):
         prompt = prompt.replace('<image>', ' ')
+    elif model_type == CaptionModelType.LLAVA_NEXT_VICUNA:
+        prompt = prompt.replace('<image>', '')
     elif model_type == CaptionModelType.LLAVA_LLAMA_3:
         prompt = prompt.replace('<|start_header_id|>', '')
         prompt = prompt.replace('<|end_header_id|>', '')
