@@ -1,9 +1,11 @@
 import importlib.util
 
+import numpy as np
 import torch
 from PIL import Image as PilImage
+from torchvision.transforms import functional
 
-from utils.enums import CaptionDevice
+from utils.enums import CaptionDevice, CaptionModelType
 
 
 def get_xcomposer2_error_message(model_id: str, device: CaptionDevice,
@@ -11,22 +13,14 @@ def get_xcomposer2_error_message(model_id: str, device: CaptionDevice,
     is_4_bit_model = '4bit' in model_id
     if is_4_bit_model:
         if not importlib.util.find_spec('auto_gptq'):
-            return ('This version of the model requires the `auto-gptq` '
-                    'package, which is only available on Linux and Windows. '
-                    'Select internlm/internlm-xcomposer2-vl-7b if you are '
-                    'using a different operating system.')
+            return ('This model requires the `auto-gptq` package, which is '
+                    'only available on Linux and Windows.')
         if device == CaptionDevice.CPU:
-            return ('This version of the model can only be loaded on a GPU. '
-                    'Select internlm/internlm-xcomposer2-vl-7b if you want to '
-                    'load the model on the CPU.')
+            return 'This model can only be loaded on a GPU.'
         if not load_in_4_bit:
-            return ('This version of the model can only be loaded in 4-bit. '
-                    'Select internlm/internlm-xcomposer2-vl-7b if you do not '
-                    'want to load the model in 4-bit.')
+            return 'This model can only be loaded in 4-bit.'
     elif load_in_4_bit:
-        return ('This version of the model cannot be loaded in 4-bit. Select '
-                'internlm/internlm-xcomposer2-vl-7b-4bit if you want to load '
-                'the model in 4-bit.')
+        return 'This model cannot be loaded in 4-bit.'
     return None
 
 
@@ -48,11 +42,47 @@ class InternLMXComposer2QuantizedForCausalLM(BaseGPTQForCausalLM):
     ]
 
 
-def get_xcomposer2_inputs(model, processor, load_in_4_bit: bool, text: str,
-                          pil_image: PilImage, device: torch.device,
-                          dtype_argument: dict) -> dict:
+def pad_image(pil_image: PilImage) -> PilImage:
+    width, height = pil_image.size
+    target_height = int(np.ceil(height / 336) * 336)
+    top_padding = int((target_height - height) / 2)
+    bottom_padding = target_height - height - top_padding
+    left_padding = 0
+    right_padding = 0
+    pil_image = functional.pad(pil_image, [left_padding, top_padding,
+                                           right_padding, bottom_padding],
+                               fill=(255, 255, 255))
+    return pil_image
+
+
+def hd_transform(pil_image: PilImage, hd_number: int = 25) -> PilImage:
+    width, height = pil_image.size
+    transposed = False
+    if width < height:
+        pil_image = pil_image.transpose(PilImage.Transpose.TRANSPOSE)
+        transposed = True
+        width, height = pil_image.size
+    aspect_ratio = width / height
+    scale = 1
+    while scale * np.ceil(scale / aspect_ratio) <= hd_number:
+        scale += 1
+    scale -= 1
+    new_width = int(scale * 336)
+    new_height = int(new_width / aspect_ratio)
+    pil_image = functional.resize(pil_image, [new_height, new_width])
+    pil_image = pad_image(pil_image)
+    if transposed:
+        pil_image = pil_image.transpose(PilImage.Transpose.TRANSPOSE)
+    return pil_image
+
+
+def get_xcomposer2_inputs(model_type: CaptionModelType, model, processor,
+                          load_in_4_bit: bool, text: str, pil_image: PilImage,
+                          device: torch.device, dtype_argument: dict) -> dict:
     input_embeddings_parts = []
     image_mask_parts = []
+    if model_type == CaptionModelType.XCOMPOSER2_4KHD:
+        pil_image = hd_transform(pil_image)
     processed_image = model.vis_processor(pil_image).unsqueeze(0).to(
         device, **dtype_argument)
     image_embeddings, *_ = model.img2emb(processed_image)

@@ -13,7 +13,8 @@ def get_default_prompt(model_type: CaptionModelType) -> str:
                       CaptionModelType.LLAVA_NEXT_MISTRAL,
                       CaptionModelType.LLAVA_NEXT_VICUNA):
         return 'Describe the image in one sentence.'
-    if model_type == CaptionModelType.XCOMPOSER2:
+    if model_type in (CaptionModelType.XCOMPOSER2,
+                      CaptionModelType.XCOMPOSER2_4KHD):
         return 'Concisely describe the image.'
     return ''
 
@@ -43,7 +44,8 @@ def format_prompt(prompt: str, model_type: CaptionModelType) -> str:
     if model_type in (CaptionModelType.MOONDREAM1,
                       CaptionModelType.MOONDREAM2):
         return f'<image>\n\nQuestion: {prompt}\n\nAnswer:'
-    if model_type == CaptionModelType.XCOMPOSER2:
+    if model_type in (CaptionModelType.XCOMPOSER2,
+                      CaptionModelType.XCOMPOSER2_4KHD):
         return (f'[UNUSED_TOKEN_146]user\n<ImageHere>{prompt}'
                 f'[UNUSED_TOKEN_145]\n[UNUSED_TOKEN_146]assistant\n')
     return prompt
@@ -78,6 +80,7 @@ def postprocess_prompt_and_generated_text(model_type: CaptionModelType,
                         CaptionModelType.MOONDREAM2):
         generated_text = re.sub('END$', '', generated_text)
         generated_text = re.sub('<$', '', generated_text)
-    elif model_type == CaptionModelType.XCOMPOSER2:
+    elif model_type in (CaptionModelType.XCOMPOSER2,
+                        CaptionModelType.XCOMPOSER2_4KHD):
         generated_text = generated_text.split('[UNUSED_TOKEN_145]')[0]
     return prompt, generated_text

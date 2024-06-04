@@ -3,6 +3,7 @@ from utils.enums import CaptionModelType
 MODELS = [
     'internlm/internlm-xcomposer2-vl-7b-4bit',
     'internlm/internlm-xcomposer2-vl-7b',
+    'internlm/internlm-xcomposer2-4khd-7b',
     'THUDM/cogvlm-chat-hf',
     'THUDM/cogagent-vqa-hf',
     'THUDM/cogvlm2-llama3-chat-19B-int4',
@@ -65,5 +66,7 @@ def get_model_type(model_id: str) -> CaptionModelType:
     if 'wd' in lowercase_model_id and 'tagger' in lowercase_model_id:
         return CaptionModelType.WD_TAGGER
     if 'xcomposer2' in lowercase_model_id:
+        if '4khd' in lowercase_model_id:
+            return CaptionModelType.XCOMPOSER2_4KHD
         return CaptionModelType.XCOMPOSER2
     return CaptionModelType.OTHER

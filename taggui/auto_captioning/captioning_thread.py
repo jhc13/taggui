@@ -58,7 +58,8 @@ def get_tokenizer_from_processor(model_type: CaptionModelType, processor):
     if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
                       CaptionModelType.COGVLM2, CaptionModelType.MOONDREAM1,
                       CaptionModelType.MOONDREAM2,
-                      CaptionModelType.XCOMPOSER2):
+                      CaptionModelType.XCOMPOSER2,
+                      CaptionModelType.XCOMPOSER2_4KHD):
         return processor
     return processor.tokenizer
 
@@ -174,7 +175,8 @@ class CaptioningThread(QThread):
                 processor_class = CodeGenTokenizerFast
             elif model_type in (CaptionModelType.COGVLM2,
                                 CaptionModelType.MOONDREAM2,
-                                CaptionModelType.XCOMPOSER2):
+                                CaptionModelType.XCOMPOSER2,
+                                CaptionModelType.XCOMPOSER2_4KHD):
                 processor_class = AutoTokenizer
             else:
                 processor_class = AutoProcessor
@@ -226,14 +228,17 @@ class CaptioningThread(QThread):
                                              CaptionModelType.COGVLM2,
                                              CaptionModelType.MOONDREAM1,
                                              CaptionModelType.MOONDREAM2,
-                                             CaptionModelType.XCOMPOSER2)
+                                             CaptionModelType.XCOMPOSER2,
+                                             CaptionModelType.XCOMPOSER2_4KHD)
                            else AutoModelForVision2Seq)
             # Some models print unnecessary messages while loading, so
             # temporarily suppress printing for them.
-            context_manager = (redirect_stdout(None)
-                               if model_type in (CaptionModelType.COGAGENT,
-                                                 CaptionModelType.XCOMPOSER2)
-                               else nullcontext())
+            context_manager = (
+                redirect_stdout(None)
+                if model_type in (CaptionModelType.COGAGENT,
+                                  CaptionModelType.XCOMPOSER2,
+                                  CaptionModelType.XCOMPOSER2_4KHD)
+                else nullcontext())
             with context_manager:
                 model = model_class.from_pretrained(
                     model_id, device_map=device, trust_remote_code=True,
@@ -279,7 +284,8 @@ class CaptioningThread(QThread):
             text = prompt
         elif model_type in (CaptionModelType.LLAVA_LLAMA_3,
                             CaptionModelType.LLAVA_NEXT_34B,
-                            CaptionModelType.XCOMPOSER2):
+                            CaptionModelType.XCOMPOSER2,
+                            CaptionModelType.XCOMPOSER2_4KHD):
             text = prompt + caption_start
         elif prompt and caption_start:
             text = f'{prompt} {caption_start}'
@@ -302,11 +308,12 @@ class CaptioningThread(QThread):
                             CaptionModelType.MOONDREAM2):
             model_inputs = get_moondream_inputs(
                 model, processor, text, pil_image, device, dtype_argument)
-        elif model_type == CaptionModelType.XCOMPOSER2:
+        elif model_type in (CaptionModelType.XCOMPOSER2,
+                            CaptionModelType.XCOMPOSER2_4KHD):
             load_in_4_bit = self.caption_settings['load_in_4_bit']
             model_inputs = get_xcomposer2_inputs(
-                model, processor, load_in_4_bit, text, pil_image, device,
-                dtype_argument)
+                model_type, model, processor, load_in_4_bit, text, pil_image,
+                device, dtype_argument)
         else:
             model_inputs = (processor(text=text, images=pil_image,
                                       return_tensors='pt')
@@ -363,7 +370,8 @@ class CaptioningThread(QThread):
                 'num_beams']
             error_message = get_moondream_error_message(load_in_4_bit,
                                                         beam_count)
-        elif model_type == CaptionModelType.XCOMPOSER2:
+        elif model_type in (CaptionModelType.XCOMPOSER2,
+                            CaptionModelType.XCOMPOSER2_4KHD):
             error_message = get_xcomposer2_error_message(
                 model_id, self.caption_settings['device'], load_in_4_bit)
         if error_message:

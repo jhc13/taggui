@@ -24,8 +24,8 @@ xformers==0.0.25.post1
 
 # InternLM-XComposer2
 auto-gptq==0.7.1; platform_system == "Linux" or platform_system == "Windows"
+numpy==1.26.4
 
 # WD Tagger
 huggingface-hub==0.23.2
-numpy==1.26.4
 onnxruntime==1.18.0

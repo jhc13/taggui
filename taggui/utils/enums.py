@@ -40,4 +40,5 @@ class CaptionModelType(Enum):
     MOONDREAM2 = auto()
     WD_TAGGER = auto()
     XCOMPOSER2 = auto()
+    XCOMPOSER2_4KHD = auto()
     OTHER = auto()
