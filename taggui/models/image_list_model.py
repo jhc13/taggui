@@ -112,13 +112,17 @@ class ImageListModel(QAbstractListModel):
         settings = get_settings()
         image_suffixes_string = settings.value(
             'image_list_file_formats',
-            defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str
-        )
-        image_suffixes = {suffix.strip().lower() if suffix.startswith('.') else '.' + suffix.strip().lower()
-                          for suffix in image_suffixes_string.split(',')}
-        
-        image_paths = [path for path in file_paths if path.suffix.lower() in image_suffixes]
-        text_file_paths = {path for path in file_paths if path.suffix == '.txt'}
+            defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)
+        image_suffixes = []
+        for suffix in image_suffixes_string.split(','):
+            suffix = suffix.strip().lower()
+            if not suffix.startswith('.'):
+                suffix = '.' + suffix
+            image_suffixes.append(suffix)
+        image_paths = [path for path in file_paths
+                       if path.suffix.lower() in image_suffixes]
+        text_file_paths = [path for path in file_paths
+                           if path.suffix == '.txt']
 
         def process_image(image_path):
             try:
@@ -127,8 +131,7 @@ class ImageListModel(QAbstractListModel):
                 with open(image_path, 'rb') as image_file:
                     try:
                         exif_tags = exifread.process_file(
-                            image_file, details=False, stop_tag='Image Orientation'
-                        )
+                            image_file, details=False, stop_tag='Image Orientation')
                         if 'Image Orientation' in exif_tags:
                             orientations = exif_tags['Image Orientation'].values
                             if any(value in orientations for value in (5, 6, 7, 8)):
@@ -142,6 +145,8 @@ class ImageListModel(QAbstractListModel):
             tags = []
             text_file_path = image_path.with_suffix('.txt')
             if text_file_path in text_file_paths:
+                # `errors='replace'` inserts a replacement marker such as '?'
+                # when there is malformed data.
                 try:
                     caption = text_file_path.read_text(encoding='utf-8', errors='replace')
                     if caption:
