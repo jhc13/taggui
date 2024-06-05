@@ -1,5 +1,6 @@
 import random
 import sys
+from os.path import splitext
 from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
@@ -16,8 +17,6 @@ from exifread.heic import NoParser
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 UNDO_STACK_SIZE = 32
 
@@ -107,7 +106,6 @@ class ImageListModel(QAbstractListModel):
         self.undo_stack.clear()
         self.redo_stack.clear()
         self.update_undo_and_redo_actions_requested.emit()
-        
         file_paths = get_file_paths(directory_path)
         settings = get_settings()
         image_suffixes_string = settings.value(
@@ -121,47 +119,49 @@ class ImageListModel(QAbstractListModel):
             image_suffixes.append(suffix)
         image_paths = [path for path in file_paths
                        if path.suffix.lower() in image_suffixes]
+#        image_strs = [str(path) for path in image_paths]
         text_file_paths = [path for path in file_paths
                            if path.suffix == '.txt']
-
-        def process_image(image_path):
+        txt_strs = [str(path) for path in text_file_paths]
+        print(txt_strs)
+        for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
-                # Check the Exif orientation tag and rotate the dimensions if necessary.
+                # Check the Exif orientation tag and rotate the dimensions if
+                # necessary.
                 with open(image_path, 'rb') as image_file:
                     try:
                         exif_tags = exifread.process_file(
-                            image_file, details=False, stop_tag='Image Orientation')
+                            image_file, details=False,
+                            stop_tag='Image Orientation')
                         if 'Image Orientation' in exif_tags:
-                            orientations = exif_tags['Image Orientation'].values
-                            if any(value in orientations for value in (5, 6, 7, 8)):
+                            orientations = (exif_tags['Image Orientation']
+                                            .values)
+                            if any(value in orientations
+                                   for value in (5, 6, 7, 8)):
                                 dimensions = (dimensions[1], dimensions[0])
                     except (KeyError, NoParser) as exception:
-                        print(f'Failed to get Exif tags for {image_path}: {exception}', file=sys.stderr)
+                        print(f'Failed to get Exif tags for {image_path}: '
+                              f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
-                print(f'Failed to get dimensions for {image_path}: {exception}', file=sys.stderr)
+                print(f'Failed to get dimensions for {image_path}: '
+                      f'{exception}', file=sys.stderr)
                 dimensions = None
-
             tags = []
-            text_file_path = image_path.with_suffix('.txt')
-            if text_file_path in text_file_paths:
+            text_file_path = splitext(str(image_path))[0] + '.txt'
+#            print(text_file_path)
+            if text_file_path in txt_strs:
+#                print('in path')
                 # `errors='replace'` inserts a replacement marker such as '?'
                 # when there is malformed data.
-                try:
-                    caption = text_file_path.read_text(encoding='utf-8', errors='replace')
-                    if caption:
-                        tags = [tag.strip() for tag in caption.split(self.tag_separator) if tag.strip()]
-                except Exception as e:
-                    print(f'Failed to read tags from {text_file_path}: {e}', file=sys.stderr)
-
-            return Image(image_path, dimensions, tags)
-
-        with ThreadPoolExecutor() as executor:
-            future_to_image = {executor.submit(process_image, path): path for path in image_paths}
-            for future in as_completed(future_to_image):
-                image = future.result()
-                self.images.append(image)
-
+                caption = image_path.with_suffix('.txt').read_text(encoding='utf-8',
+                                                   errors='replace')
+                if caption:
+                    tags = caption.split(self.tag_separator)
+                    tags = [tag.strip() for tag in tags]
+                    tags = [tag for tag in tags if tag]
+            image = Image(image_path, dimensions, tags)
+            self.images.append(image)
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
 
