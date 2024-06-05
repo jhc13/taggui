@@ -123,7 +123,7 @@ class ImageListModel(QAbstractListModel):
         text_file_paths = [path for path in file_paths
                            if path.suffix == '.txt']
         txt_strs = [str(path) for path in text_file_paths]
-        print(txt_strs)
+        #print(txt_strs)
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
