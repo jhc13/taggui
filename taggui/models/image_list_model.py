@@ -1,5 +1,6 @@
 import random
 import sys
+from os.path import splitext
 from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
@@ -116,10 +117,11 @@ class ImageListModel(QAbstractListModel):
             if not suffix.startswith('.'):
                 suffix = '.' + suffix
             image_suffixes.append(suffix)
-        image_paths = {path for path in file_paths
-                       if path.suffix.lower() in image_suffixes}
-        text_file_paths = {path for path in file_paths
-                           if path.suffix == '.txt'}
+        image_paths = [path for path in file_paths 
+                       if str(path).lower().endswith(tuple(image_suffixes))]
+        text_file_paths = [path for path in file_paths
+                           if path.suffix == '.txt']
+        txt_strs = {str(path) for path in text_file_paths}
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
@@ -144,11 +146,11 @@ class ImageListModel(QAbstractListModel):
                       f'{exception}', file=sys.stderr)
                 dimensions = None
             tags = []
-            text_file_path = image_path.with_suffix('.txt')
-            if text_file_path in text_file_paths:
+            text_file_path = splitext(str(image_path))[0] + '.txt'
+            if text_file_path in txt_strs:
                 # `errors='replace'` inserts a replacement marker such as '?'
                 # when there is malformed data.
-                caption = text_file_path.read_text(encoding='utf-8',
+                caption = image_path.with_suffix('.txt').read_text(encoding='utf-8',
                                                    errors='replace')
                 if caption:
                     tags = caption.split(self.tag_separator)
