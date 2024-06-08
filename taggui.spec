@@ -23,6 +23,7 @@ a = Analysis(
     noarchive=False,
     module_collection_mode={
         'auto_gptq': 'pyz+py',
+        'triton': 'py',
         'xformers': 'pyz+py',
     },
 )
