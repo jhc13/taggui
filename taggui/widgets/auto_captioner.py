@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from playsound import playsound
 
 from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
@@ -19,7 +20,7 @@ from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsSpinBox,
                                     SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsPlainTextEdit)
-from utils.utils import get_confirmation_dialog_reply, pluralize
+from utils.utils import get_confirmation_dialog_checkbox_reply, pluralize
 from widgets.image_list import ImageList
 
 
@@ -357,6 +358,7 @@ class AutoCaptioner(QDockWidget):
         self.image_list = image_list
         self.settings = get_settings()
         self.is_captioning = False
+        self.notify_when_finished = False
         self.captioning_thread = None
         self.processor = None
         self.model = None
@@ -410,6 +412,24 @@ class AutoCaptioner(QDockWidget):
             # Start captioning.
             self.generate_captions()
 
+    @Slot()
+    def do_notify_when_finished(self):
+        if self.notify_when_finished:
+            #print("finished")
+
+            try:
+                playsound("taggui/tada.ogg", False)
+            except:
+                pass
+
+            dialog = QMessageBox()
+            dialog.setIcon(QMessageBox.Icon.Information)
+            dialog.setText("Captioning finished")
+            dialog.show()
+            dialog.raise_()
+            dialog.activateWindow()
+            dialog.exec()
+
     def set_is_captioning(self, is_captioning: bool):
         self.is_captioning = is_captioning
         button_text = ('Cancel Auto-Captioning' if is_captioning
@@ -443,12 +463,15 @@ class AutoCaptioner(QDockWidget):
     def generate_captions(self):
         selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
+        self.notify_when_finished = False
         if selected_image_count > 1:
-            reply = get_confirmation_dialog_reply(
+            reply, notify_when_finished = get_confirmation_dialog_checkbox_reply(
                 title='Generate Captions',
-                question=f'Caption {selected_image_count} selected images?')
+                question=f'Caption {selected_image_count} selected images?',
+                checkbox='Notify when finished',)
             if reply != QMessageBox.StandardButton.Yes:
                 return
+            self.notify_when_finished = notify_when_finished
         self.set_is_captioning(True)
         caption_settings = self.caption_settings_form.get_caption_settings()
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
@@ -483,6 +506,7 @@ class AutoCaptioner(QDockWidget):
         self.captioning_thread.finished.connect(self.progress_bar.hide)
         self.captioning_thread.finished.connect(
             lambda: self.start_cancel_button.setEnabled(True))
+        self.captioning_thread.finished.connect(self.do_notify_when_finished)
         # Redirect `stdout` and `stderr` so that the outputs are displayed in
         # the console text edit.
         sys.stdout = self.captioning_thread
