@@ -11,7 +11,6 @@ from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
-from exifread.heic import NoParser
 
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
@@ -136,7 +135,7 @@ class ImageListModel(QAbstractListModel):
                             if any(value in orientations
                                    for value in (5, 6, 7, 8)):
                                 dimensions = (dimensions[1], dimensions[0])
-                    except (KeyError, NoParser) as exception:
+                    except Exception as exception:
                         print(f'Failed to get Exif tags for {image_path}: '
                               f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
