@@ -407,7 +407,7 @@ class CaptioningThread(QThread):
             try:
                 model_inputs = self.get_model_inputs(image, prompt, model_type,
                                                      device, model, processor)
-            except UnidentifiedImageError:
+            except Exception as exception: # UnidentifiedImageError
                 print(f'Skipping {image.path.name} because its file format is '
                       'not supported or it is a corrupted image.')
                 continue
