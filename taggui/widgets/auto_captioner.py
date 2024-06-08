@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from playsound import playsound
+from playsound3 import playsound
 
 from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
