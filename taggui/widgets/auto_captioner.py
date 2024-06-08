@@ -413,8 +413,8 @@ class AutoCaptioner(QDockWidget):
             self.generate_captions()
 
     @Slot()
-    def do_notify_when_finished(self):
-        if self.notify_when_finished:
+    def notify_finished(self):
+        if not self.captioning_thread.is_canceled:
             #print("finished")
 
             try:
@@ -506,7 +506,8 @@ class AutoCaptioner(QDockWidget):
         self.captioning_thread.finished.connect(self.progress_bar.hide)
         self.captioning_thread.finished.connect(
             lambda: self.start_cancel_button.setEnabled(True))
-        self.captioning_thread.finished.connect(self.do_notify_when_finished)
+        if self.notify_when_finished:
+            self.captioning_thread.finished.connect(self.notify_finished)
         # Redirect `stdout` and `stderr` so that the outputs are displayed in
         # the console text edit.
         sys.stdout = self.captioning_thread
