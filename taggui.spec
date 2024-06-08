@@ -2,6 +2,8 @@
 from PyInstaller.utils.hooks import collect_data_files
 
 datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'), ('images/icon.ico', 'images')]
+datas += [('/usr/include/python3.11', 'include/python3.11')]
+datas += collect_data_files('triton')
 datas += collect_data_files('xformers')
 
 block_cipher = None
