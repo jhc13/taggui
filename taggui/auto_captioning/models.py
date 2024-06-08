@@ -35,12 +35,15 @@ MODELS = [
     'Salesforce/blip2-opt-6.7b-coco',
     'Salesforce/blip2-flan-t5-xl',
     'Salesforce/blip2-flan-t5-xxl',
-    'microsoft/kosmos-2-patch14-224'
+    'microsoft/kosmos-2-patch14-224',
+    '__debug__/passthrough',
 ]
 
 
 def get_model_type(model_id: str) -> CaptionModelType:
     lowercase_model_id = model_id.lower()
+    if '__debug__' in lowercase_model_id:
+        return CaptionModelType.DEBUG
     if 'cogagent' in lowercase_model_id:
         return CaptionModelType.COGAGENT
     if 'cogvlm2' in lowercase_model_id:

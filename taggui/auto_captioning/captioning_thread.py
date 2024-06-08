@@ -1,5 +1,6 @@
 import gc
 import re
+import sys
 from contextlib import nullcontext, redirect_stdout
 from pathlib import Path
 from time import perf_counter
@@ -19,6 +20,7 @@ from auto_captioning.cogvlm2 import (get_cogvlm2_error_message,
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
                                              monkey_patch_cogvlm)
+from auto_captioning.debug import DebugModel, DebugProcessor, get_debug_model_inputs
 from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
                                        get_moondream_inputs,
@@ -166,7 +168,9 @@ class CaptioningThread(QThread):
             gc.collect()
         self.clear_console_text_edit_requested.emit()
         print(f'Loading {model_id}...')
-        if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
+        if model_type == CaptionModelType.DEBUG:
+            processor = DebugProcessor()
+        elif model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
             processor = LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
         elif model_type == CaptionModelType.WD_TAGGER:
             processor = None
@@ -187,7 +191,10 @@ class CaptioningThread(QThread):
                           CaptionModelType.LLAVA_NEXT_VICUNA):
             processor.tokenizer.padding_side = 'left'
         self.parent().processor = processor
-        if model_type == CaptionModelType.XCOMPOSER2 and load_in_4_bit:
+        if model_type == CaptionModelType.DEBUG:
+            model = DebugModel()
+            model_id = "debug"
+        elif model_type == CaptionModelType.XCOMPOSER2 and load_in_4_bit:
             with redirect_stdout(None):
                 model = InternLMXComposer2QuantizedForCausalLM.from_quantized(
                     model_id, trust_remote_code=True, device=str(device))
@@ -296,7 +303,9 @@ class CaptioningThread(QThread):
             'num_beams']
         dtype_argument = ({'dtype': torch.float16}
                           if device.type == 'cuda' else {})
-        if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
+        if model_type == CaptionModelType.DEBUG:
+            model_inputs = get_debug_model_inputs(model, processor, text, pil_image)
+        elif model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM):
             model_inputs = get_cogvlm_cogagent_inputs(
                 model_type, model, processor, text, pil_image, beam_count,
                 device, dtype_argument)
@@ -405,6 +414,7 @@ class CaptioningThread(QThread):
                                                       Qt.ItemDataRole.UserRole)
             prompt = self.get_prompt(model_type, image)
             try:
+                #stdout = sys.stdout; sys.stdout = sys.__stdout__; print(str(image.path)); sys.stdout = stdout
                 model_inputs = self.get_model_inputs(image, prompt, model_type,
                                                      device, model, processor)
             except UnidentifiedImageError:
@@ -412,7 +422,9 @@ class CaptioningThread(QThread):
                       'not supported or it is a corrupted image.')
                 continue
             console_output_caption = None
-            if model_type == CaptionModelType.WD_TAGGER:
+            if model_type == CaptionModelType.DEBUG:
+                caption = prompt
+            elif model_type == CaptionModelType.WD_TAGGER:
                 wd_tagger_settings = self.caption_settings[
                     'wd_tagger_settings']
                 tags, probabilities = model.generate_tags(model_inputs,

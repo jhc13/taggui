@@ -41,4 +41,5 @@ class CaptionModelType(Enum):
     WD_TAGGER = auto()
     XCOMPOSER2 = auto()
     XCOMPOSER2_4KHD = auto()
+    DEBUG = auto()
     OTHER = auto()
