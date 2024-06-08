@@ -39,3 +39,16 @@ def get_confirmation_dialog_reply(title: str, question: str) -> int:
                                            | QMessageBox.StandardButton.Cancel)
     confirmation_dialog.setDefaultButton(QMessageBox.StandardButton.Yes)
     return confirmation_dialog.exec()
+
+def get_pretty_duration(seconds: float) -> str:
+    MIN = 60
+    HOUR = 60 * MIN
+    DAY = 24 * HOUR
+    if seconds < MIN:
+        return f"{seconds:.1f} s"
+    elif seconds < HOUR:
+        return f"{(seconds / MIN):.1f} min"
+    elif seconds < DAY:
+        return f"{(seconds / HOUR):.1f} h"
+    else:
+        return f"{(seconds / DAY):.1f} d"

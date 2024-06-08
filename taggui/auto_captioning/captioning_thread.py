@@ -3,6 +3,7 @@ import re
 from contextlib import nullcontext, redirect_stdout
 from pathlib import Path
 from time import perf_counter
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -33,6 +34,7 @@ from models.image_list_model import ImageListModel
 from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
 from utils.image import Image
 from utils.settings import get_tag_separator
+from utils.utils import get_pretty_duration
 
 
 def replace_template_variable(match: re.Match, image: Image) -> str:
@@ -396,6 +398,10 @@ class CaptioningThread(QThread):
         print(captioning_message)
         caption_position = self.caption_settings['caption_position']
         are_multiple_images_selected = len(self.selected_image_indices) > 1
+        start_datetime = datetime.now()
+        if are_multiple_images_selected:
+            print(f"Captioning started at {start_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
+        captioning_times = []
         for i, image_index in enumerate(self.selected_image_indices):
             start_time = perf_counter()
             if self.is_canceled:
@@ -456,14 +462,23 @@ class CaptioningThread(QThread):
                     generated_token_ids, prompt, processor, model_type)
             tags = add_caption_to_tags(image.tags, caption, caption_position)
             self.caption_generated.emit(image_index, caption, tags)
+            captioning_time = perf_counter() - start_time
+            captioning_times.append(captioning_time)
+            #avg_time = sum(captioning_times) / len(captioning_times)
             if are_multiple_images_selected:
                 self.progress_bar_update_requested.emit(i + 1)
             if i == 0:
                 self.clear_console_text_edit_requested.emit()
             if console_output_caption is None:
                 console_output_caption = caption
-            print(f'{image.path.name} ({perf_counter() - start_time:.1f} s):\n'
+            print(f'{image.path.name} ({captioning_time:.1f} s):\n'
                   f'{console_output_caption}')
+        if are_multiple_images_selected:
+            end_datetime = datetime.now()
+            diff_datetime = end_datetime - start_datetime
+            diff_secs = diff_datetime.total_seconds()
+            avg_time = sum(captioning_times) / len(captioning_times)
+            print(f"\nCaptioning finished in {get_pretty_duration(diff_secs)} (avg: {avg_time:.1f} s/img) at {end_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 
     def write(self, text: str):
         self.text_outputted.emit(text)
