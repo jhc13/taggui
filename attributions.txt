@@ -5,5 +5,5 @@ taggui/tests/people_portrait.webp "Crowd" by oatsy40 https://flickr.com/photos/o
 
 Sounds:
 taggui/tada.ogg "success 2" by Leszek_Szary -- https://freesound.org/s/171670 -- License: CC0
-taggui/error.ogg "failure 1" by Leszek_Szary -- https://freesound.org/s/171673 -- License: CC0
+taggui/error.ogg "error" by Leszek_Szary -- https://freesound.org/s/171497 -- License: CC0
 
