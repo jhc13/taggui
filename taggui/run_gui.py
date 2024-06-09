@@ -4,6 +4,7 @@ import sys
 import traceback
 import warnings
 
+import transformers
 from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -33,6 +34,7 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.ERROR)
         warnings.simplefilter('ignore')
+        transformers.logging.set_verbosity_error()
     try:
         run_gui()
     except Exception as exception:

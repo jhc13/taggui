@@ -1,6 +1,7 @@
 import gc
 import re
 from contextlib import nullcontext, redirect_stdout
+from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 
@@ -113,6 +114,22 @@ def add_caption_to_tags(tags: list[str], caption: str,
     elif caption_position == CaptionPosition.OVERWRITE_ALL_TAGS:
         tags = new_tags
     return tags
+
+
+def format_duration(seconds: float) -> str:
+    seconds_per_minute = 60
+    seconds_per_hour = 60 * seconds_per_minute
+    seconds_per_day = 24 * seconds_per_hour
+    if seconds < seconds_per_minute:
+        return f'{seconds:.1f} seconds'
+    if seconds < seconds_per_hour:
+        minutes = seconds / seconds_per_minute
+        return f'{minutes:.1f} minutes'
+    if seconds < seconds_per_day:
+        hours = seconds / seconds_per_hour
+        return f'{hours:.1f} hours'
+    days = seconds / seconds_per_day
+    return f'{days:.1f} days'
 
 
 class CaptioningThread(QThread):
@@ -354,7 +371,6 @@ class CaptioningThread(QThread):
                 self.clear_console_text_edit_requested.emit()
                 print('`Number of beams` must be greater than 1 when `Include in '
                     'caption` is not empty.')
-                self.is_error = True
                 return
             if self.caption_settings['device'] == CaptionDevice.CPU:
                 device = torch.device('cpu')
@@ -380,11 +396,8 @@ class CaptioningThread(QThread):
             if error_message:
                 self.clear_console_text_edit_requested.emit()
                 print(error_message)
-                self.is_error = True
                 return
-
             processor, model = self.load_processor_and_model(device, model_type)
-
             # CogVLM and CogAgent have to be monkey patched every time because
             # `caption_start` might have changed.
             caption_start = self.caption_settings['caption_start']
@@ -396,12 +409,26 @@ class CaptioningThread(QThread):
                 print('Canceled captioning.')
                 return
             self.clear_console_text_edit_requested.emit()
-            captioning_message = ('Generating tags...'
-                                if model_type == CaptionModelType.WD_TAGGER
-                                else f'Captioning... (device: {device})')
+            selected_image_count = len(self.selected_image_indices)
+            are_multiple_images_selected = selected_image_count > 1
+            if are_multiple_images_selected:
+                captioning_start_datetime = datetime.now()
+                formatted_captioning_start_datetime = (
+                    captioning_start_datetime.strftime('%Y-%m-%d %H:%M:%S'))
+                if model_type == CaptionModelType.WD_TAGGER:
+                    captioning_message = (
+                        f'Generating tags... (start time: '
+                        f'{formatted_captioning_start_datetime})')
+                else:
+                    captioning_message = (
+                        f'Captioning... (device: {device}, start time: '
+                        f'{formatted_captioning_start_datetime})')
+            else:
+                captioning_message = ('Generating tags...'
+                                    if model_type == CaptionModelType.WD_TAGGER
+                                    else f'Captioning... (device: {device})')
             print(captioning_message)
             caption_position = self.caption_settings['caption_position']
-            are_multiple_images_selected = len(self.selected_image_indices) > 1
             for i, image_index in enumerate(self.selected_image_indices):
                 start_time = perf_counter()
                 if self.is_canceled:
@@ -464,12 +491,23 @@ class CaptioningThread(QThread):
                 self.caption_generated.emit(image_index, caption, tags)
                 if are_multiple_images_selected:
                     self.progress_bar_update_requested.emit(i + 1)
-                if i == 0:
+                if i == 0 and not are_multiple_images_selected:
                     self.clear_console_text_edit_requested.emit()
                 if console_output_caption is None:
                     console_output_caption = caption
                 print(f'{image.path.name} ({perf_counter() - start_time:.1f} s):\n'
                     f'{console_output_caption}')
+            if are_multiple_images_selected:
+                captioning_end_datetime = datetime.now()
+                total_captioning_duration = ((captioning_end_datetime
+                                            - captioning_start_datetime)
+                                            .total_seconds())
+                average_captioning_duration = (total_captioning_duration /
+                                            selected_image_count)
+                print(f'Finished captioning {selected_image_count} images in '
+                    f'{format_duration(total_captioning_duration)} '
+                    f'({average_captioning_duration:.1f} s/image) at '
+                    f'{captioning_end_datetime.strftime("%Y-%m-%d %H:%M:%S")}.')
         except Exception as e:
             self.is_error = True
             raise e
