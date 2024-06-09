@@ -26,6 +26,7 @@ from widgets.auto_captioner import AutoCaptioner
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer
+from widgets.history_list import HistoryList, HistoryListModel
 
 ICON_PATH = Path('images/icon.ico')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
@@ -49,6 +50,7 @@ class MainWindow(QMainWindow):
             self.image_list_model, tokenizer, tag_separator)
         self.image_list_model.proxy_image_list_model = (
             self.proxy_image_list_model)
+        self.history_list_model = HistoryListModel()
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
@@ -64,6 +66,10 @@ class MainWindow(QMainWindow):
                                     tag_separator, image_list_image_width)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
                            self.image_list)
+        self.history_list = HistoryList(self.history_list_model)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
+                           self.history_list)
+        self.tabifyDockWidget(self.image_list, self.history_list)
         self.image_tags_editor = ImageTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
             self.image_tag_list_model, self.image_list, tokenizer,
@@ -207,6 +213,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue('directory_path', str(path))
         self.setWindowTitle(path.name)
         self.image_list_model.load_directory(path)
+        self.history_list_model.load_directory(path)
         self.image_list.filter_line_edit.clear()
         self.all_tags_editor.filter_line_edit.clear()
         # Clear the current index first to make sure that the `currentChanged`
