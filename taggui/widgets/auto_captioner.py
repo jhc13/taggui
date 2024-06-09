@@ -1,5 +1,7 @@
 import sys
 from pathlib import Path
+import json
+from datetime import datetime
 
 from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
@@ -37,6 +39,19 @@ def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
                  + text_edit.frameWidth() * 2)
     text_edit.setFixedHeight(height)
 
+def append_captioning_to_history(directory_path: str, caption_settings: dict, image_list_model: ImageListModel, selected_image_indices: list[QModelIndex]) -> None:
+    parent_dir_len = len(directory_path + "/")
+    images = sorted([str(image_list_model.images[i.row()].path)[parent_dir_len:] for i in selected_image_indices])
+    entry = {
+        "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        #"model_hash": "",
+        #"taggui_rev": "",
+        "settings": caption_settings,
+        "images": images,
+    }
+    with open(f"{directory_path}/!0_history.jsonl", "a") as file:
+        json_str = json.dumps(entry, separators=(',', ':'))
+        file.write(json_str + "\r\n")
 
 class HorizontalLine(QFrame):
     def __init__(self):
@@ -451,6 +466,7 @@ class AutoCaptioner(QDockWidget):
                 return
         self.set_is_captioning(True)
         caption_settings = self.caption_settings_form.get_caption_settings()
+        append_captioning_to_history(self.settings.value("directory_path"), caption_settings, self.image_list_model, selected_image_indices)
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
             self.image_list_model.add_to_undo_stack(
                 action_name=f'Generate '
