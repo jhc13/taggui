@@ -417,14 +417,23 @@ class AutoCaptioner(QDockWidget):
         if not self.captioning_thread.is_canceled:
             #print("finished")
 
+            if self.captioning_thread.is_error:
+                sound = "error"
+                icon = QMessageBox.Icon.Critical
+                text = "Captioning error. See Auto-Captioner console for more information."
+            else:
+                sound = "tada"
+                icon = QMessageBox.Icon.Information
+                text = "Captioning finished"
+
             try:
-                playsound("taggui/tada.ogg", False)
+                playsound(f"taggui/{sound}.ogg", False)
             except:
                 pass
 
             dialog = QMessageBox()
-            dialog.setIcon(QMessageBox.Icon.Information)
-            dialog.setText("Captioning finished")
+            dialog.setIcon(icon)
+            dialog.setText(text)
             dialog.show()
             dialog.raise_()
             dialog.activateWindow()
