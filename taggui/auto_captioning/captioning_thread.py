@@ -407,19 +407,26 @@ class CaptioningThread(QThread):
             print('Canceled captioning.')
             return
         self.clear_console_text_edit_requested.emit()
-        captioning_message = ('Generating tags...'
-                              if model_type == CaptionModelType.WD_TAGGER
-                              else f'Captioning... (device: {device})')
-        print(captioning_message)
-        caption_position = self.caption_settings['caption_position']
         selected_image_count = len(self.selected_image_indices)
         are_multiple_images_selected = selected_image_count > 1
-        captioning_start_datetime = datetime.now()
         if are_multiple_images_selected:
+            captioning_start_datetime = datetime.now()
             formatted_captioning_start_datetime = (
                 captioning_start_datetime.strftime('%Y-%m-%d %H:%M:%S'))
-            print(f'Started captioning at '
-                  f'{formatted_captioning_start_datetime}.')
+            if model_type == CaptionModelType.WD_TAGGER:
+                captioning_message = (
+                    f'Generating tags... (start time: '
+                    f'{formatted_captioning_start_datetime})')
+            else:
+                captioning_message = (
+                    f'Captioning... (device: {device}, start time: '
+                    f'{formatted_captioning_start_datetime})')
+        else:
+            captioning_message = ('Generating tags...'
+                                  if model_type == CaptionModelType.WD_TAGGER
+                                  else f'Captioning... (device: {device})')
+        print(captioning_message)
+        caption_position = self.caption_settings['caption_position']
         for i, image_index in enumerate(self.selected_image_indices):
             start_time = perf_counter()
             if self.is_canceled:
@@ -482,7 +489,7 @@ class CaptioningThread(QThread):
             self.caption_generated.emit(image_index, caption, tags)
             if are_multiple_images_selected:
                 self.progress_bar_update_requested.emit(i + 1)
-            if i == 0:
+            if i == 0 and not are_multiple_images_selected:
                 self.clear_console_text_edit_requested.emit()
             if console_output_caption is None:
                 console_output_caption = caption
