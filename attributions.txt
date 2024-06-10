@@ -1,8 +1,3 @@
-
-Images:
-taggui/tests/people_landscape.webp "Group of teens at the beach" by Vladimir Pustovit https://flickr.com/photos/pustovit/14689258425 -- License: CC BY 2.0
-taggui/tests/people_portrait.webp "Crowd" by oatsy40 https://flickr.com/photos/oatsy40/14315923786 -- License: CC BY 2.0
-
 Sounds:
 sounds/tada.ogg "success 2" by Leszek_Szary -- https://freesound.org/s/171670 -- License: CC0
 sounds/error.ogg "error" by Leszek_Szary -- https://freesound.org/s/171497 -- License: CC0
