@@ -414,16 +414,15 @@ class AutoCaptioner(QDockWidget):
     @Slot()
     def notify_finished(self):
         if not self.captioning_thread.is_canceled:
-
             if self.captioning_thread.is_error:
-                sound = "error"
+                sound = 'error'
                 icon = QMessageBox.Icon.Critical
-                text = "Captioning error. See Auto-Captioner console for more information."
+                text = ('Captioning error. See the Auto-Captioner console for '
+                        'more information.')
             else:
-                sound = "success"
+                sound = 'success'
                 icon = QMessageBox.Icon.Information
-                text = "Captioning finished"
-
+                text = 'Captioning finished'
             sound_effect = QSoundEffect()
             sound_effect.setSource(QUrl.fromLocalFile(f'sounds/{sound}.wav'))
             sound_effect.play()
@@ -471,10 +470,12 @@ class AutoCaptioner(QDockWidget):
         selected_image_count = len(selected_image_indices)
         notify_when_finished = False
         if selected_image_count > 1:
-            reply, notify_when_finished = get_confirmation_dialog_checkbox_reply(
-                title='Generate Captions',
-                question=f'Caption {selected_image_count} selected images?',
-                checkbox='Notify when finished',)
+            reply, notify_when_finished = (
+                get_confirmation_dialog_checkbox_reply(
+                    title='Generate Captions',
+                    question=(f'Caption {selected_image_count} selected '
+                              f'images?'),
+                    checkbox='Notify when finished'))
             if reply != QMessageBox.StandardButton.Yes:
                 return
         self.set_is_captioning(True)
