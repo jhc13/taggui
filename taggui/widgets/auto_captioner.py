@@ -456,14 +456,10 @@ class AutoCaptioner(QDockWidget):
         sound_effect = QSoundEffect()
         sound_effect.setSource(QUrl.fromLocalFile(f'sounds/{sound}.wav'))
         sound_effect.play()
-
-        dialog = QMessageBox()
-        dialog.setIcon(icon)
-        dialog.setText(text)
-        dialog.show()
-        dialog.raise_()
-        dialog.activateWindow()
-        dialog.exec()
+        message_box = QMessageBox()
+        message_box.setIcon(icon)
+        message_box.setText(text)
+        message_box.exec()
 
     @Slot()
     def generate_captions(self):
