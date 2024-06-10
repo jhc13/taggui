@@ -4,6 +4,5 @@ taggui/tests/people_landscape.webp "Group of teens at the beach" by Vladimir Pus
 taggui/tests/people_portrait.webp "Crowd" by oatsy40 https://flickr.com/photos/oatsy40/14315923786 -- License: CC BY 2.0
 
 Sounds:
-taggui/tada.ogg "success 2" by Leszek_Szary -- https://freesound.org/s/171670 -- License: CC0
-taggui/error.ogg "error" by Leszek_Szary -- https://freesound.org/s/171497 -- License: CC0
-
+sounds/tada.ogg "success 2" by Leszek_Szary -- https://freesound.org/s/171670 -- License: CC0
+sounds/error.ogg "error" by Leszek_Szary -- https://freesound.org/s/171497 -- License: CC0

@@ -427,7 +427,7 @@ class AutoCaptioner(QDockWidget):
                 text = "Captioning finished"
 
             try:
-                playsound(f"taggui/{sound}.ogg", False)
+                playsound(f"sounds/{sound}.ogg", False)
             except:
                 pass
 
