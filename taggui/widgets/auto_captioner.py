@@ -422,7 +422,7 @@ class AutoCaptioner(QDockWidget):
                 icon = QMessageBox.Icon.Critical
                 text = "Captioning error. See Auto-Captioner console for more information."
             else:
-                sound = "tada"
+                sound = "success"
                 icon = QMessageBox.Icon.Information
                 text = "Captioning finished"
 
