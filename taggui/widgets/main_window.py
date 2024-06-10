@@ -117,6 +117,7 @@ class MainWindow(QMainWindow):
                                            .selectionModel())
         self.image_list_model.image_list_selection_model = (
             self.image_list_selection_model)
+        self.history_list.set_captions_settings = self.auto_captioner.caption_settings_form.set_captions_settings
         self.connect_image_list_signals()
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()

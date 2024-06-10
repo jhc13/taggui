@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from datetime import datetime
+from typing import Any, Callable, Dict
 
 from transformers import AutoModel
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, Qt)
@@ -101,6 +102,7 @@ class HistoryListModel(QAbstractListModel):
 class HistoryList(QDockWidget):
     def __init__(self, model: HistoryListModel):
         super().__init__()
+        self.set_captions_settings: Callable[[Dict[str, Any]], None] | None = None
         self.setObjectName('history_list')
         self.setWindowTitle('History')
         self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea
@@ -110,8 +112,7 @@ class HistoryList(QDockWidget):
 
         self.listView = QListView()
         self.listView.setModel(model)
-        selection_model = self.listView.selectionModel()
-        selection_model.currentChanged.connect(self.item_clicked)
+        self.listView.clicked.connect(self.item_clicked)
 
         layout = QVBoxLayout(container)
         layout.addWidget(self.listView)
@@ -121,5 +122,9 @@ class HistoryList(QDockWidget):
     def item_clicked(self, current: QModelIndex):
         if current.isValid():
             index = self.listView.currentIndex()
-            data = self.listView.model().data(index, Qt.UserRole)
-            #print(json.dumps(data))
+            entry = self.listView.model().data(index, Qt.UserRole)
+            caption_settings = entry['app']['settings']
+
+            if self.set_captions_settings is not None:
+                #print(json.dumps(caption_settings))
+                self.set_captions_settings(caption_settings)
