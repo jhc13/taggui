@@ -358,7 +358,6 @@ class AutoCaptioner(QDockWidget):
         self.image_list = image_list
         self.settings = get_settings()
         self.is_captioning = False
-        self.notify_when_finished = False
         self.captioning_thread = None
         self.processor = None
         self.model = None
@@ -470,7 +469,7 @@ class AutoCaptioner(QDockWidget):
     def generate_captions(self):
         selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
-        self.notify_when_finished = False
+        notify_when_finished = False
         if selected_image_count > 1:
             reply, notify_when_finished = get_confirmation_dialog_checkbox_reply(
                 title='Generate Captions',
@@ -478,7 +477,6 @@ class AutoCaptioner(QDockWidget):
                 checkbox='Notify when finished',)
             if reply != QMessageBox.StandardButton.Yes:
                 return
-            self.notify_when_finished = notify_when_finished
         self.set_is_captioning(True)
         caption_settings = self.caption_settings_form.get_caption_settings()
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
@@ -513,7 +511,7 @@ class AutoCaptioner(QDockWidget):
         self.captioning_thread.finished.connect(self.progress_bar.hide)
         self.captioning_thread.finished.connect(
             lambda: self.start_cancel_button.setEnabled(True))
-        if self.notify_when_finished:
+        if notify_when_finished:
             self.captioning_thread.finished.connect(self.notify_finished)
         # Redirect `stdout` and `stderr` so that the outputs are displayed in
         # the console text edit.
