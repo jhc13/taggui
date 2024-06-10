@@ -43,7 +43,7 @@ def get_confirmation_dialog_reply(title: str, question: str) -> int:
 
 def get_repo_infos(path: str) -> dict[str, str]:
     repo = git.Repo(path, search_parent_directories=True)
-    app_origin = repo.remotes.origin.url
-    app_revision = repo.head.commit.hexsha
-    ret = { "app_origin": app_origin, "app_revision": app_revision }
+    origin = repo.remotes.origin.url
+    revision = repo.head.commit.hexsha
+    ret = { "origin": origin, "revision": revision }
     return ret

@@ -49,6 +49,22 @@ class HistoryListModel(QAbstractListModel):
         model_id = caption_settings["model"]
         model_type = get_model_type(model_id)
 
+        # clean up settings
+        del_keys = ["device", "gpu_index"]
+        for del_key in del_keys:
+            del caption_settings[del_key]
+        if model_type == CaptionModelType.WD_TAGGER:
+            del caption_settings["generation_parameters"]
+        else:
+            del caption_settings["wd_tagger_settings"]
+            if not caption_settings["generation_parameters"]["do_sample"]:
+                del_keys = ["temperature", "top_k", "top_p", "repetition_penalty", "no_repeat_ngram_size"]
+                for del_key in del_keys:
+                    del caption_settings["generation_parameters"][del_key]
+
+        # app infos
+        app = { **self.app_infos, "settings": caption_settings }
+
         # model infos
         model_config = model.config
         model = {
@@ -64,26 +80,12 @@ class HistoryListModel(QAbstractListModel):
         if self.image_directory_path != None:
             images = sorted([str(image_list_model.images[i.row()].path.relative_to(self.image_directory_path)) for i in selected_image_indices])
 
-        # clean up settings
-        del_keys = ["device", "gpu_index"]
-        for del_key in del_keys:
-            del caption_settings[del_key]
-        if model_type == CaptionModelType.WD_TAGGER:
-            del caption_settings["generation_parameters"]
-        else:
-            del caption_settings["wd_tagger_settings"]
-            if not caption_settings["generation_parameters"]["do_sample"]:
-                del_keys = ["temperature", "top_k", "top_p", "repetition_penalty", "no_repeat_ngram_size"]
-                for del_key in del_keys:
-                    del caption_settings["generation_parameters"][del_key]
-
         # collect infos
         entry = {
             "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "history_version": 1,
-            "app": self.app_infos,
+            "history_version": 0,
+            "app": app,
             "model": model,
-            "settings": caption_settings,
             "images": images,
         }
 
