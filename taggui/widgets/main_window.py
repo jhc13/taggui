@@ -20,7 +20,7 @@ from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.shortcut_remover import ShortcutRemover
-from utils.utils import get_resource_path, pluralize
+from utils.utils import get_repo_infos, get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
 from widgets.auto_captioner import AutoCaptioner
 from widgets.image_list import ImageList
@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
             self.image_list_model, tokenizer, tag_separator)
         self.image_list_model.proxy_image_list_model = (
             self.proxy_image_list_model)
-        self.history_list_model = HistoryListModel()
+        self.history_list_model = HistoryListModel(get_repo_infos(__file__))
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
@@ -82,7 +82,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                            self.all_tags_editor)
         self.auto_captioner = AutoCaptioner(self.image_list_model,
-                                            self.image_list)
+                                            self.image_list, self.history_list_model)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                            self.auto_captioner)
         self.tabifyDockWidget(self.all_tags_editor, self.auto_captioner)

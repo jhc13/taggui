@@ -1,3 +1,4 @@
+import git
 import sys
 from pathlib import Path
 
@@ -39,3 +40,10 @@ def get_confirmation_dialog_reply(title: str, question: str) -> int:
                                            | QMessageBox.StandardButton.Cancel)
     confirmation_dialog.setDefaultButton(QMessageBox.StandardButton.Yes)
     return confirmation_dialog.exec()
+
+def get_repo_infos(path: str) -> dict[str, str]:
+    repo = git.Repo(path, search_parent_directories=True)
+    app_origin = repo.remotes.origin.url
+    app_revision = repo.head.commit.hexsha
+    ret = { "app_origin": app_origin, "app_revision": app_revision }
+    return ret

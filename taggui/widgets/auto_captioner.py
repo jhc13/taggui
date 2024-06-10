@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
 from auto_captioning.captioning_thread import CaptioningThread
 from auto_captioning.models import MODELS, get_model_type
 from models.image_list_model import ImageListModel
+from widgets.history_list import HistoryListModel
 from utils.big_widgets import TallPushButton
 from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
@@ -38,20 +39,6 @@ def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
                  + document.documentMargin() * 2
                  + text_edit.frameWidth() * 2)
     text_edit.setFixedHeight(height)
-
-def append_captioning_to_history(directory_path: str, caption_settings: dict, image_list_model: ImageListModel, selected_image_indices: list[QModelIndex]) -> None:
-    parent_dir_len = len(directory_path + "/")
-    images = sorted([str(image_list_model.images[i.row()].path)[parent_dir_len:] for i in selected_image_indices])
-    entry = {
-        "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        #"model_hash": "",
-        #"taggui_rev": "",
-        "settings": caption_settings,
-        "images": images,
-    }
-    with open(f"{directory_path}/!0_history.jsonl", "a") as file:
-        json_str = json.dumps(entry, separators=(',', ':'))
-        file.write(json_str + "\r\n")
 
 class HorizontalLine(QFrame):
     def __init__(self):
@@ -366,10 +353,11 @@ class AutoCaptioner(QDockWidget):
     caption_generated = Signal(QModelIndex, str, list)
 
     def __init__(self, image_list_model: ImageListModel,
-                 image_list: ImageList):
+                 image_list: ImageList, history_list_model: HistoryListModel):
         super().__init__()
         self.image_list_model = image_list_model
         self.image_list = image_list
+        self.history_list_model = history_list_model
         self.settings = get_settings()
         self.is_captioning = False
         self.captioning_thread = None
@@ -466,7 +454,6 @@ class AutoCaptioner(QDockWidget):
                 return
         self.set_is_captioning(True)
         caption_settings = self.caption_settings_form.get_caption_settings()
-        append_captioning_to_history(self.settings.value("directory_path"), caption_settings, self.image_list_model, selected_image_indices)
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
             self.image_list_model.add_to_undo_stack(
                 action_name=f'Generate '
@@ -483,7 +470,7 @@ class AutoCaptioner(QDockWidget):
         models_directory_path = (Path(models_directory_path)
                                  if models_directory_path else None)
         self.captioning_thread = CaptioningThread(
-            self, self.image_list_model, selected_image_indices,
+            self, self.image_list_model, selected_image_indices, self.history_list_model,
             caption_settings, tag_separator, models_directory_path)
         self.captioning_thread.text_outputted.connect(
             self.update_console_text_edit)

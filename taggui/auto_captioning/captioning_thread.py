@@ -31,6 +31,7 @@ from auto_captioning.xcomposer2 import (InternLMXComposer2QuantizedForCausalLM,
                                         get_xcomposer2_error_message,
                                         get_xcomposer2_inputs)
 from models.image_list_model import ImageListModel
+from widgets.history_list import HistoryListModel
 from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
 from utils.image import Image
 from utils.settings import get_tag_separator
@@ -143,10 +144,12 @@ class CaptioningThread(QThread):
 
     def __init__(self, parent, image_list_model: ImageListModel,
                  selected_image_indices: list[QModelIndex],
+                 history_list_model: HistoryListModel,
                  caption_settings: dict, tag_separator: str,
                  models_directory_path: Path | None):
         super().__init__(parent)
         self.image_list_model = image_list_model
+        self.history_list_model = history_list_model
         self.selected_image_indices = selected_image_indices
         self.caption_settings = caption_settings
         self.tag_separator = tag_separator
@@ -396,6 +399,9 @@ class CaptioningThread(QThread):
             print(error_message)
             return
         processor, model = self.load_processor_and_model(device, model_type)
+
+        self.history_list_model.append(self.caption_settings, model, self.image_list_model, self.selected_image_indices)
+
         # CogVLM and CogAgent have to be monkey patched every time because
         # `caption_start` might have changed.
         caption_start = self.caption_settings['caption_start']
