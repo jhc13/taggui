@@ -442,27 +442,28 @@ class AutoCaptioner(QDockWidget):
 
     @Slot()
     def notify_finished(self):
-        if not self.captioning_thread.is_canceled:
-            if self.captioning_thread.is_error:
-                sound = 'error'
-                icon = QMessageBox.Icon.Critical
-                text = ('Captioning error. See the Auto-Captioner console for '
-                        'more information.')
-            else:
-                sound = 'success'
-                icon = QMessageBox.Icon.Information
-                text = 'Captioning finished'
-            sound_effect = QSoundEffect()
-            sound_effect.setSource(QUrl.fromLocalFile(f'sounds/{sound}.wav'))
-            sound_effect.play()
+        if self.captioning_thread.is_canceled:
+            return
+        if self.captioning_thread.is_error:
+            sound = 'error'
+            icon = QMessageBox.Icon.Critical
+            text = ('Captioning error. See the Auto-Captioner console for '
+                    'more information.')
+        else:
+            sound = 'success'
+            icon = QMessageBox.Icon.Information
+            text = 'Captioning finished'
+        sound_effect = QSoundEffect()
+        sound_effect.setSource(QUrl.fromLocalFile(f'sounds/{sound}.wav'))
+        sound_effect.play()
 
-            dialog = QMessageBox()
-            dialog.setIcon(icon)
-            dialog.setText(text)
-            dialog.show()
-            dialog.raise_()
-            dialog.activateWindow()
-            dialog.exec()
+        dialog = QMessageBox()
+        dialog.setIcon(icon)
+        dialog.setText(text)
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+        dialog.exec()
 
     @Slot()
     def generate_captions(self):
