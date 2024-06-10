@@ -251,3 +251,7 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 
 The `Edit` menu contains additional features for batch tag operations, such as
 `Find and Replace` (`Ctrl`+`R`) and `Batch Reorder Tags` (`Ctrl`+`B`).
+
+## Attribution
+- `sounds/error.ogg`: ["error" by Leszek_Szary](https://freesound.org/s/171497/), CC0
+- `sounds/success.ogg`: ["success 2" by Leszek_Szary](https://freesound.org/s/171670/), CC0

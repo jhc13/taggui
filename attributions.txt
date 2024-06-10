@@ -1,3 +1,0 @@
-Sounds:
-sounds/success.ogg: "success 2" by Leszek_Szary -- https://freesound.org/s/171670/ -- License: Creative Commons 0
-sounds/error.ogg: "error" by Leszek_Szary -- https://freesound.org/s/171497/ -- License: Creative Commons 0
