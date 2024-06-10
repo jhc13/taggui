@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QDialog, QFileDialog, QGridLayout, QLabel,
-                               QLineEdit, QPushButton, QVBoxLayout)
+                               QLineEdit, QPushButton, QVBoxLayout, QComboBox)
 
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
@@ -30,6 +30,8 @@ class SettingsDialog(QDialog):
         grid_layout.addWidget(QLabel('Show tag autocomplete suggestions'),
                               5, 0, Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Auto-captioning models directory'), 6, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Image preprocessing method'), 8, 0,
                               Qt.AlignmentFlag.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
@@ -77,7 +79,11 @@ class SettingsDialog(QDialog):
             default=DEFAULT_SETTINGS['image_list_file_formats'])
         file_types_line_edit.setMinimumWidth(400)
         file_types_line_edit.textChanged.connect(self.show_restart_warning)
-
+        image_preprocessing_method_combo_box = QComboBox()
+        image_preprocessing_method_combo_box.addItems(["stretch-and-squish", "scale-and-centercrop", "black", "gray", "white"])
+        image_preprocessing_method_combo_box.setCurrentText(self.settings.value('image_preprocessing_method'))
+        image_preprocessing_method_combo_box.currentTextChanged.connect(
+            lambda text: self.settings.setValue("image_preprocessing_method", text))
         grid_layout.addWidget(font_size_spin_box, 0, 1,
                               Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(file_types_line_edit, 1, 1,
@@ -94,6 +100,9 @@ class SettingsDialog(QDialog):
                               Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(models_directory_button, 7, 1,
                               Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(image_preprocessing_method_combo_box, 8, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
         layout.addLayout(grid_layout)
 
         # Prevent the grid layout from moving to the center when the warning

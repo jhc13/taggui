@@ -18,13 +18,31 @@ class Image:
     tags: list[str] = field(default_factory=list)
     thumbnail: QIcon | None = None
 
+def select_preprocess_img_by_str(pil_image: PilImage, target_size: int, resample=Resampling.LANCZOS, method="stretch-and-squish") -> PilImage:
+    color = None
+    try:
+        ImageColor.getrgb(method)
+        color = method
+        method = "color"
+    except ValueError:
+        pass
+
+    match method:
+        case "stretch-and-squish": ret = preprocess_img_stretch_and_squish(pil_image, target_size, resample)
+        case "scale-and-centercrop": ret = preprocess_img_scale_and_centercrop(pil_image, target_size, resample)
+        case "noise" | "replicate" | "reflect": ret = preprocess_img_scale_and_fill(pil_image, target_size, resample, method)
+        case "color": ret = preprocess_img_scale_and_fill(pil_image, target_size, resample, color)
+        case _: ret = pil_image
+
+    return ret
+
 # https://pillow.readthedocs.io/en/stable/handbook/concepts.html#filters
-def prepare_img_stretch_and_squish(pil_image: PilImage, target_size: int, resample=Resampling.LANCZOS) -> PilImage:
+def preprocess_img_stretch_and_squish(pil_image: PilImage, target_size: int, resample=Resampling.LANCZOS) -> PilImage:
     """Preprocesses an image for the model by simply stretching and squishing it to the target size. Does not retain shapes (see https://github.com/THUDM/CogVLM2/discussions/83)"""
     ret = pil_image.resize((target_size, target_size), resample=resample)
     return ret
 
-def prepare_img_scale_and_centercrop(pil_image: PilImage, target_size: int, resample=Resampling.LANCZOS) -> PilImage:
+def preprocess_img_scale_and_centercrop(pil_image: PilImage, target_size: int, resample=Resampling.LANCZOS) -> PilImage:
     """Preprocesses an image for the model by scaling the short side to target size and then center cropping a square. May crop important content especially in very rectangular images (this method was used in Stable Diffusion 1 see https://arxiv.org/abs/2112.10752)"""
     width, height = pil_image.size
     if width < height:
@@ -45,7 +63,7 @@ def prepare_img_scale_and_centercrop(pil_image: PilImage, target_size: int, resa
     ret = ret.crop((left, top, right, bottom))
     return ret
 
-def prepare_img_scale_and_fill(pil_image: PilImage, target_size: int, resample=Resampling.LANCZOS, method: str = "black") -> PilImage:
+def preprocess_img_scale_and_fill(pil_image: PilImage, target_size: int, resample=Resampling.LANCZOS, method: str = "black") -> PilImage:
     """
     Preprocesses an image for the model by scaling the long side to target size and filling borders of the short side with content according to method (color, noise, replicate, reflect) until it is square. Introduces new content that wasn't there before which might be caught up by the model ("This image showcases a portrait of a person. On the left and right side are black borders.")
     - method: can be on of "noise", "replicate", "reflect" or a color value ("gray", "#000000", "rgb(100%,100%,100%)" etc.) which can be interpreted by Pillow (see https://pillow.readthedocs.io/en/stable/reference/ImageColor.html and https://developer.mozilla.org/en-US/docs/Web/CSS/named-color)

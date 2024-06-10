@@ -33,7 +33,7 @@ from auto_captioning.xcomposer2 import (InternLMXComposer2QuantizedForCausalLM,
 from models.image_list_model import ImageListModel
 from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
 from utils.image import Image
-from utils.settings import get_tag_separator
+from utils.settings import get_settings, get_tag_separator
 
 
 def replace_template_variable(match: re.Match, image: Image) -> str:
@@ -286,6 +286,7 @@ class CaptioningThread(QThread):
     def get_model_inputs(self, image: Image, prompt: str | None,
                          model_type: CaptionModelType, device: torch.device,
                          model, processor) -> BatchFeature | dict | np.ndarray:
+        settings = get_settings()
         # Load the image.
         pil_image = PilImage.open(image.path)
         # Rotate the image according to the orientation tag.
@@ -318,9 +319,10 @@ class CaptioningThread(QThread):
                 model_type, model, processor, text, pil_image, beam_count,
                 device, dtype_argument)
         elif model_type == CaptionModelType.COGVLM2:
+            image_preprocessing_method = settings.value('image_preprocessing_method')
             model_inputs = get_cogvlm2_inputs(model, processor, text,
-                                              pil_image, device,
-                                              dtype_argument, beam_count)
+                                pil_image, image_preprocessing_method, device,
+                                dtype_argument, beam_count)
         elif model_type in (CaptionModelType.MOONDREAM1,
                             CaptionModelType.MOONDREAM2):
             model_inputs = get_moondream_inputs(
