@@ -1,9 +1,9 @@
 import sys
 from pathlib import Path
-from playsound3 import playsound
 
-from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
+from PySide6.QtCore import QModelIndex, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
+from PySide6.QtMultimedia import QSoundEffect
 from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QFrame, QHBoxLayout, QLabel, QMessageBox,
                                QPlainTextEdit, QProgressBar, QScrollArea,
@@ -425,10 +425,9 @@ class AutoCaptioner(QDockWidget):
                 icon = QMessageBox.Icon.Information
                 text = "Captioning finished"
 
-            try:
-                playsound(f"sounds/{sound}.ogg", False)
-            except:
-                pass
+            sound_effect = QSoundEffect()
+            sound_effect.setSource(QUrl.fromLocalFile(f'sounds/{sound}.wav'))
+            sound_effect.play()
 
             dialog = QMessageBox()
             dialog.setIcon(icon)
