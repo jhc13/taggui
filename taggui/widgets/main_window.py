@@ -105,6 +105,7 @@ class MainWindow(QMainWindow):
         self.undo_action = QAction('Undo', parent=self)
         self.redo_action = QAction('Redo', parent=self)
         self.toggle_image_list_action = QAction('Images', parent=self)
+        self.toggle_history_list_action = QAction('History', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
         self.toggle_all_tags_editor_action = QAction('All Tags', parent=self)
@@ -359,11 +360,14 @@ class MainWindow(QMainWindow):
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)
+        self.toggle_history_list_action.setCheckable(True)
         self.toggle_image_tags_editor_action.setCheckable(True)
         self.toggle_all_tags_editor_action.setCheckable(True)
         self.toggle_auto_captioner_action.setCheckable(True)
         self.toggle_image_list_action.triggered.connect(
             lambda is_checked: self.image_list.setVisible(is_checked))
+        self.toggle_history_list_action.triggered.connect(
+            lambda is_checked: self.history_list.setVisible(is_checked))
         self.toggle_image_tags_editor_action.triggered.connect(
             lambda is_checked: self.image_tags_editor.setVisible(is_checked))
         self.toggle_all_tags_editor_action.triggered.connect(
@@ -371,6 +375,7 @@ class MainWindow(QMainWindow):
         self.toggle_auto_captioner_action.triggered.connect(
             lambda is_checked: self.auto_captioner.setVisible(is_checked))
         view_menu.addAction(self.toggle_image_list_action)
+        view_menu.addAction(self.toggle_history_list_action)
         view_menu.addAction(self.toggle_image_tags_editor_action)
         view_menu.addAction(self.toggle_all_tags_editor_action)
         view_menu.addAction(self.toggle_auto_captioner_action)
@@ -466,6 +471,9 @@ class MainWindow(QMainWindow):
         self.image_list.visibilityChanged.connect(
             lambda: self.toggle_image_list_action.setChecked(
                 self.image_list.isVisible()))
+        self.history_list.visibilityChanged.connect(
+            lambda: self.toggle_history_list_action.setChecked(
+                self.history_list.isVisible()))
 
     @Slot()
     def update_image_tags(self):
