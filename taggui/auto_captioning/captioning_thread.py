@@ -151,8 +151,8 @@ class CaptioningThread(QThread):
         self.caption_settings = caption_settings
         self.tag_separator = tag_separator
         self.models_directory_path = models_directory_path
-        self.is_canceled = False
         self.is_error = False
+        self.is_canceled = False
 
     def load_processor_and_model(self, device: torch.device,
                                  model_type: CaptionModelType) -> tuple:
@@ -367,6 +367,7 @@ class CaptioningThread(QThread):
         beam_count = generation_parameters['num_beams']
         if (forced_words_string.strip() and beam_count < 2
                 and model_type != CaptionModelType.WD_TAGGER):
+            self.is_error = True
             self.clear_console_text_edit_requested.emit()
             print('`Number of beams` must be greater than 1 when `Include in '
                   'caption` is not empty.')
@@ -393,6 +394,7 @@ class CaptioningThread(QThread):
             error_message = get_xcomposer2_error_message(
                 model_id, self.caption_settings['device'], load_in_4_bit)
         if error_message:
+            self.is_error = True
             self.clear_console_text_edit_requested.emit()
             print(error_message)
             return
@@ -511,9 +513,10 @@ class CaptioningThread(QThread):
     def run(self):
         try:
             self.run_captioning()
-        except Exception as e:
+        except Exception as exception:
             self.is_error = True
-            raise e
+            # Show the error message in the console text edit.
+            raise exception
 
     def write(self, text: str):
         self.text_outputted.emit(text)
