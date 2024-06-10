@@ -31,7 +31,7 @@ class SettingsDialog(QDialog):
                               5, 0, Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Auto-captioning models directory'), 6, 0,
                               Qt.AlignmentFlag.AlignRight)
-        grid_layout.addWidget(QLabel('Image preprocessing method'), 8, 0,
+        grid_layout.addWidget(QLabel('Image preprocessing function'), 8, 0,
                               Qt.AlignmentFlag.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
