@@ -450,12 +450,12 @@ class AutoCaptioner(QDockWidget):
         if self.captioning_thread.is_error:
             sound_name = 'error'
             icon = QMessageBox.Icon.Critical
-            text = ('Captioning error. See the Auto-Captioner console for '
-                    'more information.')
+            text = ('An error occurred during captioning. See the '
+                    'Auto-Captioner console for more information.')
         else:
             sound_name = 'success'
             icon = QMessageBox.Icon.Information
-            text = 'Captioning finished'
+            text = 'Captioning has finished.'
         sound_path = get_resource_path(SOUNDS_DIRECTORY_PATH
                                        / f'{sound_name}.wav')
         sound_effect = QSoundEffect()
