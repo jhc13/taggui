@@ -1,18 +1,14 @@
-import git
 import json
-import os
 from pathlib import Path
 from datetime import datetime
 
-from transformers import PretrainedConfig, PreTrainedModel, AutoModel
+from transformers import AutoModel
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, Qt)
 from PySide6.QtWidgets import (QDockWidget, QListView, QVBoxLayout, QWidget)
 
 from auto_captioning.models import get_model_type
 from models.image_list_model import ImageListModel
 from utils.enums import CaptionModelType
-
-import huggingface_hub
 
 class HistoryListModel(QAbstractListModel):
     def __init__(self, repo_infos):
@@ -21,15 +17,17 @@ class HistoryListModel(QAbstractListModel):
         self.app_infos = repo_infos
         self.image_directory_path: Path | None = None
 
-    def data(self, index, role):
+    def data(self, index: QModelIndex, role: Qt.ItemDataRole):
+        if not index.isValid():
+            return None
         item = self.history_list[index.row()]
         if role == Qt.UserRole:
             return item
         if role == Qt.DisplayRole:
-            ret = f"{item['date']} '{item['settings']['prompt'][:20]}'"
+            ret = f"{item['date']} '{item['app']['settings']['prompt'][:20]}'"
             return ret
 
-    def rowCount(self, parent=None) -> int:
+    def rowCount(self, parent: QModelIndex | None=None) -> int:
         return len(self.history_list)
 
     def load_directory(self, image_directory_path: Path):
@@ -120,7 +118,7 @@ class HistoryList(QDockWidget):
 
         self.setWidget(container)
 
-    def item_clicked(self, current):
+    def item_clicked(self, current: QModelIndex):
         if current.isValid():
             index = self.listView.currentIndex()
             data = self.listView.model().data(index, Qt.UserRole)
