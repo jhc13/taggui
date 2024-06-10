@@ -415,7 +415,6 @@ class AutoCaptioner(QDockWidget):
     @Slot()
     def notify_finished(self):
         if not self.captioning_thread.is_canceled:
-            #print("finished")
 
             if self.captioning_thread.is_error:
                 sound = "error"

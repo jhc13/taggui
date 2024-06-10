@@ -1,7 +1,6 @@
 from PySide6.QtCore import QSettings
 
 # Defaults for settings that are accessed from multiple places.
-# Settings are stored in: Linux: ~/.config/taggui
 DEFAULT_SETTINGS = {
     'font_size': 16,
     # Common image formats that are supported in PySide6.
