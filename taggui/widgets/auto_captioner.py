@@ -20,8 +20,11 @@ from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsSpinBox,
                                     SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsPlainTextEdit)
-from utils.utils import get_confirmation_dialog_checkbox_reply, pluralize
+from utils.utils import (get_confirmation_dialog_checkbox_reply,
+                         get_resource_path, pluralize)
 from widgets.image_list import ImageList
+
+SOUNDS_DIRECTORY_PATH = Path('sounds')
 
 
 def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
@@ -445,16 +448,18 @@ class AutoCaptioner(QDockWidget):
         if self.captioning_thread.is_canceled:
             return
         if self.captioning_thread.is_error:
-            sound = 'error'
+            sound_name = 'error'
             icon = QMessageBox.Icon.Critical
             text = ('Captioning error. See the Auto-Captioner console for '
                     'more information.')
         else:
-            sound = 'success'
+            sound_name = 'success'
             icon = QMessageBox.Icon.Information
             text = 'Captioning finished'
+        sound_path = get_resource_path(SOUNDS_DIRECTORY_PATH
+                                       / f'{sound_name}.wav')
         sound_effect = QSoundEffect()
-        sound_effect.setSource(QUrl.fromLocalFile(f'sounds/{sound}.wav'))
+        sound_effect.setSource(QUrl.fromLocalFile(sound_path))
         sound_effect.play()
         message_box = QMessageBox()
         message_box.setIcon(icon)
