@@ -358,156 +358,159 @@ class CaptioningThread(QThread):
             caption = caption.replace(self.tag_separator, ' ')
         return caption
 
-    def run(self):
-        try:
-            model_id = self.caption_settings['model']
-            model_type = get_model_type(model_id)
-            forced_words_string = self.caption_settings['forced_words']
-            generation_parameters = self.caption_settings[
-                'generation_parameters']
-            beam_count = generation_parameters['num_beams']
-            if (forced_words_string.strip() and beam_count < 2
-                    and model_type != CaptionModelType.WD_TAGGER):
-                self.clear_console_text_edit_requested.emit()
-                print('`Number of beams` must be greater than 1 when `Include in '
-                    'caption` is not empty.')
-                return
-            if self.caption_settings['device'] == CaptionDevice.CPU:
-                device = torch.device('cpu')
+    def run_captioning(self):
+        model_id = self.caption_settings['model']
+        model_type = get_model_type(model_id)
+        forced_words_string = self.caption_settings['forced_words']
+        generation_parameters = self.caption_settings[
+            'generation_parameters']
+        beam_count = generation_parameters['num_beams']
+        if (forced_words_string.strip() and beam_count < 2
+                and model_type != CaptionModelType.WD_TAGGER):
+            self.clear_console_text_edit_requested.emit()
+            print('`Number of beams` must be greater than 1 when `Include in '
+                  'caption` is not empty.')
+            return
+        if self.caption_settings['device'] == CaptionDevice.CPU:
+            device = torch.device('cpu')
+        else:
+            gpu_index = self.caption_settings['gpu_index']
+            device = torch.device(f'cuda:{gpu_index}'
+                                  if torch.cuda.is_available() else 'cpu')
+        load_in_4_bit = self.caption_settings['load_in_4_bit']
+        error_message = None
+        if model_type == CaptionModelType.COGVLM2:
+            error_message = get_cogvlm2_error_message(
+                model_id, self.caption_settings['device'], load_in_4_bit)
+        elif model_type in (CaptionModelType.MOONDREAM1,
+                            CaptionModelType.MOONDREAM2):
+            beam_count = self.caption_settings['generation_parameters'][
+                'num_beams']
+            error_message = get_moondream_error_message(load_in_4_bit,
+                                                        beam_count)
+        elif model_type in (CaptionModelType.XCOMPOSER2,
+                            CaptionModelType.XCOMPOSER2_4KHD):
+            error_message = get_xcomposer2_error_message(
+                model_id, self.caption_settings['device'], load_in_4_bit)
+        if error_message:
+            self.clear_console_text_edit_requested.emit()
+            print(error_message)
+            return
+        processor, model = self.load_processor_and_model(device, model_type)
+        # CogVLM and CogAgent have to be monkey patched every time because
+        # `caption_start` might have changed.
+        caption_start = self.caption_settings['caption_start']
+        if model_type == CaptionModelType.COGVLM:
+            monkey_patch_cogvlm(caption_start)
+        elif model_type == CaptionModelType.COGAGENT:
+            monkey_patch_cogagent(model, caption_start)
+        if self.is_canceled:
+            print('Canceled captioning.')
+            return
+        self.clear_console_text_edit_requested.emit()
+        selected_image_count = len(self.selected_image_indices)
+        are_multiple_images_selected = selected_image_count > 1
+        if are_multiple_images_selected:
+            captioning_start_datetime = datetime.now()
+            formatted_captioning_start_datetime = (
+                captioning_start_datetime.strftime('%Y-%m-%d %H:%M:%S'))
+            if model_type == CaptionModelType.WD_TAGGER:
+                captioning_message = (
+                    f'Generating tags... (start time: '
+                    f'{formatted_captioning_start_datetime})')
             else:
-                gpu_index = self.caption_settings['gpu_index']
-                device = torch.device(f'cuda:{gpu_index}'
-                                    if torch.cuda.is_available() else 'cpu')
-            load_in_4_bit = self.caption_settings['load_in_4_bit']
-            error_message = None
-            if model_type == CaptionModelType.COGVLM2:
-                error_message = get_cogvlm2_error_message(
-                    model_id, self.caption_settings['device'], load_in_4_bit)
-            elif model_type in (CaptionModelType.MOONDREAM1,
-                                CaptionModelType.MOONDREAM2):
-                beam_count = self.caption_settings['generation_parameters'][
-                    'num_beams']
-                error_message = get_moondream_error_message(load_in_4_bit,
-                                                            beam_count)
-            elif model_type in (CaptionModelType.XCOMPOSER2,
-                                CaptionModelType.XCOMPOSER2_4KHD):
-                error_message = get_xcomposer2_error_message(
-                    model_id, self.caption_settings['device'], load_in_4_bit)
-            if error_message:
-                self.clear_console_text_edit_requested.emit()
-                print(error_message)
-                return
-            processor, model = self.load_processor_and_model(device, model_type)
-            # CogVLM and CogAgent have to be monkey patched every time because
-            # `caption_start` might have changed.
-            caption_start = self.caption_settings['caption_start']
-            if model_type == CaptionModelType.COGVLM:
-                monkey_patch_cogvlm(caption_start)
-            elif model_type == CaptionModelType.COGAGENT:
-                monkey_patch_cogagent(model, caption_start)
+                captioning_message = (
+                    f'Captioning... (device: {device}, start time: '
+                    f'{formatted_captioning_start_datetime})')
+        else:
+            captioning_message = ('Generating tags...'
+                                  if model_type == CaptionModelType.WD_TAGGER
+                                  else f'Captioning... (device: {device})')
+        print(captioning_message)
+        caption_position = self.caption_settings['caption_position']
+        for i, image_index in enumerate(self.selected_image_indices):
+            start_time = perf_counter()
             if self.is_canceled:
                 print('Canceled captioning.')
                 return
-            self.clear_console_text_edit_requested.emit()
-            selected_image_count = len(self.selected_image_indices)
-            are_multiple_images_selected = selected_image_count > 1
-            if are_multiple_images_selected:
-                captioning_start_datetime = datetime.now()
-                formatted_captioning_start_datetime = (
-                    captioning_start_datetime.strftime('%Y-%m-%d %H:%M:%S'))
-                if model_type == CaptionModelType.WD_TAGGER:
-                    captioning_message = (
-                        f'Generating tags... (start time: '
-                        f'{formatted_captioning_start_datetime})')
-                else:
-                    captioning_message = (
-                        f'Captioning... (device: {device}, start time: '
-                        f'{formatted_captioning_start_datetime})')
-            else:
-                captioning_message = ('Generating tags...'
-                                    if model_type == CaptionModelType.WD_TAGGER
-                                    else f'Captioning... (device: {device})')
-            print(captioning_message)
-            caption_position = self.caption_settings['caption_position']
-            for i, image_index in enumerate(self.selected_image_indices):
-                start_time = perf_counter()
-                if self.is_canceled:
-                    print('Canceled captioning.')
-                    return
-                image: Image = self.image_list_model.data(image_index,
-                                                        Qt.ItemDataRole.UserRole)
-                prompt = self.get_prompt(model_type, image)
-                try:
-                    model_inputs = self.get_model_inputs(image, prompt, model_type,
-                                                        device, model, processor)
-                except UnidentifiedImageError:
-                    print(f'Skipping {image.path.name} because its file format is '
-                        'not supported or it is a corrupted image.')
-                    continue
-                console_output_caption = None
-                if model_type == CaptionModelType.WD_TAGGER:
-                    wd_tagger_settings = self.caption_settings[
-                        'wd_tagger_settings']
-                    tags, probabilities = model.generate_tags(model_inputs,
-                                                            wd_tagger_settings)
-                    caption = self.tag_separator.join(tags)
-                    if wd_tagger_settings['show_probabilities']:
-                        console_output_caption = self.tag_separator.join(
-                            f'{tag} ({probability:.2f})'
-                            for tag, probability in zip(tags, probabilities)
-                        )
-                else:
-                    generation_model = (
-                        model.text_model
-                        if model_type in (CaptionModelType.MOONDREAM1,
-                                        CaptionModelType.MOONDREAM2)
-                        else model
+            image: Image = self.image_list_model.data(image_index,
+                                                      Qt.ItemDataRole.UserRole)
+            prompt = self.get_prompt(model_type, image)
+            try:
+                model_inputs = self.get_model_inputs(image, prompt, model_type,
+                                                     device, model, processor)
+            except UnidentifiedImageError:
+                print(f'Skipping {image.path.name} because its file format is '
+                      'not supported or it is a corrupted image.')
+                continue
+            console_output_caption = None
+            if model_type == CaptionModelType.WD_TAGGER:
+                wd_tagger_settings = self.caption_settings[
+                    'wd_tagger_settings']
+                tags, probabilities = model.generate_tags(model_inputs,
+                                                          wd_tagger_settings)
+                caption = self.tag_separator.join(tags)
+                if wd_tagger_settings['show_probabilities']:
+                    console_output_caption = self.tag_separator.join(
+                        f'{tag} ({probability:.2f})'
+                        for tag, probability in zip(tags, probabilities)
                     )
-                    bad_words_string = self.caption_settings['bad_words']
-                    tokenizer = get_tokenizer_from_processor(model_type, processor)
-                    bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
-                    forced_words_ids = get_forced_words_ids(forced_words_string,
-                                                            tokenizer)
-                    if model_type == CaptionModelType.COGVLM2:
-                        special_generation_parameters = {'pad_token_id': 128002}
-                    elif model_type == CaptionModelType.LLAVA_LLAMA_3:
-                        eos_token_id = (tokenizer('<|eot_id|>',
-                                                add_special_tokens=False)
-                                        .input_ids)[0]
-                        special_generation_parameters = {
-                            'eos_token_id': eos_token_id
-                        }
-                    else:
-                        special_generation_parameters = {}
-                    with torch.inference_mode():
-                        generated_token_ids = generation_model.generate(
-                            **model_inputs, bad_words_ids=bad_words_ids,
-                            force_words_ids=forced_words_ids,
-                            **generation_parameters,
-                            **special_generation_parameters)
-                    caption = self.get_caption_from_generated_tokens(
-                        generated_token_ids, prompt, processor, model_type)
-                tags = add_caption_to_tags(image.tags, caption, caption_position)
-                self.caption_generated.emit(image_index, caption, tags)
-                if are_multiple_images_selected:
-                    self.progress_bar_update_requested.emit(i + 1)
-                if i == 0 and not are_multiple_images_selected:
-                    self.clear_console_text_edit_requested.emit()
-                if console_output_caption is None:
-                    console_output_caption = caption
-                print(f'{image.path.name} ({perf_counter() - start_time:.1f} s):\n'
-                    f'{console_output_caption}')
+            else:
+                generation_model = (
+                    model.text_model
+                    if model_type in (CaptionModelType.MOONDREAM1,
+                                      CaptionModelType.MOONDREAM2)
+                    else model
+                )
+                bad_words_string = self.caption_settings['bad_words']
+                tokenizer = get_tokenizer_from_processor(model_type, processor)
+                bad_words_ids = get_bad_words_ids(bad_words_string, tokenizer)
+                forced_words_ids = get_forced_words_ids(forced_words_string,
+                                                        tokenizer)
+                if model_type == CaptionModelType.COGVLM2:
+                    special_generation_parameters = {'pad_token_id': 128002}
+                elif model_type == CaptionModelType.LLAVA_LLAMA_3:
+                    eos_token_id = (tokenizer('<|eot_id|>',
+                                              add_special_tokens=False)
+                                    .input_ids)[0]
+                    special_generation_parameters = {
+                        'eos_token_id': eos_token_id
+                    }
+                else:
+                    special_generation_parameters = {}
+                with torch.inference_mode():
+                    generated_token_ids = generation_model.generate(
+                        **model_inputs, bad_words_ids=bad_words_ids,
+                        force_words_ids=forced_words_ids,
+                        **generation_parameters,
+                        **special_generation_parameters)
+                caption = self.get_caption_from_generated_tokens(
+                    generated_token_ids, prompt, processor, model_type)
+            tags = add_caption_to_tags(image.tags, caption, caption_position)
+            self.caption_generated.emit(image_index, caption, tags)
             if are_multiple_images_selected:
-                captioning_end_datetime = datetime.now()
-                total_captioning_duration = ((captioning_end_datetime
-                                            - captioning_start_datetime)
-                                            .total_seconds())
-                average_captioning_duration = (total_captioning_duration /
-                                            selected_image_count)
-                print(f'Finished captioning {selected_image_count} images in '
-                    f'{format_duration(total_captioning_duration)} '
-                    f'({average_captioning_duration:.1f} s/image) at '
-                    f'{captioning_end_datetime.strftime("%Y-%m-%d %H:%M:%S")}.')
+                self.progress_bar_update_requested.emit(i + 1)
+            if i == 0 and not are_multiple_images_selected:
+                self.clear_console_text_edit_requested.emit()
+            if console_output_caption is None:
+                console_output_caption = caption
+            print(f'{image.path.name} ({perf_counter() - start_time:.1f} s):\n'
+                  f'{console_output_caption}')
+        if are_multiple_images_selected:
+            captioning_end_datetime = datetime.now()
+            total_captioning_duration = ((captioning_end_datetime
+                                          - captioning_start_datetime)
+                                         .total_seconds())
+            average_captioning_duration = (total_captioning_duration /
+                                           selected_image_count)
+            print(f'Finished captioning {selected_image_count} images in '
+                  f'{format_duration(total_captioning_duration)} '
+                  f'({average_captioning_duration:.1f} s/image) at '
+                  f'{captioning_end_datetime.strftime("%Y-%m-%d %H:%M:%S")}.')
+
+    def run(self):
+        try:
+            self.run_captioning()
         except Exception as e:
             self.is_error = True
             raise e
