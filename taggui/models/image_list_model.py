@@ -158,8 +158,6 @@ class ImageListModel(QAbstractListModel):
                     tags = [tag for tag in tags if tag]
             image = Image(image_path, dimensions, tags)
             self.images.append(image)
-        
-            
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
 
