@@ -495,9 +495,9 @@ class ImageListModel(QAbstractListModel):
             else:
                 if not any(old_tag in image.tags for old_tag in old_tags):
                     continue
-                changed_image_indices.append(image_index)
-                image.tags = [new_tag if image_tag in old_tags else image_tag
-                            for image_tag in image.tags]
+                image.tags = [new_tag if tag in old_tags else tag
+                            for tag in image.tags]
+            changed_image_indices.append(image_index)
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
