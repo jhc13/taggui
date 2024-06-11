@@ -9,7 +9,10 @@ DEFAULT_SETTINGS = {
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
     'autocomplete_tags': True,
-    'models_directory_path': ''
+    'models_directory_path': '',
+    'comics_formats': 'cbz, cbr, cb7, cbt',
+    'comic_tag_type': 1,
+    'comic_inject_tags': True
 }
 
 
