@@ -4,11 +4,29 @@ import sys
 import traceback
 import warnings
 
+import transformers
 from PySide6.QtGui import QImageReader
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from utils.settings import get_settings
 from widgets.main_window import MainWindow
+
+
+def suppress_warnings():
+    """Suppress all warnings when not in a development environment."""
+    environment = os.getenv('TAGGUI_ENVIRONMENT')
+    if environment == 'development':
+        print('Running in development environment.')
+        return
+    logging.basicConfig(level=logging.ERROR)
+    warnings.simplefilter('ignore')
+    transformers.logging.set_verbosity_error()
+    try:
+        import auto_gptq
+        auto_gptq_logger = logging.getLogger(auto_gptq.modeling._base.__name__)
+        auto_gptq_logger.setLevel(logging.ERROR)
+    except ImportError:
+        pass
 
 
 def run_gui():
@@ -27,12 +45,7 @@ def run_gui():
 
 if __name__ == '__main__':
     # Suppress all warnings when not in a development environment.
-    environment = os.getenv('TAGGUI_ENVIRONMENT')
-    if environment == 'development':
-        print('Running in development environment.')
-    else:
-        logging.basicConfig(level=logging.ERROR)
-        warnings.simplefilter('ignore')
+    suppress_warnings()
     try:
         run_gui()
     except Exception as exception:
