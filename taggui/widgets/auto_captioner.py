@@ -360,7 +360,6 @@ class AutoCaptioner(QDockWidget):
         self.image_list_model = image_list_model
         self.image_list = image_list
         self.settings = get_settings()
-        self.sound_effect = QSoundEffect()
         self.is_captioning = False
         self.captioning_thread = None
         self.processor = None
@@ -467,8 +466,11 @@ class AutoCaptioner(QDockWidget):
         sound_name = 'error' if self.captioning_thread.is_error else 'success'
         sound_path = get_resource_path(SOUNDS_DIRECTORY_PATH
                                        / f'{sound_name}.wav')
-        self.sound_effect.setSource(QUrl.fromLocalFile(sound_path))
-        self.sound_effect.play()
+        # A new sound effect must be created each time. Otherwise, the previous
+        # sound is played again on Windows.
+        sound_effect = QSoundEffect(parent=self)
+        sound_effect.setSource(QUrl.fromLocalFile(sound_path))
+        sound_effect.play()
 
     @Slot()
     def generate_captions(self):
