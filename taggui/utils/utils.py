@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-from PySide6.QtWidgets import QMessageBox, QCheckBox
+from PySide6.QtWidgets import QMessageBox
 
 
 def get_resource_path(unbundled_resource_path: Path) -> Path:
@@ -28,31 +28,19 @@ def list_with_and(items: list[str]) -> str:
         return f'{items[0]} and {items[1]}'
     return ', '.join(items[:-1]) + f', and {items[-1]}'
 
-def get_confirmation_dialog(title: str, question: str) -> QMessageBox:
-    confirmation_dialog = QMessageBox()
-    confirmation_dialog.setWindowTitle(title)
-    confirmation_dialog.setIcon(QMessageBox.Icon.Question)
-    confirmation_dialog.setText(question)
-    confirmation_dialog.setStandardButtons(QMessageBox.StandardButton.Yes
-                                           | QMessageBox.StandardButton.Cancel)
-    confirmation_dialog.setDefaultButton(QMessageBox.StandardButton.Yes)
-    return confirmation_dialog
 
-def get_confirmation_dialog_checkbox(title: str, question: str, checkbox: str) -> tuple[QMessageBox, QCheckBox]:
-    confirmation_dialog = get_confirmation_dialog(title, question)
-    checkbox_widget = QCheckBox()
-    checkbox_widget.setText(checkbox)
-    confirmation_dialog.setCheckBox(checkbox_widget)
-    return confirmation_dialog, checkbox_widget
+class ConfirmationDialog(QMessageBox):
+    def __init__(self, title: str, question: str):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setIcon(QMessageBox.Icon.Question)
+        self.setText(question)
+        self.setStandardButtons(QMessageBox.StandardButton.Yes
+                                | QMessageBox.StandardButton.Cancel)
+        self.setDefaultButton(QMessageBox.StandardButton.Yes)
+
 
 def get_confirmation_dialog_reply(title: str, question: str) -> int:
     """Display a confirmation dialog and return the user's reply."""
-    confirmation_dialog = get_confirmation_dialog(title, question)
+    confirmation_dialog = ConfirmationDialog(title, question)
     return confirmation_dialog.exec()
-
-def get_confirmation_dialog_checkbox_reply(title: str, question: str, checkbox: str) -> tuple[int, bool]:
-    """Display a confirmation dialog with checkbox and return the user's reply."""
-    confirmation_dialog, checkBox = get_confirmation_dialog_checkbox(title, question, checkbox)
-    btn = confirmation_dialog.exec()
-    checked = checkBox.isChecked()
-    return btn, checked
