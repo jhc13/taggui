@@ -22,12 +22,10 @@ class SettingsDialog(QDialog):
         appearance_tab: QWidget = QWidget()
         tagging_tab: QWidget = QWidget()
         directories_tab: QWidget = QWidget()
-        comics_tab: QWidget = QWidget()  # Future use
 
         tabs.addTab(appearance_tab, "Appearance")
         tabs.addTab(tagging_tab, "Tagging")
         tabs.addTab(directories_tab, "Directories")
-        tabs.addTab(comics_tab, "Comics")  # Future use
 
         # Appearance Tab
         appearance_layout: QGridLayout = QGridLayout(appearance_tab)
@@ -95,27 +93,6 @@ class SettingsDialog(QDialog):
         models_directory_button.setFixedWidth(int(models_directory_button.sizeHint().width() * 1.3))
         models_directory_button.clicked.connect(self.set_models_directory_path)
         directories_layout.addWidget(models_directory_button, 1, 1, Qt.AlignmentFlag.AlignLeft)
-
-        # Comics Tab
-        comics_layout: QGridLayout = QGridLayout(comics_tab)
-        comics_layout.addWidget(QLabel('Supported formats:'), 0, 0, Qt.AlignmentFlag.AlignRight)
-
-        self.comics_formats_line_edit: SettingsLineEdit = SettingsLineEdit(
-            key='comics_formats',
-            default=DEFAULT_SETTINGS['comics_formats'])
-        self.comics_formats_line_edit.setMinimumWidth(400)
-        self.comics_formats_line_edit.setClearButtonEnabled(True)
-        self.comics_formats_line_edit.textChanged.connect(self.show_restart_warning)
-        comics_layout.addWidget(self.comics_formats_line_edit, 0, 1, Qt.AlignmentFlag.AlignLeft)
-
-        comics_layout.addWidget(QLabel('Tag options:'), 1, 0, Qt.AlignmentFlag.AlignRight)
-        self.comic_tag_options_combo: SettingsComboBox = SettingsComboBox(
-            key = 'comic_tag_type',
-            default=DEFAULT_SETTINGS['comic_tag_type']
-        )
-        self.comic_tag_options_combo.addItems(['Tag comic', 'Tag pages', 'Tag both'])
-        self.comic_tag_options_combo.currentTextChanged.connect(self.show_restart_warning)
-        comics_layout.addWidget(self.comic_tag_options_combo, 1, 1, Qt.AlignmentFlag.AlignLeft)
 
         layout.addWidget(tabs)
 

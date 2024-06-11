@@ -1,9 +1,5 @@
 import random
 import sys
-import zipfile
-import rarfile
-import tarfile
-import py7zr
 from os.path import splitext
 from collections import Counter, deque
 from dataclasses import dataclass
@@ -115,25 +111,14 @@ class ImageListModel(QAbstractListModel):
         image_suffixes_string = settings.value(
             'image_list_file_formats',
             defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)
-        comic_formats_string = settings.value(
-            'comics_formats',
-            defaultValue=DEFAULT_SETTINGS['comics_formats'], type=str)
         image_suffixes = []
         for suffix in image_suffixes_string.split(','):
             suffix = suffix.strip().lower()
             if not suffix.startswith('.'):
                 suffix = '.' + suffix
             image_suffixes.append(suffix)
-        comic_suffixes = []
-        for suffix in comic_formats_string.split(','):
-            suffix = suffix.strip().lower()
-            if not suffix.startswith('.'):
-                suffix = '.' + suffix
-            comic_suffixes.append(suffix)
         image_paths = [path for path in file_paths
                        if path.suffix.lower() in image_suffixes]
-        comic_paths = {path for path in file_paths
-                       if path.suffix.lower() in comic_suffixes}
         text_file_paths = [path for path in file_paths
                            if path.suffix == '.txt']
         # Comparing paths is slow on some systems, so convert the paths to
@@ -176,58 +161,9 @@ class ImageListModel(QAbstractListModel):
             image = Image(image_path, dimensions, tags)
             self.images.append(image)
         
-        for comic_path in comic_paths:
-            self.load_comic(comic_path)
             
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
-
-    def load_comic(self, comic_path: Path):
-        settings = get_settings()
-        comic_tag_type = settings.value('comic_tag_type', defaultValue=1, type=int)
-        comic_inject_tags = settings.value('comic_inject_tags', defaultValue=True, type=bool)
-        try:
-            if comic_path.suffix.lower() == '.cbz':                
-                with zipfile.ZipFile(comic_path, 'r') as archive:
-                    self._process_comic_archive(archive, comic_tag_type, comic_inject_tags)
-            elif comic_path.suffix.lower() == '.cbr':
-                with rarfile.RarFile(comic_path, 'r') as archive:
-                    self._process_comic_archive(archive, comic_tag_type, comic_inject_tags)
-            elif comic_path.suffix.lower() == '.cbt':
-                with tarfile.open(comic_path, 'r') as archive:
-                    self._process_comic_archive(archive, comic_tag_type, comic_inject_tags)
-            elif comic_path.suffix.lower() == '.cb7':
-                with py7zr.SevenZipFile(comic_path, 'r') as archive:
-                    self._process_comic_archive(archive, comic_tag_type, comic_inject_tags)
-        except Exception as exception:
-            print(f'Failed to load comic {comic_path}: {exception}', file=sys.stderr)
-
-    def _process_comic_archive(self, archive, comic_tag_type: int, comic_inject_tags: bool):
-        image_files = [f for f in archive.getnames() if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))]
-        text_files = [f for f in archive.getnames() if f.lower().endswith('.txt')]
-
-        for image_file in image_files:
-            dimensions = imagesize.get(image_file)
-            tags = []
-            
-            if comic_tag_type in (1, 3):
-                comic_tags_file = next((f for f in text_files if f.lower() == 'tags.txt'), None)
-                if comic_tags_file:
-                    with archive.open(comic_tags_file) as file:
-                        caption = file.read().decode('utf-8', errors='replace')
-                        tags.extend(caption.split(self.tag_separator))
-            
-            if comic_tag_type in (2, 3):
-                image_tag_file = Path(image_file).with_suffix('.txt')
-                if image_tag_file in text_files:
-                    with archive.open(image_tag_file) as file:
-                        caption = file.read().decode('utf-8', errors='replace')
-                        tags.extend(caption.split(self.tag_separator))
-
-            tags = [tag.strip() for tag in tags]
-            tags = [tag for tag in tags if tag]
-            image = Image(Path(image_file), dimensions, tags)
-            self.images.append(image)
 
     def add_to_undo_stack(self, action_name: str,
                           should_ask_for_confirmation: bool):
