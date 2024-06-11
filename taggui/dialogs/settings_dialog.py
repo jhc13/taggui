@@ -46,13 +46,6 @@ class SettingsDialog(QDialog):
 
         # Tagging Tab
         tagging_layout: QGridLayout = QGridLayout(tagging_tab)
-        tagging_layout.addWidget(QLabel('File types to show in image list'), 0, 0, Qt.AlignmentFlag.AlignRight)
-        file_types_line_edit: SettingsLineEdit = SettingsLineEdit(
-            key='image_list_file_formats',
-            default=DEFAULT_SETTINGS['image_list_file_formats'])
-        file_types_line_edit.setMinimumWidth(400)
-        file_types_line_edit.textChanged.connect(self.show_restart_warning)
-        tagging_layout.addWidget(file_types_line_edit, 0, 1, Qt.AlignmentFlag.AlignLeft)
 
         tagging_layout.addWidget(QLabel('Tag separator'), 1, 0, Qt.AlignmentFlag.AlignRight)
         tag_separator_line_edit: QLineEdit = QLineEdit()
@@ -79,20 +72,30 @@ class SettingsDialog(QDialog):
         tagging_layout.addWidget(autocomplete_tags_check_box, 3, 1, Qt.AlignmentFlag.AlignLeft)
 
         # Directories Tab
-        directories_layout: QGridLayout = QGridLayout(directories_tab)
-        directories_layout.addWidget(QLabel('Auto-captioning models directory'), 0, 0, Qt.AlignmentFlag.AlignRight)
-        self.models_directory_line_edit: SettingsLineEdit = SettingsLineEdit(
+        files_layout: QGridLayout = QGridLayout(directories_tab)
+        files_layout.addWidget(QLabel('File types to show in image list'), 0, 0, Qt.AlignmentFlag.AlignRight)
+        file_types_line_edit: SettingsLineEdit = SettingsLineEdit(
+            key='image_list_file_formats',
+            default=DEFAULT_SETTINGS['image_list_file_formats'])
+        file_types_line_edit.setMinimumWidth(400)
+        file_types_line_edit.textChanged.connect(self.show_restart_warning)
+        files_layout.addWidget(file_types_line_edit, 0, 1, Qt.AlignmentFlag.AlignLeft)
+
+        files_layout.addWidget(QLabel('Auto-captioning models directory'), 1, 0, Qt.AlignmentFlag.AlignRight)
+        self.models_files_line_edit: SettingsLineEdit = SettingsLineEdit(
             key='models_directory_path',
             default=DEFAULT_SETTINGS['models_directory_path'])
-        self.models_directory_line_edit.setMinimumWidth(400)
-        self.models_directory_line_edit.setClearButtonEnabled(True)
-        self.models_directory_line_edit.textChanged.connect(self.show_restart_warning)
-        directories_layout.addWidget(self.models_directory_line_edit, 0, 1, Qt.AlignmentFlag.AlignLeft)
+        self.models_files_line_edit.setMinimumWidth(400)
+        self.models_files_line_edit.setClearButtonEnabled(True)
+        self.models_files_line_edit.textChanged.connect(self.show_restart_warning)
+        files_layout.addWidget(self.models_files_line_edit, 1, 1, Qt.AlignmentFlag.AlignLeft)
 
         models_directory_button = QPushButton('Select Directory...')
         models_directory_button.setFixedWidth(int(models_directory_button.sizeHint().width() * 1.3))
         models_directory_button.clicked.connect(self.set_models_directory_path)
-        directories_layout.addWidget(models_directory_button, 1, 1, Qt.AlignmentFlag.AlignLeft)
+        files_layout.addWidget(models_directory_button, 2, 1, Qt.AlignmentFlag.AlignLeft)
+
+
 
         layout.addWidget(tabs)
 
@@ -135,6 +138,6 @@ class SettingsDialog(QDialog):
             parent=self, caption='Select directory containing auto-captioning models',
             dir=initial_directory_path)
         if models_directory_path:
-            self.models_directory_line_edit.setText(models_directory_path)
+            self.models_files_line_edit.setText(models_directory_path)
 
 
