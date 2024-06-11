@@ -1,6 +1,5 @@
 import random
 import sys
-from os.path import splitext
 from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
@@ -12,7 +11,6 @@ from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
-from exifread.heic import NoParser
 
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
@@ -117,11 +115,12 @@ class ImageListModel(QAbstractListModel):
             if not suffix.startswith('.'):
                 suffix = '.' + suffix
             image_suffixes.append(suffix)
-        image_paths = [path for path in file_paths 
-                       if str(path).lower().endswith(tuple(image_suffixes))]
-        text_file_paths = [path for path in file_paths
-                           if path.suffix == '.txt']
-        txt_strs = {str(path) for path in text_file_paths}
+        image_paths = {path for path in file_paths
+                       if path.suffix.lower() in image_suffixes}
+        # Comparing paths is slow on some systems, so convert the paths to
+        # strings.
+        text_file_path_strings = {str(path) for path in file_paths
+                                  if path.suffix == '.txt'}
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
@@ -138,7 +137,7 @@ class ImageListModel(QAbstractListModel):
                             if any(value in orientations
                                    for value in (5, 6, 7, 8)):
                                 dimensions = (dimensions[1], dimensions[0])
-                    except (KeyError, NoParser) as exception:
+                    except Exception as exception:
                         print(f'Failed to get Exif tags for {image_path}: '
                               f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
@@ -146,11 +145,11 @@ class ImageListModel(QAbstractListModel):
                       f'{exception}', file=sys.stderr)
                 dimensions = None
             tags = []
-            text_file_path = splitext(str(image_path))[0] + '.txt'
-            if text_file_path in txt_strs:
+            text_file_path = image_path.with_suffix('.txt')
+            if str(text_file_path) in text_file_path_strings:
                 # `errors='replace'` inserts a replacement marker such as '?'
                 # when there is malformed data.
-                caption = image_path.with_suffix('.txt').read_text(encoding='utf-8',
+                caption = text_file_path.read_text(encoding='utf-8',
                                                    errors='replace')
                 if caption:
                     tags = caption.split(self.tag_separator)
