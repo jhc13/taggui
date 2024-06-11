@@ -12,7 +12,6 @@ DEFAULT_SETTINGS = {
     'models_directory_path': '',
     'caption_device': '',
     'caption_device_id': 0,
-    'show_probabilities': True,
     'load_4bit': True,
     'caption_extension': '.txt'
 }
