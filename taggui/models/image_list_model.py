@@ -117,12 +117,10 @@ class ImageListModel(QAbstractListModel):
             if not suffix.startswith('.'):
                 suffix = '.' + suffix
             image_suffixes.append(suffix)
-        image_paths = [path for path in file_paths
-                       if path.suffix.lower() in image_suffixes]
+        image_paths = [path for path in file_paths 
+                       if str(path).lower().endswith(tuple(image_suffixes))]
         text_file_paths = [path for path in file_paths
                            if path.suffix == '.txt']
-        # Comparing paths is slow on some systems, so convert the paths to
-        # strings.
         txt_strs = {str(path) for path in text_file_paths}
         for image_path in image_paths:
             try:
