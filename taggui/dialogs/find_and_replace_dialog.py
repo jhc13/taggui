@@ -33,6 +33,8 @@ class FindAndReplaceDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Whole tags only'), 3, 0,
                               Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Use Regex'), 4, 0,
+                              Qt.AlignmentFlag.AlignRight)
         self.find_line_edit = SettingsLineEdit(key='find_text')
         self.find_line_edit.setClearButtonEnabled(True)
         self.find_line_edit.textChanged.connect(self.display_match_count)
@@ -50,6 +52,9 @@ class FindAndReplaceDialog(QDialog):
         self.whole_tags_only_check_box.stateChanged.connect(
             self.display_match_count)
         grid_layout.addWidget(self.whole_tags_only_check_box, 3, 1)
+        self.regex_check_box = SettingsBigCheckBox(key='use_regex', default=False)
+        self.regex_check_box.stateChanged.connect(self.display_match_count)
+        grid_layout.addWidget(self.regex_check_box, 4, 1)
         layout.addLayout(grid_layout)
         self.replace_button = QPushButton('Replace')
         self.replace_button.clicked.connect(self.replace)
@@ -68,7 +73,7 @@ class FindAndReplaceDialog(QDialog):
         scope = self.scope_combo_box.currentText()
         whole_tags_only = self.whole_tags_only_check_box.isChecked()
         match_count = self.image_list_model.get_text_match_count(
-            text, scope, whole_tags_only)
+            text, scope, whole_tags_only, self.regex_check_box.isChecked())
         self.replace_button.setText(f'Replace {match_count} '
                                     f'{pluralize("instance", match_count)}')
 
@@ -79,11 +84,12 @@ class FindAndReplaceDialog(QDialog):
             replace_text = self.replace_line_edit.text()
             if replace_text:
                 self.image_list_model.rename_tags([self.find_line_edit.text()],
-                                                  replace_text, scope)
+                                                  replace_text, scope, self.regex_check_box.isChecked())
             else:
                 self.image_list_model.delete_tags([self.find_line_edit.text()],
                                                   scope)
         else:
             self.image_list_model.find_and_replace(
                 self.find_line_edit.text(), self.replace_line_edit.text(),
-                scope)
+                scope, self.regex_check_box.isChecked())
+

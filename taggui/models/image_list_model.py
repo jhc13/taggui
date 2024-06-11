@@ -1,4 +1,5 @@
 import random
+import re
 import sys
 from collections import Counter, deque
 from dataclasses import dataclass
@@ -239,21 +240,31 @@ class ImageListModel(QAbstractListModel):
             return self.image_list_selection_model.isSelected(proxy_index)
 
     def get_text_match_count(self, text: str, scope: Scope | str,
-                             whole_tags_only: bool) -> int:
+                             whole_tags_only: bool, use_regex: bool) -> int:
         """Get the number of instances of a text in all captions."""
         match_count = 0
-        for image_index, image in enumerate(self.images):
-            if not self.is_image_in_scope(scope, image_index, image):
-                continue
-            if whole_tags_only:
-                match_count += image.tags.count(text)
-            else:
-                caption = self.tag_separator.join(image.tags)
-                match_count += caption.count(text)
+        if use_regex:
+            for image_index, image in enumerate(self.images):
+                if not self.is_image_in_scope(scope, image_index, image): continue
+                if whole_tags_only:
+                    for tag in image.tags:
+                        match_count += len(re.findall(text, tag))
+                else:
+                    caption = self.tag_separator.join(image.tags)
+                    match_count += len(re.findall(text, caption))
+        else:
+            for image_index, image in enumerate(self.images):
+                if not self.is_image_in_scope(scope, image_index, image):
+                    continue
+                if whole_tags_only:
+                    match_count += image.tags.count(text)
+                else:
+                    caption = self.tag_separator.join(image.tags)
+                    match_count += caption.count(text)
         return match_count
 
     def find_and_replace(self, find_text: str, replace_text: str,
-                         scope: Scope | str):
+                     scope: Scope | str, use_regex: bool = False):
         """
         Find and replace arbitrary text in captions, within and across tag
         boundaries.
@@ -261,21 +272,26 @@ class ImageListModel(QAbstractListModel):
         if not find_text:
             return
         self.add_to_undo_stack(action_name='Find and Replace',
-                               should_ask_for_confirmation=True)
+                            should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
             caption = self.tag_separator.join(image.tags)
-            if find_text not in caption:
-                continue
+            if use_regex:
+                if not re.search(find_text, caption):
+                    continue
+                caption = re.sub(find_text, replace_text, caption)
+            else:
+                if find_text not in caption:
+                    continue
+                caption = caption.replace(find_text, replace_text)
             changed_image_indices.append(image_index)
-            caption = caption.replace(find_text, replace_text)
             image.tags = caption.split(self.tag_separator)
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
-                                  self.index(changed_image_indices[-1]))
+                                self.index(changed_image_indices[-1]))
 
     def sort_tags_alphabetically(self, do_not_reorder_first_tag: bool):
         """Sort the tags for each image in alphabetical order."""
@@ -463,7 +479,7 @@ class ImageListModel(QAbstractListModel):
 
     @Slot(list, str)
     def rename_tags(self, old_tags: list[str], new_tag: str,
-                    scope: Scope | str = Scope.ALL_IMAGES):
+                    scope: Scope | str = Scope.ALL_IMAGES, use_regex: bool = False):
         self.add_to_undo_stack(
             action_name=f'Rename {pluralize("Tag", len(old_tags))}',
             should_ask_for_confirmation=True)
@@ -471,11 +487,17 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
-            if not any(old_tag in image.tags for old_tag in old_tags):
-                continue
-            changed_image_indices.append(image_index)
-            image.tags = [new_tag if image_tag in old_tags else image_tag
-                          for image_tag in image.tags]
+            if use_regex:
+                if not any(re.search(old_tag, tag) for old_tag in old_tags for tag in image.tags):
+                    continue
+                image.tags = [new_tag if any(re.search(old_tag, tag) for old_tag in old_tags) else tag
+                            for tag in image.tags]
+            else:
+                if not any(old_tag in image.tags for old_tag in old_tags):
+                    continue
+                changed_image_indices.append(image_index)
+                image.tags = [new_tag if image_tag in old_tags else image_tag
+                            for image_tag in image.tags]
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
