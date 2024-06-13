@@ -507,7 +507,8 @@ class ImageListModel(QAbstractListModel):
 
     @Slot(list)
     def delete_tags(self, tags: list[str],
-                    scope: Scope | str = Scope.ALL_IMAGES, use_regex: bool = False):
+                    scope: Scope | str = Scope.ALL_IMAGES,
+                    use_regex: bool = False):
         self.add_to_undo_stack(
             action_name=f'Delete {pluralize("Tag", len(tags))}',
             should_ask_for_confirmation=True)
@@ -520,12 +521,12 @@ class ImageListModel(QAbstractListModel):
             if use_regex:
                 changed_image_indices.append(image_index)
                 image.tags = [image_tag for image_tag in image.tags
-                               if not re.search(tags, image_tag)]
+                              if not re.search(tags, image_tag)]
                 self.write_image_tags_to_disk(image)
             else:
                 changed_image_indices.append(image_index)
                 image.tags = [image_tag for image_tag in image.tags
-                            if image_tag not in tags]
+                              if image_tag not in tags]
                 self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
