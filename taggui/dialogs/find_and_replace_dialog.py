@@ -91,7 +91,7 @@ class FindAndReplaceDialog(QDialog):
                                                   use_regex)
             else:
                 self.image_list_model.delete_tags([self.find_line_edit.text()],
-                                                  scope)
+                                                  scope, use_regex)
         else:
             self.image_list_model.find_and_replace(
                 self.find_line_edit.text(), self.replace_line_edit.text(),
