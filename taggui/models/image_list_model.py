@@ -116,10 +116,12 @@ class ImageListModel(QAbstractListModel):
             if not suffix.startswith('.'):
                 suffix = '.' + suffix
             image_suffixes.append(suffix)
-        image_paths = [path for path in file_paths
-                       if path.suffix.lower() in image_suffixes]
-        text_file_paths = [path for path in file_paths
-                           if path.suffix == '.txt']
+        image_paths = {path for path in file_paths
+                       if path.suffix.lower() in image_suffixes}
+        # Comparing paths is slow on some systems, so convert the paths to
+        # strings.
+        text_file_path_strings = {str(path) for path in file_paths
+                                  if path.suffix == '.txt'}
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
@@ -145,7 +147,7 @@ class ImageListModel(QAbstractListModel):
                 dimensions = None
             tags = []
             text_file_path = image_path.with_suffix('.txt')
-            if text_file_path in text_file_paths:
+            if str(text_file_path) in text_file_path_strings:
                 # `errors='replace'` inserts a replacement marker such as '?'
                 # when there is malformed data.
                 caption = text_file_path.read_text(encoding='utf-8',

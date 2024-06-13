@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
 
 from auto_captioning.captioning_thread import CaptioningThread
 from auto_captioning.models import MODELS, get_model_type
+from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
 from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
@@ -19,7 +20,7 @@ from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsSpinBox,
                                     SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsPlainTextEdit)
-from utils.utils import get_confirmation_dialog_reply, pluralize
+from utils.utils import pluralize
 from widgets.image_list import ImageList
 
 
@@ -440,15 +441,34 @@ class AutoCaptioner(QDockWidget):
         self.console_text_edit.appendPlainText(text)
 
     @Slot()
+    def show_alert(self):
+        if self.captioning_thread.is_canceled:
+            return
+        if self.captioning_thread.is_error:
+            icon = QMessageBox.Icon.Critical
+            text = ('An error occurred during captioning. See the '
+                    'Auto-Captioner console for more information.')
+        else:
+            icon = QMessageBox.Icon.Information
+            text = 'Captioning has finished.'
+        alert = QMessageBox()
+        alert.setIcon(icon)
+        alert.setText(text)
+        alert.exec()
+
+    @Slot()
     def generate_captions(self):
         selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
+        show_alert_when_finished = False
         if selected_image_count > 1:
-            reply = get_confirmation_dialog_reply(
-                title='Generate Captions',
-                question=f'Caption {selected_image_count} selected images?')
+            confirmation_dialog = CaptionMultipleImagesDialog(
+                selected_image_count)
+            reply = confirmation_dialog.exec()
             if reply != QMessageBox.StandardButton.Yes:
                 return
+            show_alert_when_finished = (confirmation_dialog
+                                        .show_alert_check_box.isChecked())
         self.set_is_captioning(True)
         caption_settings = self.caption_settings_form.get_caption_settings()
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
@@ -483,6 +503,8 @@ class AutoCaptioner(QDockWidget):
         self.captioning_thread.finished.connect(self.progress_bar.hide)
         self.captioning_thread.finished.connect(
             lambda: self.start_cancel_button.setEnabled(True))
+        if show_alert_when_finished:
+            self.captioning_thread.finished.connect(self.show_alert)
         # Redirect `stdout` and `stderr` so that the outputs are displayed in
         # the console text edit.
         sys.stdout = self.captioning_thread

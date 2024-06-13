@@ -18,8 +18,8 @@ class TallPushButton(QPushButton):
 
 
 class BigCheckBox(QCheckBox):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, text: str | None = None):
+        super().__init__(text)
         settings = get_settings()
         font_size = settings.value(
             'font_size', defaultValue=DEFAULT_SETTINGS['font_size'], type=int)

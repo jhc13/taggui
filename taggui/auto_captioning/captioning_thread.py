@@ -151,6 +151,7 @@ class CaptioningThread(QThread):
         self.caption_settings = caption_settings
         self.tag_separator = tag_separator
         self.models_directory_path = models_directory_path
+        self.is_error = False
         self.is_canceled = False
 
     def load_processor_and_model(self, device: torch.device,
@@ -357,7 +358,7 @@ class CaptioningThread(QThread):
             caption = caption.replace(self.tag_separator, ' ')
         return caption
 
-    def run(self):
+    def run_captioning(self):
         model_id = self.caption_settings['model']
         model_type = get_model_type(model_id)
         forced_words_string = self.caption_settings['forced_words']
@@ -366,6 +367,7 @@ class CaptioningThread(QThread):
         beam_count = generation_parameters['num_beams']
         if (forced_words_string.strip() and beam_count < 2
                 and model_type != CaptionModelType.WD_TAGGER):
+            self.is_error = True
             self.clear_console_text_edit_requested.emit()
             print('`Number of beams` must be greater than 1 when `Include in '
                   'caption` is not empty.')
@@ -392,6 +394,7 @@ class CaptioningThread(QThread):
             error_message = get_xcomposer2_error_message(
                 model_id, self.caption_settings['device'], load_in_4_bit)
         if error_message:
+            self.is_error = True
             self.clear_console_text_edit_requested.emit()
             print(error_message)
             return
@@ -506,6 +509,14 @@ class CaptioningThread(QThread):
                   f'{format_duration(total_captioning_duration)} '
                   f'({average_captioning_duration:.1f} s/image) at '
                   f'{captioning_end_datetime.strftime("%Y-%m-%d %H:%M:%S")}.')
+
+    def run(self):
+        try:
+            self.run_captioning()
+        except Exception as exception:
+            self.is_error = True
+            # Show the error message in the console text edit.
+            raise exception
 
     def write(self, text: str):
         self.text_outputted.emit(text)
