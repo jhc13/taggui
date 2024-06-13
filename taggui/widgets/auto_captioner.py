@@ -1,9 +1,8 @@
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, QUrl, Qt, Signal, Slot
+from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
-from PySide6.QtMultimedia import QSoundEffect
 from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QFrame, QHBoxLayout, QLabel, QMessageBox,
                                QPlainTextEdit, QProgressBar, QScrollArea,
@@ -21,10 +20,8 @@ from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsSpinBox,
                                     SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsPlainTextEdit)
-from utils.utils import get_resource_path, pluralize
+from utils.utils import pluralize
 from widgets.image_list import ImageList
-
-SOUNDS_DIRECTORY_PATH = Path('sounds')
 
 
 def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
@@ -460,24 +457,10 @@ class AutoCaptioner(QDockWidget):
         alert.exec()
 
     @Slot()
-    def play_sound(self):
-        if self.captioning_thread.is_canceled:
-            return
-        sound_name = 'error' if self.captioning_thread.is_error else 'success'
-        sound_path = get_resource_path(SOUNDS_DIRECTORY_PATH
-                                       / f'{sound_name}.wav')
-        # A new sound effect must be created each time. Otherwise, the previous
-        # sound is played again on Windows.
-        sound_effect = QSoundEffect(parent=self)
-        sound_effect.setSource(QUrl.fromLocalFile(sound_path))
-        sound_effect.play()
-
-    @Slot()
     def generate_captions(self):
         selected_image_indices = self.image_list.get_selected_image_indices()
         selected_image_count = len(selected_image_indices)
         show_alert_when_finished = False
-        play_sound_when_finished = False
         if selected_image_count > 1:
             confirmation_dialog = CaptionMultipleImagesDialog(
                 selected_image_count)
@@ -486,8 +469,6 @@ class AutoCaptioner(QDockWidget):
                 return
             show_alert_when_finished = (confirmation_dialog
                                         .show_alert_check_box.isChecked())
-            play_sound_when_finished = (confirmation_dialog
-                                        .play_sound_check_box.isChecked())
         self.set_is_captioning(True)
         caption_settings = self.caption_settings_form.get_caption_settings()
         if caption_settings['caption_position'] != CaptionPosition.DO_NOT_ADD:
@@ -524,8 +505,6 @@ class AutoCaptioner(QDockWidget):
             lambda: self.start_cancel_button.setEnabled(True))
         if show_alert_when_finished:
             self.captioning_thread.finished.connect(self.show_alert)
-        if play_sound_when_finished:
-            self.captioning_thread.finished.connect(self.play_sound)
         # Redirect `stdout` and `stderr` so that the outputs are displayed in
         # the console text edit.
         sys.stdout = self.captioning_thread
