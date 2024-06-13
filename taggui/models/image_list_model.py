@@ -518,16 +518,14 @@ class ImageListModel(QAbstractListModel):
                 continue
             if not any(tag in image.tags for tag in tags):
                 continue
+            changed_image_indices.append(image_index)
             if use_regex:
-                changed_image_indices.append(image_index)
                 image.tags = [image_tag for image_tag in image.tags
                               if not re.search(tags, image_tag)]
-                self.write_image_tags_to_disk(image)
             else:
-                changed_image_indices.append(image_index)
                 image.tags = [image_tag for image_tag in image.tags
                               if image_tag not in tags]
-                self.write_image_tags_to_disk(image)
+            self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
