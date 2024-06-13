@@ -73,24 +73,26 @@ class FindAndReplaceDialog(QDialog):
         self.replace_button.setEnabled(True)
         scope = self.scope_combo_box.currentText()
         whole_tags_only = self.whole_tags_only_check_box.isChecked()
+        use_regex = self.regex_check_box.isChecked()
         match_count = self.image_list_model.get_text_match_count(
-            text, scope, whole_tags_only, self.regex_check_box.isChecked())
+            text, scope, whole_tags_only, use_regex)
         self.replace_button.setText(f'Replace {match_count} '
                                     f'{pluralize("instance", match_count)}')
 
     @Slot()
     def replace(self):
         scope = self.scope_combo_box.currentText()
+        use_regex = self.regex_check_box.isChecked()
         if self.whole_tags_only_check_box.isChecked():
             replace_text = self.replace_line_edit.text()
             if replace_text:
                 self.image_list_model.rename_tags([self.find_line_edit.text()],
-                                                  replace_text, scope, self.regex_check_box.isChecked())
+                                                  replace_text, scope,
+                                                  use_regex)
             else:
                 self.image_list_model.delete_tags([self.find_line_edit.text()],
                                                   scope)
         else:
             self.image_list_model.find_and_replace(
                 self.find_line_edit.text(), self.replace_line_edit.text(),
-                scope, self.regex_check_box.isChecked())
-
+                scope, use_regex)
