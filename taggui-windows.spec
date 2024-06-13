@@ -1,7 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_data_files
 
-datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'), ('images/icon.ico', 'images')]
+datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'),
+         ('images/icon.ico', 'images')]
 datas += collect_data_files('xformers')
 
 block_cipher = None

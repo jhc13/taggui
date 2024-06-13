@@ -8,8 +8,8 @@ from utils.settings import get_settings
 
 
 class SettingsBigCheckBox(BigCheckBox):
-    def __init__(self, key: str, default: bool):
-        super().__init__()
+    def __init__(self, key: str, default: bool, text: str | None = None):
+        super().__init__(text)
         settings = get_settings()
         self.setChecked(settings.value(key, default, type=bool))
         self.stateChanged.connect(

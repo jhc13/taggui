@@ -29,13 +29,18 @@ def list_with_and(items: list[str]) -> str:
     return ', '.join(items[:-1]) + f', and {items[-1]}'
 
 
+class ConfirmationDialog(QMessageBox):
+    def __init__(self, title: str, question: str):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setIcon(QMessageBox.Icon.Question)
+        self.setText(question)
+        self.setStandardButtons(QMessageBox.StandardButton.Yes
+                                | QMessageBox.StandardButton.Cancel)
+        self.setDefaultButton(QMessageBox.StandardButton.Yes)
+
+
 def get_confirmation_dialog_reply(title: str, question: str) -> int:
     """Display a confirmation dialog and return the user's reply."""
-    confirmation_dialog = QMessageBox()
-    confirmation_dialog.setWindowTitle(title)
-    confirmation_dialog.setIcon(QMessageBox.Icon.Question)
-    confirmation_dialog.setText(question)
-    confirmation_dialog.setStandardButtons(QMessageBox.StandardButton.Yes
-                                           | QMessageBox.StandardButton.Cancel)
-    confirmation_dialog.setDefaultButton(QMessageBox.StandardButton.Yes)
+    confirmation_dialog = ConfirmationDialog(title, question)
     return confirmation_dialog.exec()
