@@ -521,7 +521,7 @@ class ImageListModel(QAbstractListModel):
             changed_image_indices.append(image_index)
             if use_regex:
                 image.tags = [image_tag for image_tag in image.tags
-                              if not re.search(tags, image_tag)]
+                              if not re.search(tag, image_tag) for tag in tags]
             else:
                 image.tags = [image_tag for image_tag in image.tags
                               if image_tag not in tags]
