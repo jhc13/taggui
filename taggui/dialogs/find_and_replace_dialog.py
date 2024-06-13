@@ -52,7 +52,8 @@ class FindAndReplaceDialog(QDialog):
         self.whole_tags_only_check_box.stateChanged.connect(
             self.display_match_count)
         grid_layout.addWidget(self.whole_tags_only_check_box, 3, 1)
-        self.regex_check_box = SettingsBigCheckBox(key='use_regex', default=False)
+        self.regex_check_box = SettingsBigCheckBox(key='use_regex',
+                                                   default=False)
         self.regex_check_box.stateChanged.connect(self.display_match_count)
         grid_layout.addWidget(self.regex_check_box, 4, 1)
         layout.addLayout(grid_layout)

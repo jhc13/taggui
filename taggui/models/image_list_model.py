@@ -264,7 +264,7 @@ class ImageListModel(QAbstractListModel):
         return match_count
 
     def find_and_replace(self, find_text: str, replace_text: str,
-                     scope: Scope | str, use_regex: bool = False):
+                         scope: Scope | str, use_regex: bool):
         """
         Find and replace arbitrary text in captions, within and across tag
         boundaries.
@@ -272,7 +272,7 @@ class ImageListModel(QAbstractListModel):
         if not find_text:
             return
         self.add_to_undo_stack(action_name='Find and Replace',
-                            should_ask_for_confirmation=True)
+                               should_ask_for_confirmation=True)
         changed_image_indices = []
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
@@ -291,7 +291,7 @@ class ImageListModel(QAbstractListModel):
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
-                                self.index(changed_image_indices[-1]))
+                                  self.index(changed_image_indices[-1]))
 
     def sort_tags_alphabetically(self, do_not_reorder_first_tag: bool):
         """Sort the tags for each image in alphabetical order."""
@@ -479,7 +479,8 @@ class ImageListModel(QAbstractListModel):
 
     @Slot(list, str)
     def rename_tags(self, old_tags: list[str], new_tag: str,
-                    scope: Scope | str = Scope.ALL_IMAGES, use_regex: bool = False):
+                    scope: Scope | str = Scope.ALL_IMAGES,
+                    use_regex: bool = False):
         self.add_to_undo_stack(
             action_name=f'Rename {pluralize("Tag", len(old_tags))}',
             should_ask_for_confirmation=True)
@@ -488,15 +489,17 @@ class ImageListModel(QAbstractListModel):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
             if use_regex:
-                if not any(re.search(old_tag, tag) for old_tag in old_tags for tag in image.tags):
+                if not any(re.search(old_tag, tag) for old_tag in old_tags
+                           for tag in image.tags):
                     continue
-                image.tags = [new_tag if any(re.search(old_tag, tag) for old_tag in old_tags) else tag
-                            for tag in image.tags]
+                image.tags = [new_tag if any(re.search(old_tag, tag)
+                                             for old_tag in old_tags)
+                              else tag for tag in image.tags]
             else:
                 if not any(old_tag in image.tags for old_tag in old_tags):
                     continue
                 image.tags = [new_tag if tag in old_tags else tag
-                            for tag in image.tags]
+                              for tag in image.tags]
             changed_image_indices.append(image_index)
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
