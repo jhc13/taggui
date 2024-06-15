@@ -250,8 +250,10 @@ class ImageListModel(QAbstractListModel):
                 continue
             if whole_tags_only:
                 if use_regex:
-                    for tag in image.tags:
-                        match_count += len(re.findall(text, tag))
+                    match_count += len([
+                        tag for tag in image.tags
+                        if re.fullmatch(pattern=text, string=tag)
+                    ])
                 else:
                     match_count += image.tags.count(text)
             else:
