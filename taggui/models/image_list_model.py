@@ -492,19 +492,18 @@ class ImageListModel(QAbstractListModel):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
             if use_regex:
-                if not any(re.fullmatch(pattern=old_tag, string=image_tag)
-                           for old_tag in old_tags
+                pattern = old_tags[0]
+                if not any(re.fullmatch(pattern=pattern, string=image_tag)
                            for image_tag in image.tags):
                     continue
-                image.tags = [new_tag
-                              if any(re.search(pattern=old_tag, string=tag)
-                                     for old_tag in old_tags)
-                              else tag for tag in image.tags]
+                image.tags = [new_tag if re.fullmatch(pattern=pattern,
+                                                      string=image_tag)
+                              else image_tag for image_tag in image.tags]
             else:
                 if not any(old_tag in image.tags for old_tag in old_tags):
                     continue
-                image.tags = [new_tag if tag in old_tags else tag
-                              for tag in image.tags]
+                image.tags = [new_tag if image_tag in old_tags else image_tag
+                              for image_tag in image.tags]
             changed_image_indices.append(image_index)
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
