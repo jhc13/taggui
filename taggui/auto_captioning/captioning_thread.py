@@ -70,7 +70,10 @@ def get_bad_words_ids(bad_words_string: str,
     if not bad_words_string.strip():
         return None
     words = re.split(r'(?<!\\),', bad_words_string)
-    words = [word.strip().replace(r'\,', ',') for word in words]
+    words = [word.strip() for word in words if word.strip()]
+    if not words:
+        return None
+    words = [word.replace(r'\,', ',') for word in words]
     # Also discourage generating the versions of the words with spaces before
     # them.
     words += [' ' + word for word in words]
@@ -87,9 +90,14 @@ def get_forced_words_ids(forced_words_string: str,
     for word_group in word_groups:
         word_group = word_group.strip().replace(r'\,', ',')
         words = re.split(r'(?<!\\)\|', word_group)
-        words = [word.strip().replace(r'\|', '|') for word in words]
+        words = [word.strip() for word in words if word.strip()]
+        if not words:
+            continue
+        words = [word.replace(r'\|', '|') for word in words]
         words_ids = tokenizer(words, add_special_tokens=False).input_ids
         forced_words_ids.append(words_ids)
+    if not forced_words_ids:
+        return None
     return forced_words_ids
 
 
