@@ -1,3 +1,5 @@
+import re
+
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QDialog, QGridLayout, QLabel, QPushButton,
                                QVBoxLayout)
@@ -63,19 +65,26 @@ class FindAndReplaceDialog(QDialog):
         layout.addWidget(self.replace_button)
         self.display_match_count()
 
+    def disable_replace_button(self):
+        self.replace_button.setText('Replace')
+        self.replace_button.setEnabled(False)
+
     @Slot()
     def display_match_count(self):
         text = self.find_text_line_edit.text()
         if not text:
-            self.replace_button.setText('Replace')
-            self.replace_button.setEnabled(False)
+            self.disable_replace_button()
             return
         self.replace_button.setEnabled(True)
         scope = self.scope_combo_box.currentText()
         whole_tags_only = self.whole_tags_only_check_box.isChecked()
         use_regex = self.use_regex_check_box.isChecked()
-        match_count = self.image_list_model.get_text_match_count(
-            text, scope, whole_tags_only, use_regex)
+        try:
+            match_count = self.image_list_model.get_text_match_count(
+                text, scope, whole_tags_only, use_regex)
+        except re.error:
+            self.disable_replace_button()
+            return
         self.replace_button.setText(f'Replace {match_count} '
                                     f'{pluralize("instance", match_count)}')
 
