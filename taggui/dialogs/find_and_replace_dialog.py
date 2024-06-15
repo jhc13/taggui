@@ -33,7 +33,7 @@ class FindAndReplaceDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Whole tags only'), 3, 0,
                               Qt.AlignmentFlag.AlignRight)
-        grid_layout.addWidget(QLabel('Use regex in find text'), 4, 0,
+        grid_layout.addWidget(QLabel('Use regex for find text'), 4, 0,
                               Qt.AlignmentFlag.AlignRight)
         self.find_text_line_edit = SettingsLineEdit(key='find_text')
         self.find_text_line_edit.setClearButtonEnabled(True)
