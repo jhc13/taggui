@@ -1,4 +1,5 @@
 import random
+import re
 import sys
 from collections import Counter, deque
 from dataclasses import dataclass
@@ -241,21 +242,31 @@ class ImageListModel(QAbstractListModel):
             return self.image_list_selection_model.isSelected(proxy_index)
 
     def get_text_match_count(self, text: str, scope: Scope | str,
-                             whole_tags_only: bool) -> int:
+                             whole_tags_only: bool, use_regex: bool) -> int:
         """Get the number of instances of a text in all captions."""
         match_count = 0
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
             if whole_tags_only:
-                match_count += image.tags.count(text)
+                if use_regex:
+                    match_count += len([
+                        tag for tag in image.tags
+                        if re.fullmatch(pattern=text, string=tag)
+                    ])
+                else:
+                    match_count += image.tags.count(text)
             else:
                 caption = self.tag_separator.join(image.tags)
-                match_count += caption.count(text)
+                if use_regex:
+                    match_count += len(re.findall(pattern=text,
+                                                  string=caption))
+                else:
+                    match_count += caption.count(text)
         return match_count
 
     def find_and_replace(self, find_text: str, replace_text: str,
-                         scope: Scope | str):
+                         scope: Scope | str, use_regex: bool):
         """
         Find and replace arbitrary text in captions, within and across tag
         boundaries.
@@ -269,10 +280,16 @@ class ImageListModel(QAbstractListModel):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
             caption = self.tag_separator.join(image.tags)
-            if find_text not in caption:
-                continue
+            if use_regex:
+                if not re.search(pattern=find_text, string=caption):
+                    continue
+                caption = re.sub(pattern=find_text, repl=replace_text,
+                                 string=caption)
+            else:
+                if find_text not in caption:
+                    continue
+                caption = caption.replace(find_text, replace_text)
             changed_image_indices.append(image_index)
-            caption = caption.replace(find_text, replace_text)
             image.tags = caption.split(self.tag_separator)
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
@@ -465,7 +482,8 @@ class ImageListModel(QAbstractListModel):
 
     @Slot(list, str)
     def rename_tags(self, old_tags: list[str], new_tag: str,
-                    scope: Scope | str = Scope.ALL_IMAGES):
+                    scope: Scope | str = Scope.ALL_IMAGES,
+                    use_regex: bool = False):
         self.add_to_undo_stack(
             action_name=f'Rename {pluralize("Tag", len(old_tags))}',
             should_ask_for_confirmation=True)
@@ -473,11 +491,20 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
-            if not any(old_tag in image.tags for old_tag in old_tags):
-                continue
+            if use_regex:
+                pattern = old_tags[0]
+                if not any(re.fullmatch(pattern=pattern, string=image_tag)
+                           for image_tag in image.tags):
+                    continue
+                image.tags = [new_tag if re.fullmatch(pattern=pattern,
+                                                      string=image_tag)
+                              else image_tag for image_tag in image.tags]
+            else:
+                if not any(old_tag in image.tags for old_tag in old_tags):
+                    continue
+                image.tags = [new_tag if image_tag in old_tags else image_tag
+                              for image_tag in image.tags]
             changed_image_indices.append(image_index)
-            image.tags = [new_tag if image_tag in old_tags else image_tag
-                          for image_tag in image.tags]
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
@@ -485,7 +512,8 @@ class ImageListModel(QAbstractListModel):
 
     @Slot(list)
     def delete_tags(self, tags: list[str],
-                    scope: Scope | str = Scope.ALL_IMAGES):
+                    scope: Scope | str = Scope.ALL_IMAGES,
+                    use_regex: bool = False):
         self.add_to_undo_stack(
             action_name=f'Delete {pluralize("Tag", len(tags))}',
             should_ask_for_confirmation=True)
@@ -493,11 +521,20 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
-            if not any(tag in image.tags for tag in tags):
-                continue
+            if use_regex:
+                pattern = tags[0]
+                if not any(re.fullmatch(pattern=pattern, string=image_tag)
+                           for image_tag in image.tags):
+                    continue
+                image.tags = [image_tag for image_tag in image.tags
+                              if not re.fullmatch(pattern=pattern,
+                                                  string=image_tag)]
+            else:
+                if not any(tag in image.tags for tag in tags):
+                    continue
+                image.tags = [image_tag for image_tag in image.tags
+                              if image_tag not in tags]
             changed_image_indices.append(image_index)
-            image.tags = [image_tag for image_tag in image.tags
-                          if image_tag not in tags]
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
