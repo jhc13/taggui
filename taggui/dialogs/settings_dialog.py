@@ -99,14 +99,14 @@ class SettingsDialog(QDialog):
 
         files_layout.addWidget(QLabel('Auto-captioning models directory'),
                                1, 0, Qt.AlignmentFlag.AlignRight)
-        self.models_files_line_edit: SettingsLineEdit = SettingsLineEdit(
+        self.models_directory_line_edit: SettingsLineEdit = SettingsLineEdit(
             key='models_directory_path',
             default=DEFAULT_SETTINGS['models_directory_path'])
-        self.models_files_line_edit.setMinimumWidth(400)
-        self.models_files_line_edit.setClearButtonEnabled(True)
-        self.models_files_line_edit.textChanged.connect(
+        self.models_directory_line_edit.setMinimumWidth(400)
+        self.models_directory_line_edit.setClearButtonEnabled(True)
+        self.models_directory_line_edit.textChanged.connect(
             self.show_restart_warning)
-        files_layout.addWidget(self.models_files_line_edit, 1, 1,
+        files_layout.addWidget(self.models_directory_line_edit, 1, 1,
                                Qt.AlignmentFlag.AlignLeft)
 
         models_directory_button = QPushButton('Select Directory...')
@@ -160,4 +160,4 @@ class SettingsDialog(QDialog):
             caption='Select directory containing auto-captioning models',
             dir=initial_directory_path)
         if models_directory_path:
-            self.models_files_line_edit.setText(models_directory_path)
+            self.models_directory_line_edit.setText(models_directory_path)
