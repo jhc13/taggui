@@ -9,11 +9,7 @@ DEFAULT_SETTINGS = {
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
     'autocomplete_tags': True,
-    'models_directory_path': '',
-    'caption_device': '',
-    'caption_device_id': 0,
-    'load_4bit': True,
-    'caption_extension': '.txt'
+    'models_directory_path': ''
 }
 
 
