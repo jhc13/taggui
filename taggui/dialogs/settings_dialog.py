@@ -1,10 +1,10 @@
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QDialog, QFileDialog, QGridLayout, QLabel,
-                               QLineEdit, QPushButton, QVBoxLayout, QTabWidget, 
-                               QWidget, QComboBox)
+                               QLineEdit, QPushButton, QTabWidget, QVBoxLayout,
+                               QWidget)
 
 from utils.settings import DEFAULT_SETTINGS, get_settings
-from utils.settings_widgets import (SettingsBigCheckBox, SettingsComboBox, SettingsLineEdit,
+from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox)
 
 
