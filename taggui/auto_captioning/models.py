@@ -15,6 +15,10 @@ MODELS = [
     'xtuner/llava-llama-3-8b-v1_1-transformers',
     'vikhyatk/moondream2',
     'vikhyatk/moondream1',
+    'microsoft/Florence-2-large-ft',
+    'microsoft/Florence-2-large',
+    'microsoft/Florence-2-base-ft',
+    'microsoft/Florence-2-base',
     'SmilingWolf/wd-swinv2-tagger-v3',
     'SmilingWolf/wd-convnext-tagger-v3',
     'SmilingWolf/wd-vit-tagger-v3',
@@ -47,6 +51,8 @@ def get_model_type(model_id: str) -> CaptionModelType:
         return CaptionModelType.COGVLM2
     if 'cogvlm' in lowercase_model_id:
         return CaptionModelType.COGVLM
+    if 'florence' in lowercase_model_id:
+        return CaptionModelType.FLORENCE_2
     if 'kosmos' in lowercase_model_id:
         return CaptionModelType.KOSMOS
     if 'llava-v1.6-34b' in lowercase_model_id:

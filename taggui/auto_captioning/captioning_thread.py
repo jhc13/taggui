@@ -20,6 +20,7 @@ from auto_captioning.cogvlm2 import (get_cogvlm2_error_message,
 from auto_captioning.cogvlm_cogagent import (get_cogvlm_cogagent_inputs,
                                              monkey_patch_cogagent,
                                              monkey_patch_cogvlm)
+from auto_captioning.florence_2 import get_florence_2_error_message
 from auto_captioning.models import get_model_type
 from auto_captioning.moondream import (get_moondream_error_message,
                                        get_moondream_inputs,
@@ -252,6 +253,7 @@ class CaptioningThread(QThread):
                            if model_type in (CaptionModelType.COGAGENT,
                                              CaptionModelType.COGVLM,
                                              CaptionModelType.COGVLM2,
+                                             CaptionModelType.FLORENCE_2,
                                              CaptionModelType.MOONDREAM1,
                                              CaptionModelType.MOONDREAM2,
                                              CaptionModelType.XCOMPOSER2,
@@ -387,10 +389,14 @@ class CaptioningThread(QThread):
             device = torch.device(f'cuda:{gpu_index}'
                                   if torch.cuda.is_available() else 'cpu')
         load_in_4_bit = self.caption_settings['load_in_4_bit']
+        caption_start = self.caption_settings['caption_start']
         error_message = None
         if model_type == CaptionModelType.COGVLM2:
             error_message = get_cogvlm2_error_message(
                 model_id, self.caption_settings['device'], load_in_4_bit)
+        elif model_type == CaptionModelType.FLORENCE_2:
+            error_message = get_florence_2_error_message(
+                self.caption_settings['prompt'], caption_start)
         elif model_type in (CaptionModelType.MOONDREAM1,
                             CaptionModelType.MOONDREAM2):
             beam_count = self.caption_settings['generation_parameters'][
@@ -409,7 +415,6 @@ class CaptioningThread(QThread):
         processor, model = self.load_processor_and_model(device, model_type)
         # CogVLM and CogAgent have to be monkey patched every time because
         # `caption_start` might have changed.
-        caption_start = self.caption_settings['caption_start']
         if model_type == CaptionModelType.COGVLM:
             monkey_patch_cogvlm(caption_start)
         elif model_type == CaptionModelType.COGAGENT:
