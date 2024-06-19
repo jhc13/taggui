@@ -1,5 +1,6 @@
 import re
 
+from auto_captioning.florence_2 import FLORENCE_2_DEFAULT_PROMPT
 from utils.enums import CaptionModelType
 
 
@@ -13,6 +14,8 @@ def get_default_prompt(model_type: CaptionModelType) -> str:
                       CaptionModelType.LLAVA_NEXT_MISTRAL,
                       CaptionModelType.LLAVA_NEXT_VICUNA):
         return 'Describe the image in one sentence.'
+    if model_type == CaptionModelType.FLORENCE_2:
+        return FLORENCE_2_DEFAULT_PROMPT
     if model_type in (CaptionModelType.XCOMPOSER2,
                       CaptionModelType.XCOMPOSER2_4KHD):
         return 'Concisely describe the image.'
