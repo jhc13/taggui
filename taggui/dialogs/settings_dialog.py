@@ -18,44 +18,44 @@ class SettingsDialog(QDialog):
         layout.setSpacing(20)
 
         # Create tab widget and tabs
-        tabs: QTabWidget = QTabWidget()
-        appearance_tab: QWidget = QWidget()
-        tagging_tab: QWidget = QWidget()
-        directories_tab: QWidget = QWidget()
+        tabs = QTabWidget()
+        appearance_tab = QWidget()
+        tagging_tab = QWidget()
+        directories_tab = QWidget()
 
         tabs.addTab(appearance_tab, "Appearance")
         tabs.addTab(tagging_tab, "Tagging")
         tabs.addTab(directories_tab, "Directories")
 
         # Appearance Tab
-        appearance_layout: QGridLayout = QGridLayout(appearance_tab)
+        appearance_layout = QGridLayout(appearance_tab)
         appearance_layout.addWidget(QLabel('Font size (pt)'), 0, 0,
                                     Qt.AlignmentFlag.AlignRight)
-        font_size_spin_box: SettingsSpinBox = SettingsSpinBox(
-            key='font_size', default=DEFAULT_SETTINGS['font_size'],
-            minimum=1, maximum=99)
+        font_size_spin_box = SettingsSpinBox(
+            key='font_size', default=DEFAULT_SETTINGS['font_size'], minimum=1,
+            maximum=99)
         font_size_spin_box.valueChanged.connect(self.show_restart_warning)
         appearance_layout.addWidget(font_size_spin_box, 0, 1,
                                     Qt.AlignmentFlag.AlignLeft)
 
         appearance_layout.addWidget(QLabel('Image width in image list (px)'),
                                     1, 0, Qt.AlignmentFlag.AlignRight)
-        image_list_image_width_spin_box: SettingsSpinBox = SettingsSpinBox(
+        image_list_image_width_spin_box = SettingsSpinBox(
             key='image_list_image_width',
-            default=DEFAULT_SETTINGS['image_list_image_width'],
-            minimum=16, maximum=9999)
+            default=DEFAULT_SETTINGS['image_list_image_width'], minimum=16,
+            maximum=9999)
         image_list_image_width_spin_box.valueChanged.connect(
             self.show_restart_warning)
         appearance_layout.addWidget(image_list_image_width_spin_box, 1, 1,
                                     Qt.AlignmentFlag.AlignLeft)
 
         # Tagging Tab
-        tagging_layout: QGridLayout = QGridLayout(tagging_tab)
+        tagging_layout = QGridLayout(tagging_tab)
 
         tagging_layout.addWidget(QLabel('Tag separator'), 1, 0,
                                  Qt.AlignmentFlag.AlignRight)
-        tag_separator_line_edit: QLineEdit = QLineEdit()
-        tag_separator: str = self.settings.value(
+        tag_separator_line_edit = QLineEdit()
+        tag_separator = self.settings.value(
             'tag_separator', defaultValue=DEFAULT_SETTINGS['tag_separator'],
             type=str)
         tag_separator_line_edit.setMaximumWidth(50)
@@ -67,7 +67,7 @@ class SettingsDialog(QDialog):
 
         tagging_layout.addWidget(QLabel('Insert space after tag separator'),
                                  2, 0, Qt.AlignmentFlag.AlignRight)
-        insert_space_after_tag_separator_check_box: SettingsBigCheckBox = SettingsBigCheckBox(
+        insert_space_after_tag_separator_check_box = SettingsBigCheckBox(
             key='insert_space_after_tag_separator',
             default=DEFAULT_SETTINGS['insert_space_after_tag_separator'])
         insert_space_after_tag_separator_check_box.stateChanged.connect(
@@ -77,7 +77,7 @@ class SettingsDialog(QDialog):
 
         tagging_layout.addWidget(QLabel('Show tag autocomplete suggestions'),
                                  3, 0, Qt.AlignmentFlag.AlignRight)
-        autocomplete_tags_check_box: SettingsBigCheckBox = SettingsBigCheckBox(
+        autocomplete_tags_check_box = SettingsBigCheckBox(
             key='autocomplete_tags',
             default=DEFAULT_SETTINGS['autocomplete_tags'])
         autocomplete_tags_check_box.stateChanged.connect(
@@ -86,10 +86,10 @@ class SettingsDialog(QDialog):
                                  Qt.AlignmentFlag.AlignLeft)
 
         # Directories Tab
-        files_layout: QGridLayout = QGridLayout(directories_tab)
+        files_layout = QGridLayout(directories_tab)
         files_layout.addWidget(QLabel('File types to show in image list'),
                                0, 0, Qt.AlignmentFlag.AlignRight)
-        file_types_line_edit: SettingsLineEdit = SettingsLineEdit(
+        file_types_line_edit = SettingsLineEdit(
             key='image_list_file_formats',
             default=DEFAULT_SETTINGS['image_list_file_formats'])
         file_types_line_edit.setMinimumWidth(400)
@@ -99,7 +99,7 @@ class SettingsDialog(QDialog):
 
         files_layout.addWidget(QLabel('Auto-captioning models directory'),
                                1, 0, Qt.AlignmentFlag.AlignRight)
-        self.models_directory_line_edit: SettingsLineEdit = SettingsLineEdit(
+        self.models_directory_line_edit = SettingsLineEdit(
             key='models_directory_path',
             default=DEFAULT_SETTINGS['models_directory_path'])
         self.models_directory_line_edit.setMinimumWidth(400)
