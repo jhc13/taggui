@@ -1,5 +1,7 @@
 import sys
 from pathlib import Path
+import json
+from datetime import datetime
 
 from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
@@ -12,6 +14,7 @@ from auto_captioning.captioning_thread import CaptioningThread
 from auto_captioning.models import MODELS, get_model_type
 from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
 from models.image_list_model import ImageListModel
+from widgets.history_list import HistoryListModel
 from utils.big_widgets import TallPushButton
 from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
@@ -37,7 +40,6 @@ def set_text_edit_height(text_edit: QPlainTextEdit, line_count: int):
                  + document.documentMargin() * 2
                  + text_edit.frameWidth() * 2)
     text_edit.setFixedHeight(height)
-
 
 class HorizontalLine(QFrame):
     def __init__(self):
@@ -341,6 +343,37 @@ class CaptionSettingsForm(QVBoxLayout):
             }
         }
 
+    def set_captions_settings(self, caption_settings: dict):
+        if 'model' in caption_settings: self.model_combo_box.setCurrentText(caption_settings['model'])
+        if 'prompt' in caption_settings: self.prompt_text_edit.setPlainText(caption_settings['prompt'])
+        if 'caption_start' in caption_settings: self.caption_start_line_edit.setText(caption_settings['caption_start'])
+        if 'caption_position' in caption_settings: self.caption_position_combo_box.setCurrentText(caption_settings['caption_position'])
+        if 'device' in caption_settings: self.device_combo_box.setCurrentText(caption_settings['device'])
+        if 'gpu_index' in caption_settings: self.gpu_index_spin_box.setValue(caption_settings['gpu_index'])
+        if 'load_in_4_bit' in caption_settings: self.load_in_4_bit_check_box.setChecked(caption_settings['load_in_4_bit'])
+        if 'remove_tag_separators' in caption_settings: self.remove_tag_separators_check_box.setChecked(caption_settings['remove_tag_separators'])
+        if 'bad_words' in caption_settings: self.bad_words_line_edit.setText(caption_settings['bad_words'])
+        if 'forced_words' in caption_settings: self.forced_words_line_edit.setText(caption_settings['forced_words'])
+
+        if 'generation_parameters' in caption_settings:
+            generation_parameters = caption_settings['generation_parameters']
+            if 'min_new_tokens' in generation_parameters: self.min_new_token_count_spin_box.setValue(generation_parameters['min_new_tokens'])
+            if 'max_new_tokens' in generation_parameters: self.max_new_token_count_spin_box.setValue(generation_parameters['max_new_tokens'])
+            if 'num_beams' in generation_parameters: self.beam_count_spin_box.setValue(generation_parameters['num_beams'])
+            if 'length_penalty' in generation_parameters: self.length_penalty_spin_box.setValue(generation_parameters['length_penalty']),
+            if 'do_sample' in generation_parameters: self.use_sampling_check_box.setChecked(generation_parameters['do_sample']),
+            if 'temperature' in generation_parameters: self.temperature_spin_box.setValue(generation_parameters['temperature']),
+            if 'top_k' in generation_parameters: self.top_k_spin_box.setValue(generation_parameters['top_k']),
+            if 'top_p' in generation_parameters: self.top_p_spin_box.setValue(generation_parameters['top_p']),
+            if 'repetition_penalty' in generation_parameters: self.repetition_penalty_spin_box.setValue(generation_parameters['repetition_penalty']),
+            if 'no_repeat_ngram_size' in generation_parameters: self.no_repeat_ngram_size_spin_box.setValue(generation_parameters['no_repeat_ngram_size'])
+
+        if 'wd_tagger_settings' in caption_settings:
+            wd_tagger_settings = caption_settings['wd_tagger_settings']
+            if 'show_probabilities' in wd_tagger_settings: self.show_probabilities_check_box.isChecked(wd_tagger_settings['show_probabilities']),
+            if 'min_probability' in wd_tagger_settings: self.min_probability_spin_box.value(wd_tagger_settings['min_probability']),
+            if 'max_tags' in wd_tagger_settings: self.max_tags_spin_box.value(wd_tagger_settings['max_tags']),
+            if 'tags_to_exclude' in wd_tagger_settings: self.tags_to_exclude_text_edit.toPlainText(wd_tagger_settings['tags_to_exclude'])
 
 @Slot()
 def restore_stdout_and_stderr():
@@ -352,10 +385,11 @@ class AutoCaptioner(QDockWidget):
     caption_generated = Signal(QModelIndex, str, list)
 
     def __init__(self, image_list_model: ImageListModel,
-                 image_list: ImageList):
+                 image_list: ImageList, history_list_model: HistoryListModel):
         super().__init__()
         self.image_list_model = image_list_model
         self.image_list = image_list
+        self.history_list_model = history_list_model
         self.settings = get_settings()
         self.is_captioning = False
         self.captioning_thread = None
@@ -487,7 +521,7 @@ class AutoCaptioner(QDockWidget):
         models_directory_path = (Path(models_directory_path)
                                  if models_directory_path else None)
         self.captioning_thread = CaptioningThread(
-            self, self.image_list_model, selected_image_indices,
+            self, self.image_list_model, selected_image_indices, self.history_list_model,
             caption_settings, tag_separator, models_directory_path)
         self.captioning_thread.text_outputted.connect(
             self.update_console_text_edit)

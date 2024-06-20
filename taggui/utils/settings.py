@@ -10,6 +10,8 @@ DEFAULT_SETTINGS = {
     'insert_space_after_tag_separator': True,
     'autocomplete_tags': True,
     'models_directory_path': ''
+    # directory_path: '' # added by main_window.load_directory
+    # more added by auto_captioner.get_caption_settings
 }
 
 
