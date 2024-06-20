@@ -6,6 +6,7 @@ datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'),
 datas += [('/usr/include/python3.11', 'include/python3.11')]
 datas += collect_data_files('triton')
 datas += collect_data_files('xformers')
+hiddenimports = ['timm.models.layers']
 
 block_cipher = None
 
@@ -15,7 +16,7 @@ a = Analysis(
     pathex=['taggui'],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

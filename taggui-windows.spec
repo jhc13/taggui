@@ -4,6 +4,7 @@ from PyInstaller.utils.hooks import collect_data_files
 datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'),
          ('images/icon.ico', 'images')]
 datas += collect_data_files('xformers')
+hiddenimports = ['timm.models.layers']
 
 block_cipher = None
 
@@ -13,7 +14,7 @@ a = Analysis(
     pathex=['taggui'],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
