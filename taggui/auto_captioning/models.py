@@ -3,6 +3,7 @@ from utils.enums import CaptionModelType
 MODELS = [
     'internlm/internlm-xcomposer2-vl-7b-4bit',
     'internlm/internlm-xcomposer2-vl-7b',
+    'internlm/internlm-xcomposer2-vl-1_8b',
     'internlm/internlm-xcomposer2-4khd-7b',
     'THUDM/cogvlm-chat-hf',
     'THUDM/cogagent-vqa-hf',
