@@ -308,6 +308,7 @@ class MainWindow(QMainWindow):
         file_menu.addAction(load_directory_action)
         self.reload_directory_action.setShortcut(QKeySequence('Ctrl+Shift+L'))
         self.reload_directory_action.triggered.connect(self.reload_directory)
+        QShortcut(QKeySequence('F5'), self).activated.connect(self.reload_directory_action.trigger)
         file_menu.addAction(self.reload_directory_action)
         settings_action = QAction('Settings...', parent=self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
