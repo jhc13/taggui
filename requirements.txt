@@ -34,3 +34,7 @@ numpy==1.26.4
 # WD Tagger
 huggingface-hub==0.23.4
 onnxruntime==1.18.0
+
+# Server
+fastapi==0.111.0
+
