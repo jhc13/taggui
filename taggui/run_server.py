@@ -69,12 +69,11 @@ async def prompt(request: Request):
     caption = ""
     try:
         caption_settings = await request.json()
-        if "prompt" not in caption_settings: raise Exception("missing 'prompt'")
         if "images" not in caption_settings: raise Exception("missing 'images'")
         core.caption_settings.update(caption_settings)
         if core.device == None or core.model == None or core.processor == None or core.model_type == None:
             core.start_captioning()
-        if caption_settings["prompt"] != "":
+        if len(caption_settings["images"]) > 0:
             img_bytes = base64.b64decode(caption_settings["images"][0])
             pil_image = PilImage.open(BytesIO(img_bytes))
             pil_image = exif_transpose(pil_image)
@@ -115,12 +114,12 @@ Available Commands:
                     img = PilImage.open(img_file)
                     img.verify()
                     img_file.seek(0)
-                    img_base64 = base64.b64encode(img_file.read())
+                    img_base64 = base64.b64encode(img_file.read()).decode('utf-8')
             except Exception as e:
                 print(e)
                 continue
 
-            response = requests.post(f"http://127.0.0.1:{port}/api/generate", json={ "prompt": img_prompt, "images": [img_base64] }).json()
+            response = requests.post(f"http://127.0.0.1:{port}/api/generate", json={ "prompt": img_prompt, "images": [str(img_base64)] }).json()
             if response["type"] == "error": raise Exception(response["msg"])
             print(response["response"])
         except KeyboardInterrupt:
@@ -178,7 +177,7 @@ Models:
         try:
             print(f"Loading {model_id}...")
 
-            response = requests.post(f"http://127.0.0.1:{port}/api/generate", json={ "model": model_id }).json()
+            response = requests.post(f"http://127.0.0.1:{port}/api/generate", json={ "model": model_id, "images": [] }).json()
             if response["type"] == "error": raise Exception(response["msg"])
         except Exception as e:
             print(e)
