@@ -31,25 +31,6 @@ from auto_captioning.xcomposer2 import (InternLMXComposer2QuantizedForCausalLM,
 from utils.enums import CaptionDevice, CaptionModelType
 
 
-def replace_template_variable(match: re.Match, img_path: Path, img_tags: list[str]) -> str:
-    template_variable = match.group(0)[1:-1].lower()
-    if template_variable == 'tags':
-        return ', '.join(img_tags)
-    if template_variable == 'name':
-        return img_path.stem
-    if template_variable in ('directory', 'folder'):
-        return img_path.parent.name
-
-
-def replace_template_variables(text: str, img_path: Path, img_tags: list[str]) -> str:
-    # Replace template variables inside curly braces that are not escaped.
-    text = re.sub(r'(?<!\\){[^{}]+(?<!\\)}',
-                  lambda match: replace_template_variable(match, img_path, img_tags), text)
-    # Unescape escaped curly braces.
-    text = re.sub(r'\\([{}])', r'\1', text)
-    return text
-
-
 def get_tokenizer_from_processor(model_type: CaptionModelType, processor):
     if model_type in (CaptionModelType.COGAGENT, CaptionModelType.COGVLM,
                       CaptionModelType.COGVLM2, CaptionModelType.MOONDREAM1,
@@ -230,25 +211,18 @@ class CaptioningCore():
         self.is_model_loaded_in_4_bit = load_in_4_bit
         return processor, model
 
-    def get_prompt(self, model_type: CaptionModelType,
-                   img_path: Path, img_tags: list[str]) -> str | None:
+    def get_prompt(self, model_type: CaptionModelType) -> str | None:
         if model_type == CaptionModelType.WD_TAGGER:
             return None
         prompt = self.caption_settings['prompt']
-        if prompt:
-            prompt = replace_template_variables(prompt, img_path, img_tags)
-        else:
+        if not prompt:
             prompt = get_default_prompt(model_type)
         prompt = format_prompt(prompt, model_type)
         return prompt
 
-    def get_model_inputs(self, img_path: Path, prompt: str | None,
+    def get_model_inputs(self, pil_image: PilImage.Image, prompt: str | None,
                          model_type: CaptionModelType, device: torch.device,
                          model, processor) -> BatchFeature | dict | np.ndarray:
-        # Load the image.
-        pil_image = PilImage.open(img_path)
-        # Rotate the image according to the orientation tag.
-        pil_image = exif_transpose(pil_image)
         mode = 'RGBA' if model_type == CaptionModelType.WD_TAGGER else 'RGB'
         pil_image = pil_image.convert(mode)
         if model_type == CaptionModelType.WD_TAGGER:
@@ -366,15 +340,15 @@ class CaptioningCore():
         self.model_type = model_type
         self.device = device
 
-    def run_captioning(self, img_path: Path, img_tags: list[str] = []) -> tuple[bool, str, str]:
+    def run_captioning(self, pil_image: PilImage.Image) -> tuple[bool, str, str]:
         forced_words_string = self.caption_settings['forced_words'].strip()
         generation_parameters = self.caption_settings['generation_parameters']
-        prompt = self.get_prompt(self.model_type, img_path, img_tags)
+        prompt = self.get_prompt(self.model_type)
         try:
-            model_inputs = self.get_model_inputs(img_path, prompt, self.model_type,
+            model_inputs = self.get_model_inputs(pil_image, prompt, self.model_type,
                                                     self.device, self.model, self.processor)
         except UnidentifiedImageError:
-            error_message = f'Skipping {img_path.name} because its file format is not supported or it is a corrupted image.'
+            error_message = f'Image file format is not supported or it is a corrupted image.'
             return False, error_message, ""
         console_output_caption = None
         if self.model_type == CaptionModelType.WD_TAGGER:

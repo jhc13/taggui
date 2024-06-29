@@ -8,13 +8,15 @@ port = 11435 # Ollama port=11434
 # https://github.com/ollama/ollama
 # https://github.com/ollama/ollama/blob/main/docs/api.md
 
-from pathlib import Path
+import base64
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import sys
 import uvicorn
 import requests
+from io import BytesIO
 from PIL import Image as PilImage
+from PIL.ImageOps import exif_transpose
 
 from auto_captioning.captioning_core import CaptioningCore
 from auto_captioning.models import MODELS
@@ -68,12 +70,15 @@ async def prompt(request: Request):
     try:
         caption_settings = await request.json()
         if "prompt" not in caption_settings: raise Exception("missing 'prompt'")
-        if "img_path" not in caption_settings: raise Exception("missing 'img_path'")
+        if "images" not in caption_settings: raise Exception("missing 'images'")
         core.caption_settings.update(caption_settings)
         if core.device == None or core.model == None or core.processor == None or core.model_type == None:
             core.start_captioning()
         if caption_settings["prompt"] != "":
-            success, msg, caption = core.run_captioning(Path(caption_settings["img_path"]), [caption_settings["prompt"]])
+            img_bytes = base64.b64decode(caption_settings["images"][0])
+            pil_image = PilImage.open(BytesIO(img_bytes))
+            pil_image = exif_transpose(pil_image)
+            success, msg, caption = core.run_captioning(pil_image)
             if not success: raise Exception(msg)
     except Exception as e:
         return { "type": "error", "msg": str(e) }
@@ -106,13 +111,16 @@ Available Commands:
                 img_path = text_input
 
             try:
-                with PilImage.open(img_path) as img:
+                with open(img_path, 'rb') as img_file:
+                    img = PilImage.open(img_file)
                     img.verify()
+                    img_file.seek(0)
+                    img_base64 = base64.b64encode(img_file.read())
             except Exception as e:
                 print(e)
                 continue
 
-            response = requests.post(f"http://127.0.0.1:{port}/api/generate", json={ "prompt": img_prompt, "img_path": img_path }).json()
+            response = requests.post(f"http://127.0.0.1:{port}/api/generate", json={ "prompt": img_prompt, "images": [img_base64] }).json()
             if response["type"] == "error": raise Exception(response["msg"])
             print(response["response"])
         except KeyboardInterrupt:
