@@ -26,13 +26,15 @@ Choose the appropriate file for your operating system, extract it wherever you
 want, and run the executable file inside.
 You may have to install [7-Zip](https://www.7-zip.org/download.html) to
 extract the files if you don't have it on your system.
-No additional dependencies are required.
 
 - macOS users: There is no macOS release because it requires a device running
   the OS, and I do not have one. You can still install and run the program
   manually (see below).
 - Linux users: You may need to install `libxcb-cursor0`.
-  See [this Stack Overflow answer](https://stackoverflow.com/a/75941575).
+  (See [this Stack Overflow answer](https://stackoverflow.com/a/75941575).) You
+  may also have to install `python3.11-dev` or `python3.10-dev` (depending on
+  your Python version) if you get an error while trying to use a CogVLM2
+  model. (See [this issue](https://github.com/jhc13/taggui/issues/234).)
 
 Alternatively, you can install manually by cloning this repository and
 installing the dependencies in `requirements.txt`.
