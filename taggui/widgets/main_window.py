@@ -20,12 +20,13 @@ from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.shortcut_remover import ShortcutRemover
-from utils.utils import get_resource_path, pluralize
+from utils.utils import get_repo_infos, get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
 from widgets.auto_captioner import AutoCaptioner
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer
+from widgets.history_list import HistoryList, HistoryListModel
 
 ICON_PATH = Path('images/icon.ico')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
@@ -49,6 +50,7 @@ class MainWindow(QMainWindow):
             self.image_list_model, tokenizer, tag_separator)
         self.image_list_model.proxy_image_list_model = (
             self.proxy_image_list_model)
+        self.history_list_model = HistoryListModel(get_repo_infos(__file__))
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
@@ -64,6 +66,10 @@ class MainWindow(QMainWindow):
                                     tag_separator, image_list_image_width)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
                            self.image_list)
+        self.history_list = HistoryList(self.history_list_model)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
+                           self.history_list)
+        self.tabifyDockWidget(self.image_list, self.history_list)
         self.image_tags_editor = ImageTagsEditor(
             self.proxy_image_list_model, self.tag_counter_model,
             self.image_tag_list_model, self.image_list, tokenizer,
@@ -76,7 +82,7 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                            self.all_tags_editor)
         self.auto_captioner = AutoCaptioner(self.image_list_model,
-                                            self.image_list)
+                                            self.image_list, self.history_list_model)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                            self.auto_captioner)
         self.tabifyDockWidget(self.all_tags_editor, self.auto_captioner)
@@ -99,6 +105,7 @@ class MainWindow(QMainWindow):
         self.undo_action = QAction('Undo', parent=self)
         self.redo_action = QAction('Redo', parent=self)
         self.toggle_image_list_action = QAction('Images', parent=self)
+        self.toggle_history_list_action = QAction('History', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
         self.toggle_all_tags_editor_action = QAction('All Tags', parent=self)
@@ -110,6 +117,7 @@ class MainWindow(QMainWindow):
                                            .selectionModel())
         self.image_list_model.image_list_selection_model = (
             self.image_list_selection_model)
+        self.history_list.set_captions_settings = self.auto_captioner.caption_settings_form.set_captions_settings
         self.connect_image_list_signals()
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()
@@ -207,6 +215,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue('directory_path', str(path))
         self.setWindowTitle(path.name)
         self.image_list_model.load_directory(path)
+        self.history_list_model.load_directory(path)
         self.image_list.filter_line_edit.clear()
         self.all_tags_editor.filter_line_edit.clear()
         # Clear the current index first to make sure that the `currentChanged`
@@ -352,11 +361,14 @@ class MainWindow(QMainWindow):
 
         view_menu = menu_bar.addMenu('View')
         self.toggle_image_list_action.setCheckable(True)
+        self.toggle_history_list_action.setCheckable(True)
         self.toggle_image_tags_editor_action.setCheckable(True)
         self.toggle_all_tags_editor_action.setCheckable(True)
         self.toggle_auto_captioner_action.setCheckable(True)
         self.toggle_image_list_action.triggered.connect(
             lambda is_checked: self.image_list.setVisible(is_checked))
+        self.toggle_history_list_action.triggered.connect(
+            lambda is_checked: self.history_list.setVisible(is_checked))
         self.toggle_image_tags_editor_action.triggered.connect(
             lambda is_checked: self.image_tags_editor.setVisible(is_checked))
         self.toggle_all_tags_editor_action.triggered.connect(
@@ -364,6 +376,7 @@ class MainWindow(QMainWindow):
         self.toggle_auto_captioner_action.triggered.connect(
             lambda is_checked: self.auto_captioner.setVisible(is_checked))
         view_menu.addAction(self.toggle_image_list_action)
+        view_menu.addAction(self.toggle_history_list_action)
         view_menu.addAction(self.toggle_image_tags_editor_action)
         view_menu.addAction(self.toggle_all_tags_editor_action)
         view_menu.addAction(self.toggle_auto_captioner_action)
@@ -459,6 +472,9 @@ class MainWindow(QMainWindow):
         self.image_list.visibilityChanged.connect(
             lambda: self.toggle_image_list_action.setChecked(
                 self.image_list.isVisible()))
+        self.history_list.visibilityChanged.connect(
+            lambda: self.toggle_history_list_action.setChecked(
+                self.history_list.isVisible()))
 
     @Slot()
     def update_image_tags(self):
