@@ -6,10 +6,11 @@ DEFAULT_SETTINGS = {
     # Common image formats that are supported in PySide6.
     'image_list_file_formats': 'bmp, gif, jpg, jpeg, png, tif, tiff, webp',
     'image_list_image_width': 200,
+    'image_preprocessing_method': 'stretch-and-squish',
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
     'autocomplete_tags': True,
-    'models_directory_path': ''
+    'models_directory_path': '',
 }
 
 

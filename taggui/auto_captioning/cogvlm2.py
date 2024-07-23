@@ -5,6 +5,7 @@ from PIL import Image as PilImage
 from torchvision import transforms
 
 from utils.enums import CaptionDevice
+from utils.image import select_preprocess_img_by_str
 
 LANGUAGE_TOKEN_TYPE_ID = 0
 VISION_TOKEN_TYPE_ID = 1
@@ -34,6 +35,7 @@ def get_cogvlm2_error_message(model_id: str, device: CaptionDevice,
 
 
 def get_cogvlm2_inputs(model, processor, text: str, pil_image: PilImage,
+                       image_preprocessing_method: str,
                        device: torch.device, dtype_argument: dict,
                        beam_count: int) -> dict:
     image_size = model.config.vision_config['image_size']
@@ -49,6 +51,9 @@ def get_cogvlm2_inputs(model, processor, text: str, pil_image: PilImage,
     input_ids += text_ids
     token_type_ids += [LANGUAGE_TOKEN_TYPE_ID] * len(text_ids)
     attention_mask = [1] * len(input_ids)
+
+    preprocessed_img = select_preprocess_img_by_str(pil_image, image_size, method=image_preprocessing_method)
+
     transform = transforms.Compose([
         transforms.Resize(
             (image_size, image_size),
@@ -58,7 +63,7 @@ def get_cogvlm2_inputs(model, processor, text: str, pil_image: PilImage,
         transforms.Normalize((0.48145466, 0.4578275, 0.40821073),
                              (0.26862954, 0.26130258, 0.27577711))
     ])
-    image = transform(pil_image)
+    image = transform(preprocessed_img)
     inputs = {
         'input_ids': torch.tensor(input_ids).unsqueeze(0).to(device),
         'token_type_ids': torch.tensor(token_type_ids).unsqueeze(0).to(device),
