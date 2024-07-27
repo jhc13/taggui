@@ -9,11 +9,12 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QVBoxLayout, QWidget)
 
 from auto_captioning.captioning_thread import CaptioningThread
-from auto_captioning.models import MODELS, get_model_type
+from auto_captioning.models.wd_tagger import WdTagger
+from auto_captioning.models_list import MODELS, get_model_class
 from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
-from utils.enums import CaptionDevice, CaptionModelType, CaptionPosition
+from utils.enums import CaptionDevice, CaptionPosition
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsDoubleSpinBox,
@@ -60,7 +61,7 @@ class CaptionSettingsForm(QVBoxLayout):
             QFormLayout.RowWrapPolicy.WrapAllRows)
         basic_settings_form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        self.model_combo_box = FocusedScrollSettingsComboBox(key='model')
+        self.model_combo_box = FocusedScrollSettingsComboBox(key='model_id')
         # `setEditable()` must be called before `addItems()` to preserve any
         # custom model that was set.
         self.model_combo_box.setEditable(True)
@@ -261,7 +262,7 @@ class CaptionSettingsForm(QVBoxLayout):
         return model_directory_paths
 
     @Slot(str)
-    def show_settings_for_model(self, model: str):
+    def show_settings_for_model(self, model_id: str):
         wd_tagger_widgets = [self.wd_tagger_settings_form_container]
         non_wd_tagger_widgets = [
             self.prompt_label,
@@ -276,8 +277,7 @@ class CaptionSettingsForm(QVBoxLayout):
             self.toggle_advanced_settings_form_button,
             self.advanced_settings_form_container
         ]
-        is_wd_tagger_model = (get_model_type(model)
-                              == CaptionModelType.WD_TAGGER)
+        is_wd_tagger_model = get_model_class(model_id) == WdTagger
         for widget in wd_tagger_widgets:
             widget.setVisible(is_wd_tagger_model)
         for widget in non_wd_tagger_widgets:
@@ -286,8 +286,9 @@ class CaptionSettingsForm(QVBoxLayout):
 
     @Slot(str)
     def set_load_in_4_bit_visibility(self, device: str):
-        model_type = get_model_type(self.model_combo_box.currentText())
-        if model_type == CaptionModelType.WD_TAGGER:
+        model_id = self.model_combo_box.currentText()
+        is_wd_tagger_model = get_model_class(model_id) == WdTagger
+        if is_wd_tagger_model:
             self.load_in_4_bit_container.setVisible(False)
             return
         is_load_in_4_bit_available = (self.is_bitsandbytes_available
@@ -307,7 +308,7 @@ class CaptionSettingsForm(QVBoxLayout):
 
     def get_caption_settings(self) -> dict:
         return {
-            'model': self.model_combo_box.currentText(),
+            'model_id': self.model_combo_box.currentText(),
             'prompt': self.prompt_text_edit.toPlainText(),
             'caption_start': self.caption_start_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),

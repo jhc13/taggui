@@ -1,4 +1,15 @@
-from utils.enums import CaptionModelType
+from auto_captioning.auto_captioning_model import AutoCaptioningModel
+from auto_captioning.models.cog import Cogagent, Cogvlm
+from auto_captioning.models.cogvlm2 import Cogvlm2
+from auto_captioning.models.florence_2 import Florence2
+from auto_captioning.models.kosmos_2 import Kosmos2
+from auto_captioning.models.llava_1_point_5 import Llava1Point5
+from auto_captioning.models.llava_llama_3 import LlavaLlama3
+from auto_captioning.models.llava_next import (LlavaNext34b, LlavaNextMistral,
+                                               LlavaNextVicuna)
+from auto_captioning.models.moondream import Moondream1, Moondream2
+from auto_captioning.models.wd_tagger import WdTagger
+from auto_captioning.models.xcomposer2 import Xcomposer2, Xcomposer2_4khd
 
 MODELS = [
     'internlm/internlm-xcomposer2-vl-7b-4bit',
@@ -44,36 +55,36 @@ MODELS = [
 ]
 
 
-def get_model_type(model_id: str) -> CaptionModelType:
+def get_model_class(model_id: str) -> type[AutoCaptioningModel]:
     lowercase_model_id = model_id.lower()
     if 'cogagent' in lowercase_model_id:
-        return CaptionModelType.COGAGENT
+        return Cogagent
     if 'cogvlm2' in lowercase_model_id:
-        return CaptionModelType.COGVLM2
+        return Cogvlm2
     if 'cogvlm' in lowercase_model_id:
-        return CaptionModelType.COGVLM
+        return Cogvlm
     if 'florence' in lowercase_model_id:
-        return CaptionModelType.FLORENCE_2
+        return Florence2
     if 'kosmos' in lowercase_model_id:
-        return CaptionModelType.KOSMOS
+        return Kosmos2
     if 'llava-v1.6-34b' in lowercase_model_id:
-        return CaptionModelType.LLAVA_NEXT_34B
+        return LlavaNext34b
     if 'llava-v1.6-mistral' in lowercase_model_id:
-        return CaptionModelType.LLAVA_NEXT_MISTRAL
+        return LlavaNextMistral
     if 'llava-v1.6-vicuna' in lowercase_model_id:
-        return CaptionModelType.LLAVA_NEXT_VICUNA
+        return LlavaNextVicuna
     if 'llava-llama-3' in lowercase_model_id:
-        return CaptionModelType.LLAVA_LLAMA_3
+        return LlavaLlama3
     if 'llava' in lowercase_model_id:
-        return CaptionModelType.LLAVA_1_5
+        return Llava1Point5
     if 'moondream1' in lowercase_model_id:
-        return CaptionModelType.MOONDREAM1
+        return Moondream1
     if 'moondream2' in lowercase_model_id:
-        return CaptionModelType.MOONDREAM2
+        return Moondream2
     if 'wd' in lowercase_model_id and 'tagger' in lowercase_model_id:
-        return CaptionModelType.WD_TAGGER
+        return WdTagger
     if 'xcomposer2' in lowercase_model_id:
         if '4khd' in lowercase_model_id:
-            return CaptionModelType.XCOMPOSER2_4KHD
-        return CaptionModelType.XCOMPOSER2
-    return CaptionModelType.OTHER
+            return Xcomposer2_4khd
+        return Xcomposer2
+    return AutoCaptioningModel
