@@ -1,7 +1,7 @@
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from auto_captioning.models.cog import Cogagent, Cogvlm
 from auto_captioning.models.cogvlm2 import Cogvlm2
-from auto_captioning.models.florence_2 import Florence2
+from auto_captioning.models.florence_2 import Florence2, Florence2Promptgen
 from auto_captioning.models.kosmos_2 import Kosmos2
 from auto_captioning.models.llava_1_point_5 import Llava1Point5
 from auto_captioning.models.llava_llama_3 import LlavaLlama3
@@ -24,6 +24,7 @@ MODELS = [
     'microsoft/Florence-2-large',
     'microsoft/Florence-2-base-ft',
     'microsoft/Florence-2-base',
+    'MiaoshouAI/Florence-2-base-PromptGen',
     'llava-hf/llava-v1.6-mistral-7b-hf',
     'llava-hf/llava-v1.6-vicuna-7b-hf',
     'llava-hf/llava-v1.6-vicuna-13b-hf',
@@ -65,6 +66,8 @@ def get_model_class(model_id: str) -> type[AutoCaptioningModel]:
     if 'cogvlm' in lowercase_model_id:
         return Cogvlm
     if 'florence' in lowercase_model_id:
+        if 'promptgen' in lowercase_model_id:
+            return Florence2Promptgen
         return Florence2
     if 'kosmos' in lowercase_model_id:
         return Kosmos2
