@@ -31,6 +31,7 @@ MODELS = [
     'microsoft/Florence-2-large',
     'microsoft/Florence-2-base-ft',
     'microsoft/Florence-2-base',
+    'SmilingWolf/wd-vit-large-tagger-v3',
     'SmilingWolf/wd-swinv2-tagger-v3',
     'SmilingWolf/wd-convnext-tagger-v3',
     'SmilingWolf/wd-vit-tagger-v3',
