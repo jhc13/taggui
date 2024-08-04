@@ -34,6 +34,7 @@ MODELS = [
     'xtuner/llava-llama-3-8b-v1_1-transformers',
     'vikhyatk/moondream2',
     'vikhyatk/moondream1',
+    'SmilingWolf/wd-eva02-large-tagger-v3',
     'SmilingWolf/wd-vit-large-tagger-v3',
     'SmilingWolf/wd-swinv2-tagger-v3',
     'SmilingWolf/wd-convnext-tagger-v3',
