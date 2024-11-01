@@ -2,6 +2,7 @@ from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from auto_captioning.models.cog import Cogagent, Cogvlm
 from auto_captioning.models.cogvlm2 import Cogvlm2
 from auto_captioning.models.florence_2 import Florence2, Florence2Promptgen
+from auto_captioning.models.internvl_2 import InternVL2
 from auto_captioning.models.kosmos_2 import Kosmos2
 from auto_captioning.models.llava_1_point_5 import Llava1Point5
 from auto_captioning.models.llava_llama_3 import LlavaLlama3
@@ -17,6 +18,13 @@ MODELS = [
     'internlm/internlm-xcomposer2-vl-7b',
     'internlm/internlm-xcomposer2-vl-1_8b',
     'internlm/internlm-xcomposer2-4khd-7b',
+    'OpenGVLab/InternVL2-1B',
+    'OpenGVLab/InternVL2-2B',
+    'OpenGVLab/InternVL2-4B',
+    'OpenGVLab/InternVL2-8B',
+    'OpenGVLab/InternVL2-26B',
+    'OpenGVLab/InternVL2-40B',
+    'natong19/InternVL2-8B-abliterated',
     'THUDM/cogvlm-chat-hf',
     'THUDM/cogagent-vqa-hf',
     'THUDM/cogvlm2-llama3-chat-19B-int4',
@@ -71,6 +79,8 @@ def get_model_class(model_id: str) -> type[AutoCaptioningModel]:
         if 'promptgen' in lowercase_model_id:
             return Florence2Promptgen
         return Florence2
+    if 'internvl2-' in lowercase_model_id:
+        return InternVL2
     if 'kosmos' in lowercase_model_id:
         return Kosmos2
     if 'llava-v1.6-34b' in lowercase_model_id:
