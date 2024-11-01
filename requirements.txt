@@ -1,37 +1,41 @@
-accelerate==0.33.0
-bitsandbytes==0.43.2
+accelerate==1.0.1
+bitsandbytes==0.44.1
 ExifRead==3.0.0
 imagesize==1.4.1
-pillow==10.4.0
-pyparsing==3.1.2
-PySide6==6.7.2
+pillow==11.0.0
+pyparsing==3.2.0
+PySide6==6.8.0.2
 # Transformers v4.42 breaks CogVLM.
 transformers==4.41.2
 
 # PyTorch
+# AutoGPTQ does not support PyTorch v2.3.
 torch==2.2.2; platform_system != "Windows"
 https://download.pytorch.org/whl/cu121/torch-2.2.2%2Bcu121-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
 https://download.pytorch.org/whl/cu121/torch-2.2.2%2Bcu121-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
 
-# FlashAttention (Florence-2, Phi-3-Vision)
-flash-attn==2.6.3; platform_system == "Linux"
-https://github.com/oobabooga/flash-attention/releases/download/v2.6.1/flash_attn-2.6.1+cu122torch2.2.2cxx11abiFALSE-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
-https://github.com/oobabooga/flash-attention/releases/download/v2.6.1/flash_attn-2.6.1+cu122torch2.2.2cxx11abiFALSE-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
-
 # CogAgent
-timm==1.0.7
+timm==1.0.11
 
 # CogVLM
 einops==0.8.0
-protobuf==5.27.2
+protobuf==5.28.3
 sentencepiece==0.2.0
+# These versions of torchvision and xFormers are the latest versions compatible
+# with PyTorch v2.2.2.
 torchvision==0.17.2
 xformers==0.0.25.post1
 
 # InternLM-XComposer2
 auto-gptq==0.7.1; platform_system == "Linux" or platform_system == "Windows"
+# PyTorch versions prior to 2.3 do not support NumPy v2.
 numpy==1.26.4
 
 # WD Tagger
-huggingface-hub==0.24.2
-onnxruntime==1.18.1
+huggingface-hub==0.26.2
+onnxruntime==1.19.2
+
+# FlashAttention (Florence-2, Phi-3-Vision)
+flash-attn==2.6.3; platform_system == "Linux"
+https://github.com/bdashore3/flash-attention/releases/download/v2.6.3/flash_attn-2.6.3+cu123torch2.2.2cxx11abiFALSE-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
+https://github.com/bdashore3/flash-attention/releases/download/v2.6.3/flash_attn-2.6.3+cu123torch2.2.2cxx11abiFALSE-cp310-cp310-win_amd64.whl; platform_system == "Windows" and python_version == "3.10"
