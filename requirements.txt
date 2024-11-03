@@ -34,6 +34,7 @@ numpy==1.26.4
 # WD Tagger
 huggingface-hub==0.26.2
 onnxruntime==1.19.2
+onnxruntime-directml==1.19.2; platform_system == "Windows"
 
 # FlashAttention (Florence-2, Phi-3-Vision)
 flash-attn==2.6.3; platform_system == "Linux"
