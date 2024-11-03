@@ -37,7 +37,7 @@ class WdTaggerModel:
         if not tags_path.is_file():
             tags_path = huggingface_hub.hf_hub_download(
                 model_id, filename='selected_tags.csv')
-        self.inference_session = InferenceSession(model_path)
+        self.inference_session = InferenceSession(model_path, providers=['DmlExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
         self.tags = []
         self.rating_tags_indices = []
         self.general_tags_indices = []
