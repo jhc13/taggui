@@ -50,7 +50,8 @@ class AutoCaptioningModel:
         self.caption_start = caption_settings['caption_start']
         self.device_setting: CaptionDevice = caption_settings['device']
         self.device: torch.device = self.get_device()
-        self.dtype_argument = ({'dtype': torch.float16}
+        self.dtype = torch.float16
+        self.dtype_argument = ({'dtype': self.dtype}
                                if self.device.type == 'cuda' else {})
         self.load_in_4_bit = caption_settings['load_in_4_bit']
         self.bad_words_string = caption_settings['bad_words']
@@ -90,12 +91,12 @@ class AutoCaptioningModel:
             quantization_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type='nf4',
-                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_compute_dtype=self.dtype,
                 bnb_4bit_use_double_quant=True
             )
             arguments['quantization_config'] = quantization_config
         elif self.device.type == 'cuda':
-            arguments['torch_dtype'] = torch.float16
+            arguments['torch_dtype'] = self.dtype
         return arguments
 
     def load_model(self, model_load_arguments: dict):
