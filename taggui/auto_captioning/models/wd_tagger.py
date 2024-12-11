@@ -136,10 +136,10 @@ class WdTagger(AutoCaptioningModel):
                                   .shape)
         if max_dimension != input_dimension:
             input_dimensions = (input_dimension, input_dimension)
-            pil_image = canvas.resize(input_dimensions,
-                                      resample=PilImage.Resampling.BICUBIC)
+            canvas = canvas.resize(input_dimensions,
+                                   resample=PilImage.Resampling.BICUBIC)
         # Convert the image to a numpy array.
-        image_array = np.array(pil_image, dtype=np.float32)
+        image_array = np.array(canvas, dtype=np.float32)
         # Reverse the order of the color channels.
         image_array = image_array[:, :, ::-1]
         # Add a batch dimension.
