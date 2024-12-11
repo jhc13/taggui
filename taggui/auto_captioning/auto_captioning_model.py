@@ -98,12 +98,23 @@ class AutoCaptioningModel:
             arguments['torch_dtype'] = torch.float16
         return arguments
 
-    def get_model(self):
-        model_load_arguments = self.get_model_load_arguments()
+    def load_model(self, model_load_arguments: dict):
         with self.model_load_context_manager:
             model = self.transformers_model_class.from_pretrained(
                 self.model_id, **model_load_arguments)
         model.eval()
+        return model
+
+    def patch_source_code(self) -> bool:
+        # Return `True` if the source code was patched.
+        return False
+
+    def get_model(self):
+        model_load_arguments = self.get_model_load_arguments()
+        model = self.load_model(model_load_arguments)
+        if self.patch_source_code():
+            print('Patched the model source code. Reloading the model...')
+            model = self.load_model(model_load_arguments)
         return model
 
     def load_processor_and_model(self):
