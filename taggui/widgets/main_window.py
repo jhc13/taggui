@@ -570,6 +570,4 @@ class MainWindow(QMainWindow):
             directory_path = Path(self.settings.value('directory_path',
                                                       type=str))
             if directory_path.is_dir():
-                self.load_directory(
-                    directory_path,
-                    select_index=image_index)
+                self.load_directory(directory_path, select_index=image_index)
