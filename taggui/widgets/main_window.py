@@ -37,6 +37,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = get_settings()
+        # The path of the currently loaded directory. This is set later when a
+        # directory is loaded.
+        self.directory_path = None
         image_list_image_width = self.settings.value(
             'image_list_image_width',
             defaultValue=DEFAULT_SETTINGS['image_list_image_width'], type=int)
@@ -203,8 +206,11 @@ class MainWindow(QMainWindow):
         central_widget.addWidget(self.image_viewer)
         self.setCentralWidget(central_widget)
 
-    def load_directory(self, path: Path, select_index: int = 0):
-        self.settings.setValue('directory_path', str(path))
+    def load_directory(self, path: Path, select_index: int = 0,
+                       save_path_to_settings: bool = False):
+        self.directory_path = path.resolve()
+        if save_path_to_settings:
+            self.settings.setValue('directory_path', str(self.directory_path))
         self.setWindowTitle(path.name)
         self.image_list_model.load_directory(path)
         self.image_list.filter_line_edit.clear()
@@ -221,17 +227,15 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def select_and_load_directory(self):
-        # Use the last loaded directory as the initial directory.
-        if self.settings.contains('directory_path'):
-            initial_directory_path = self.settings.value('directory_path')
-        else:
-            initial_directory_path = ''
+        initial_directory = (str(self.directory_path)
+                             if self.directory_path else '')
         load_directory_path = QFileDialog.getExistingDirectory(
             parent=self, caption='Select directory to load images from',
-            dir=initial_directory_path)
+            dir=initial_directory)
         if not load_directory_path:
             return
-        self.load_directory(Path(load_directory_path))
+        self.load_directory(Path(load_directory_path),
+                            save_path_to_settings=True)
 
     @Slot()
     def reload_directory(self):
@@ -242,8 +246,7 @@ class MainWindow(QMainWindow):
                             if self.proxy_image_list_model.filter is None
                             else 'filtered_image_index')
         select_index = self.settings.value(select_index_key, type=int) or 0
-        self.load_directory(Path(self.settings.value('directory_path',
-                                                     type=str)))
+        self.load_directory(self.directory_path)
         self.image_list.filter_line_edit.setText(filter_text)
         # If the selected image index is out of bounds due to images being
         # deleted, select the last image.
@@ -569,6 +572,4 @@ class MainWindow(QMainWindow):
             directory_path = Path(self.settings.value('directory_path',
                                                       type=str))
             if directory_path.is_dir():
-                self.load_directory(
-                    Path(self.settings.value('directory_path', type=str)),
-                    select_index=image_index)
+                self.load_directory(directory_path, select_index=image_index)
