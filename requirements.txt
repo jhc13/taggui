@@ -5,8 +5,7 @@ imagesize==1.4.1
 pillow==11.0.0
 pyparsing==3.2.0
 PySide6==6.8.1
-# Transformers v4.42 breaks CogVLM.
-transformers==4.41.2
+transformers==4.45.2
 
 # PyTorch
 # AutoGPTQ does not support PyTorch v2.3.
