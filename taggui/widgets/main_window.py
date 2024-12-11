@@ -206,7 +206,8 @@ class MainWindow(QMainWindow):
         central_widget.addWidget(self.image_viewer)
         self.setCentralWidget(central_widget)
 
-    def load_directory(self, path: Path, select_index: int = 0, save_path = False):
+    def load_directory(self, path: Path, select_index: int = 0,
+                       save_path: bool = False):
         self.directory_path = path.resolve()
         if save_path:
             self.settings.setValue('directory_path', str(self.directory_path))
