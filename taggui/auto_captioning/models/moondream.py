@@ -41,7 +41,7 @@ class Moondream1(Moondream):
                                                     trust_remote_code=True)
 
     def patch_source_code(self) -> bool:
-        """Patch the source code for Transformers v4.38."""
+        """Patch the source code to be compatible with Transformers v4.38."""
         # There are multiple modules with a name containing 'modeling_phi'.
         phi_module = next(module for module_name, module in sys.modules.items()
                           if 'moondream1' in module_name

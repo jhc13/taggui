@@ -11,7 +11,7 @@ from utils.image import Image
 
 
 def patch_cog_source_code() -> bool:
-    """Patch the source code for Transformers v4.42."""
+    """Patch the source code to be compatible with Transformers v4.42."""
     cog_module = next(module for module_name, module in sys.modules.items()
                       if 'modeling_cog' in module_name)
     cog_module_source_path = cog_module.__file__
