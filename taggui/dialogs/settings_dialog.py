@@ -23,7 +23,7 @@ class SettingsDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Image width in image list (px)'), 2, 0,
                               Qt.AlignmentFlag.AlignRight)
-        grid_layout.addWidget(QLabel('Tag separator'), 3, 0,
+        grid_layout.addWidget(QLabel('Tag separator (\\n for newline)'), 3, 0,
                               Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Insert space after tag separator'), 4, 0,
                               Qt.AlignmentFlag.AlignRight)
@@ -47,6 +47,8 @@ class SettingsDialog(QDialog):
         tag_separator = self.settings.value(
             'tag_separator', defaultValue=DEFAULT_SETTINGS['tag_separator'],
             type=str)
+        if tag_separator == '\n':
+            tag_separator = r'\n'
         tag_separator_line_edit.setMaximumWidth(50)
         tag_separator_line_edit.setText(tag_separator)
         tag_separator_line_edit.textChanged.connect(
@@ -121,6 +123,8 @@ class SettingsDialog(QDialog):
             self.warning_label.setText('The tag separator cannot be empty.')
             self.warning_label.show()
             return
+        if tag_separator == r'\n':
+            tag_separator = '\n'
         self.settings.setValue('tag_separator', tag_separator)
         self.show_restart_warning()
 
