@@ -37,9 +37,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.app = app
         self.settings = get_settings()
-        # The current directory_path will be set later in the call to
-        # self.restore()
-        self.directory_path = Path()
+        # The path of the currently loaded directory. This is set later when a
+        # directory is loaded.
+        self.directory_path = None
         image_list_image_width = self.settings.value(
             'image_list_image_width',
             defaultValue=DEFAULT_SETTINGS['image_list_image_width'], type=int)
@@ -227,10 +227,11 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def select_and_load_directory(self):
-        # Use the last loaded directory as the initial directory.
+        initial_directory = (str(self.directory_path)
+                             if self.directory_path else '')
         load_directory_path = QFileDialog.getExistingDirectory(
             parent=self, caption='Select directory to load images from',
-            dir=str(self.directory_path))
+            dir=initial_directory)
         if not load_directory_path:
             return
         self.load_directory(Path(load_directory_path),
