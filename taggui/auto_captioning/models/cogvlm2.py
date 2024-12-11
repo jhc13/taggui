@@ -5,6 +5,7 @@ from torchvision import transforms
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
 
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
+from auto_captioning.models.cog import patch_cog_source_code
 from utils.enums import CaptionDevice
 from utils.image import Image
 
@@ -52,6 +53,9 @@ class Cogvlm2(AutoCaptioningModel):
             arguments['config'] = config
             del arguments['quantization_config']
         return arguments
+
+    def patch_source_code(self) -> bool:
+        return patch_cog_source_code()
 
     @staticmethod
     def get_default_prompt() -> str:

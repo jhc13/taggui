@@ -2,11 +2,34 @@ import sys
 from abc import ABC, abstractmethod
 from contextlib import redirect_stdout
 from inspect import getsource
+from pathlib import Path
 
 from transformers import AutoModelForCausalLM, LlamaTokenizer
 
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from utils.image import Image
+
+
+def patch_cog_source_code() -> bool:
+    """Patch the source code for Transformers v4.42."""
+    cog_module = next(module for module_name, module in sys.modules.items()
+                      if 'modeling_cog' in module_name)
+    cog_module_source_path = cog_module.__file__
+    cog_module_source = Path(cog_module_source_path).read_text()
+    original_code = """
+        model_kwargs["past_key_values"] = self._extract_past_from_model_output(
+            outputs, standardize_cache_format=standardize_cache_format
+        )"""
+    patched_code = """
+        cache_name, cache = self._extract_past_from_model_output(outputs)
+        model_kwargs[cache_name] = cache"""
+    if original_code not in cog_module_source:
+        return False
+    cog_module_source = cog_module_source.replace(original_code,
+                                                  patched_code)
+    Path(cog_module_source_path).write_text(cog_module_source)
+    del sys.modules[cog_module.__name__]
+    return True
 
 
 class Cog(AutoCaptioningModel, ABC):
@@ -19,6 +42,9 @@ class Cog(AutoCaptioningModel, ABC):
 
     def get_processor(self):
         return LlamaTokenizer.from_pretrained('lmsys/vicuna-7b-v1.5')
+
+    def patch_source_code(self) -> bool:
+        return patch_cog_source_code()
 
     @staticmethod
     def get_default_prompt() -> str:

@@ -1,6 +1,6 @@
 import re
 import sys
-from inspect import getsource
+from pathlib import Path
 
 import torch
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
@@ -58,33 +58,31 @@ class Moondream(AutoCaptioningModel):
         return generated_text
 
 
-def monkey_patch_moondream1():
-    """Monkey patch moondream1 for Transformers v4.38."""
-    # There are multiple modules with a name containing 'modeling_phi'.
-    phi_module = next(module for module_name, module in sys.modules.items()
-                      if 'moondream1' in module_name
-                      and 'modeling_phi' in module_name)
-    phi_module_source = getsource(phi_module)
-    # Modify the source code at line 318 of `modeling_phi.py`.
-    insert_index = phi_module_source.find(' ' * 12
-                                          + 'padding_mask.masked_fill_')
-    phi_module_source = (
-            phi_module_source[:insert_index] + ' ' * 12
-            + 'key_padding_mask = key_padding_mask[:, :seqlen_k]\n'
-            + phi_module_source[insert_index:]
-    )
-    exec(phi_module_source, phi_module.__dict__)
-
-
 class Moondream1(Moondream):
     def get_processor(self):
         return CodeGenTokenizerFast.from_pretrained(self.model_id,
                                                     trust_remote_code=True)
 
-    def get_model(self):
-        super().get_model()
-        monkey_patch_moondream1()
-        return super().get_model()
+    def patch_source_code(self) -> bool:
+        """Patch the source code for Transformers v4.38."""
+        # There are multiple modules with a name containing 'modeling_phi'.
+        phi_module = next(module for module_name, module in sys.modules.items()
+                          if 'moondream1' in module_name
+                          and 'modeling_phi' in module_name)
+        phi_module_source_path = phi_module.__file__
+        phi_module_source = Path(phi_module_source_path).read_text()
+        # Modify the source code at line 318 of `modeling_phi.py`.
+        insert_string = 'key_padding_mask = key_padding_mask[:, :seqlen_k]\n'
+        insert_index = phi_module_source.find(' ' * 12
+                                              + 'padding_mask.masked_fill_')
+        if insert_string in phi_module_source or insert_index == -1:
+            return False
+        phi_module_source = (phi_module_source[:insert_index] + ' ' * 12
+                             + insert_string
+                             + phi_module_source[insert_index:])
+        Path(phi_module_source_path).write_text(phi_module_source)
+        del sys.modules[phi_module.__name__]
+        return True
 
 
 class Moondream2(Moondream):
