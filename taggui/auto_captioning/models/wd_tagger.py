@@ -83,7 +83,7 @@ class WdTaggerModel:
                     or tag in tags_to_exclude):
                 continue
             elif (index in self.character_tags_indices
-                and rounded_probability < min_char_probability):
+                    and rounded_probability < min_char_probability):
                 continue
             tags_and_probabilities.append((tag, probability))
         # Sort tags.
