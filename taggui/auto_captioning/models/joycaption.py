@@ -51,17 +51,6 @@ class JoycaptionLlavaLlama3(AutoCaptioningModel):
 
         return templated_prompt
 
-    def get_additional_generation_parameters(self) -> dict:
-        additional_parameters = super().get_additional_generation_parameters()
-        additional_parameters['use_cache'] = True
-
-        tokenizer = self.get_tokenizer()
-        eos_token_id = (tokenizer('<|eot_id|>', add_special_tokens=False)
-                        .input_ids)[0]
-        additional_parameters['eos_token_id'] = eos_token_id
-
-        return additional_parameters
-
     def get_input_text(self, image_prompt: str) -> str:
     	# Do not add caption_start here, we add it in format_prompt().
         return image_prompt
