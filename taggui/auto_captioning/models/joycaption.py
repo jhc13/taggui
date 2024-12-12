@@ -20,12 +20,10 @@ class Joycaption(AutoCaptioningModel):
         self.dtype_argument = ({'dtype': self.dtype}
                                if self.device.type == 'cuda' else {})
 
-    def get_error_message(self) -> str | None:
+    def get_additional_error_message(self) -> str | None:
         if self.load_in_4_bit:
-            # The official model does not currently work when loaded
-            # in 4-bit mode.
-            return 'Joycaption cannot currently be loaded in 4-bit.'
-        return super().get_error_message()
+            return 'This model cannot be loaded in 4-bit.'
+        return None
 
     @staticmethod
     def get_default_prompt() -> str:
