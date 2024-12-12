@@ -8,6 +8,7 @@ from utils.image import Image
 
 
 class Joycaption(AutoCaptioningModel):
+    dtype = torch.bfloat16
     transformers_model_class = LlavaForConditionalGeneration
 
     def __init__(self,
@@ -16,7 +17,6 @@ class Joycaption(AutoCaptioningModel):
         super().__init__(captioning_thread_, caption_settings)
 
         self.input_length = None
-        self.dtype = torch.bfloat16
         self.dtype_argument = ({'dtype': self.dtype}
                                if self.device.type == 'cuda' else {})
 

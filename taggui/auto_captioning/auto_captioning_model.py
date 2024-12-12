@@ -35,6 +35,7 @@ def replace_template_variables(text: str, image: Image) -> str:
 
 
 class AutoCaptioningModel:
+    dtype = torch.float16
     model_load_context_manager = nullcontext()
     transformers_model_class = AutoModelForVision2Seq
     image_mode = 'RGB'
@@ -50,7 +51,6 @@ class AutoCaptioningModel:
         self.caption_start = caption_settings['caption_start']
         self.device_setting: CaptionDevice = caption_settings['device']
         self.device: torch.device = self.get_device()
-        self.dtype = torch.float16
         self.dtype_argument = ({'dtype': self.dtype}
                                if self.device.type == 'cuda' else {})
         self.load_in_4_bit = caption_settings['load_in_4_bit']
