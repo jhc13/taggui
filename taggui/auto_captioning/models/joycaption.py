@@ -7,7 +7,7 @@ from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from utils.image import Image
 
 
-class JoycaptionLlavaLlama3(AutoCaptioningModel):
+class Joycaption(AutoCaptioningModel):
     transformers_model_class = LlavaForConditionalGeneration
 
     def __init__(self,

@@ -2,7 +2,7 @@ from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from auto_captioning.models.cog import Cogagent, Cogvlm
 from auto_captioning.models.cogvlm2 import Cogvlm2
 from auto_captioning.models.florence_2 import Florence2, Florence2Promptgen
-from auto_captioning.models.joycaption import JoycaptionLlavaLlama3
+from auto_captioning.models.joycaption import Joycaption
 from auto_captioning.models.kosmos_2 import Kosmos2
 from auto_captioning.models.llava_1_point_5 import Llava1Point5
 from auto_captioning.models.llava_llama_3 import LlavaLlama3
