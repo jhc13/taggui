@@ -15,7 +15,7 @@ class Joycaption(AutoCaptioningModel):
 
     @staticmethod
     def get_default_prompt() -> str:
-        return 'Write a stable diffusion prompt for this image.'
+        return 'Briefly describe the image.'
 
     def format_prompt(self, prompt: str) -> str:
         conversation = [
