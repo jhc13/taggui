@@ -9,6 +9,7 @@ from PIL import Image as PilImage
 from PIL.ImageOps import exif_transpose
 from transformers import (AutoModelForVision2Seq, AutoProcessor,
                           BatchFeature, BitsAndBytesConfig)
+from transformers.utils.import_utils import is_torch_bf16_gpu_available
 
 import auto_captioning.captioning_thread as captioning_thread
 from utils.enums import CaptionDevice
@@ -35,6 +36,7 @@ def replace_template_variables(text: str, image: Image) -> str:
 
 
 class AutoCaptioningModel:
+    dtype = torch.float16
     model_load_context_manager = nullcontext()
     transformers_model_class = AutoModelForVision2Seq
     image_mode = 'RGB'
@@ -50,7 +52,10 @@ class AutoCaptioningModel:
         self.caption_start = caption_settings['caption_start']
         self.device_setting: CaptionDevice = caption_settings['device']
         self.device: torch.device = self.get_device()
-        self.dtype_argument = ({'dtype': torch.float16}
+        if self.dtype == torch.bfloat16:
+            if self.device.type != 'cuda' or not is_torch_bf16_gpu_available():
+                self.dtype = torch.float16
+        self.dtype_argument = ({'dtype': self.dtype}
                                if self.device.type == 'cuda' else {})
         self.load_in_4_bit = caption_settings['load_in_4_bit']
         self.bad_words_string = caption_settings['bad_words']
@@ -90,12 +95,12 @@ class AutoCaptioningModel:
             quantization_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type='nf4',
-                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_compute_dtype=self.dtype,
                 bnb_4bit_use_double_quant=True
             )
             arguments['quantization_config'] = quantization_config
         elif self.device.type == 'cuda':
-            arguments['torch_dtype'] = torch.float16
+            arguments['torch_dtype'] = self.dtype
         return arguments
 
     def load_model(self, model_load_arguments: dict):

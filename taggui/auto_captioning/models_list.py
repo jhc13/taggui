@@ -2,6 +2,7 @@ from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from auto_captioning.models.cog import Cogagent, Cogvlm
 from auto_captioning.models.cogvlm2 import Cogvlm2
 from auto_captioning.models.florence_2 import Florence2, Florence2Promptgen
+from auto_captioning.models.joycaption import Joycaption
 from auto_captioning.models.kosmos_2 import Kosmos2
 from auto_captioning.models.llava_1_point_5 import Llava1Point5
 from auto_captioning.models.llava_llama_3 import LlavaLlama3
@@ -13,6 +14,7 @@ from auto_captioning.models.wd_tagger import WdTagger
 from auto_captioning.models.xcomposer2 import Xcomposer2, Xcomposer2_4khd
 
 MODELS = [
+    'fancyfeast/llama-joycaption-alpha-two-hf-llava',
     'internlm/internlm-xcomposer2-vl-7b-4bit',
     'internlm/internlm-xcomposer2-vl-7b',
     'internlm/internlm-xcomposer2-vl-1_8b',
@@ -72,6 +74,8 @@ def get_model_class(model_id: str) -> type[AutoCaptioningModel]:
         if 'promptgen' in lowercase_model_id:
             return Florence2Promptgen
         return Florence2
+    if 'joycaption' in lowercase_model_id:
+        return Joycaption
     if 'kosmos' in lowercase_model_id:
         return Kosmos2
     if 'llava-v1.6-34b' in lowercase_model_id:
