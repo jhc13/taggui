@@ -14,6 +14,7 @@ from auto_captioning.models.wd_tagger import WdTagger
 from auto_captioning.models.xcomposer2 import Xcomposer2, Xcomposer2_4khd
 
 MODELS = [
+    'fancyfeast/llama-joycaption-alpha-two-hf-llava',
     'internlm/internlm-xcomposer2-vl-7b-4bit',
     'internlm/internlm-xcomposer2-vl-7b',
     'internlm/internlm-xcomposer2-vl-1_8b',
@@ -28,7 +29,6 @@ MODELS = [
     'microsoft/Florence-2-base',
     'MiaoshouAI/Florence-2-base-PromptGen',
     'microsoft/Phi-3-vision-128k-instruct',
-    'fancyfeast/llama-joycaption-alpha-two-hf-llava',
     'llava-hf/llava-v1.6-mistral-7b-hf',
     'llava-hf/llava-v1.6-vicuna-7b-hf',
     'llava-hf/llava-v1.6-vicuna-13b-hf',
