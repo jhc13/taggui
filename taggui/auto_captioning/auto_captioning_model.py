@@ -9,6 +9,7 @@ from PIL import Image as PilImage
 from PIL.ImageOps import exif_transpose
 from transformers import (AutoModelForVision2Seq, AutoProcessor,
                           BatchFeature, BitsAndBytesConfig)
+from transformers.utils.import_utils import is_torch_bf16_gpu_available
 
 import auto_captioning.captioning_thread as captioning_thread
 from utils.enums import CaptionDevice
@@ -51,6 +52,9 @@ class AutoCaptioningModel:
         self.caption_start = caption_settings['caption_start']
         self.device_setting: CaptionDevice = caption_settings['device']
         self.device: torch.device = self.get_device()
+        if self.dtype == torch.bfloat16:
+            if self.device.type != 'cuda' or not is_torch_bf16_gpu_available():
+                self.dtype = torch.float16
         self.dtype_argument = ({'dtype': self.dtype}
                                if self.device.type == 'cuda' else {})
         self.load_in_4_bit = caption_settings['load_in_4_bit']
