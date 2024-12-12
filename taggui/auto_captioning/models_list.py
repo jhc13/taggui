@@ -74,10 +74,10 @@ def get_model_class(model_id: str) -> type[AutoCaptioningModel]:
         if 'promptgen' in lowercase_model_id:
             return Florence2Promptgen
         return Florence2
+    if 'joycaption' in lowercase_model_id:
+        return Joycaption
     if 'kosmos' in lowercase_model_id:
         return Kosmos2
-    if 'joycaption' in lowercase_model_id:
-        return JoycaptionLlavaLlama3
     if 'llava-v1.6-34b' in lowercase_model_id:
         return LlavaNext34b
     if 'llava-v1.6-mistral' in lowercase_model_id:
