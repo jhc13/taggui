@@ -31,27 +31,21 @@ class Joycaption(AutoCaptioningModel):
 
     def format_prompt(self, prompt: str) -> str:
         conversation = [
-                {
-                    "role": "system", 
-                    "content": "You are a helpful image captioner.",
-                },
-                {
-                    "role": "user",
-                    "content": prompt.strip(),
-                },
+            {
+                'role': 'system',
+                'content': 'You are a helpful image captioner.'
+            },
+            {
+                'role': 'user',
+                'content': prompt
+            }
         ]
         templated_prompt = self.processor.apply_chat_template(
             conversation, tokenize=False, add_generation_prompt=True)
-
-        self.caption_start = self.caption_start.strip()
-        if self.caption_start:
-            templated_prompt = templated_prompt + self.caption_start
-
         return templated_prompt
 
     def get_input_text(self, image_prompt: str) -> str:
-    	# Do not add caption_start here, we add it in format_prompt().
-        return image_prompt
+        return image_prompt + self.caption_start
 
     def get_model_inputs(self, image_prompt: str,
                          image: Image) -> BatchFeature | dict | np.ndarray:
