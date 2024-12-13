@@ -43,21 +43,22 @@ class SettingsDialog(QDialog):
             minimum=16, maximum=9999)
         image_list_image_width_spin_box.valueChanged.connect(
             self.show_restart_warning)
+        self.insert_space_after_tag_separator_check_box = SettingsBigCheckBox(
+            key='insert_space_after_tag_separator',
+            default=DEFAULT_SETTINGS['insert_space_after_tag_separator'])
+        self.insert_space_after_tag_separator_check_box.stateChanged.connect(
+            self.show_restart_warning)
         tag_separator_line_edit = QLineEdit()
         tag_separator = self.settings.value(
             'tag_separator', defaultValue=DEFAULT_SETTINGS['tag_separator'],
             type=str)
         if tag_separator == '\n':
             tag_separator = r'\n'
+            self.disable_insert_space_after_tag_separator_check_box()
         tag_separator_line_edit.setMaximumWidth(50)
         tag_separator_line_edit.setText(tag_separator)
         tag_separator_line_edit.textChanged.connect(
             self.handle_tag_separator_change)
-        insert_space_after_tag_separator_check_box = SettingsBigCheckBox(
-            key='insert_space_after_tag_separator',
-            default=DEFAULT_SETTINGS['insert_space_after_tag_separator'])
-        insert_space_after_tag_separator_check_box.stateChanged.connect(
-            self.show_restart_warning)
         autocomplete_tags_check_box = SettingsBigCheckBox(
             key='autocomplete_tags',
             default=DEFAULT_SETTINGS['autocomplete_tags'])
@@ -88,8 +89,8 @@ class SettingsDialog(QDialog):
                               Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(tag_separator_line_edit, 3, 1,
                               Qt.AlignmentFlag.AlignLeft)
-        grid_layout.addWidget(insert_space_after_tag_separator_check_box, 4, 1,
-                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(self.insert_space_after_tag_separator_check_box,
+                              4, 1, Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(autocomplete_tags_check_box, 5, 1,
                               Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(self.models_directory_line_edit, 6, 1,
@@ -117,6 +118,10 @@ class SettingsDialog(QDialog):
         self.warning_label.setText(self.restart_warning)
         self.warning_label.show()
 
+    def disable_insert_space_after_tag_separator_check_box(self):
+        self.insert_space_after_tag_separator_check_box.setEnabled(False)
+        self.insert_space_after_tag_separator_check_box.setChecked(False)
+
     @Slot(str)
     def handle_tag_separator_change(self, tag_separator: str):
         if not tag_separator:
@@ -125,6 +130,9 @@ class SettingsDialog(QDialog):
             return
         if tag_separator == r'\n':
             tag_separator = '\n'
+            self.disable_insert_space_after_tag_separator_check_box()
+        else:
+            self.insert_space_after_tag_separator_check_box.setEnabled(True)
         self.settings.setValue('tag_separator', tag_separator)
         self.show_restart_warning()
 
