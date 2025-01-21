@@ -1,9 +1,9 @@
-import importlib.util
 from contextlib import redirect_stdout
 
 import numpy as np
 import torch
 from PIL import Image as PilImage
+from gptqmodel.models import BaseGPTQModel
 from torchvision.transforms import functional
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -11,17 +11,12 @@ from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from utils.enums import CaptionDevice
 from utils.image import Image
 
-try:
-    from auto_gptq.modeling import BaseGPTQForCausalLM
-except ImportError:
-    BaseGPTQForCausalLM = object
 
-
-class InternLMXComposer2QuantizedForCausalLM(BaseGPTQForCausalLM):
-    layers_block_name = 'model.layers'
-    outside_layer_modules = ['vit', 'vision_proj', 'model.tok_embeddings',
-                             'model.norm', 'output']
-    inside_layer_modules = [
+class InternLMXComposer2GPTQ(BaseGPTQModel):
+    base_modules = ['vit', 'vision_proj', 'model.tok_embeddings', 'model.norm',
+                    'output']
+    layers_node = 'model.layers'
+    layer_modules = [
         ['attention.wqkv.linear'],
         ['attention.wo.linear'],
         ['feed_forward.w1.linear', 'feed_forward.w3.linear'],
@@ -36,10 +31,6 @@ class Xcomposer2(AutoCaptioningModel):
     def get_additional_error_message(self) -> str | None:
         is_4_bit_model = '4bit' in self.model_id
         if is_4_bit_model:
-            if not importlib.util.find_spec('auto_gptq'):
-                return (
-                    'This model requires the `auto-gptq` package, which is '
-                    'only available on Linux and Windows.')
             if self.device_setting == CaptionDevice.CPU:
                 return 'This model can only be loaded on a GPU.'
             if not self.load_in_4_bit:
@@ -55,7 +46,7 @@ class Xcomposer2(AutoCaptioningModel):
     def get_model(self):
         if self.load_in_4_bit:
             with self.model_load_context_manager:
-                model = InternLMXComposer2QuantizedForCausalLM.from_quantized(
+                model = InternLMXComposer2GPTQ.from_quantized(
                     self.model_id, trust_remote_code=True,
                     device=str(self.device))
             model.eval()
