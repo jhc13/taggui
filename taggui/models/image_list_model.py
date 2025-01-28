@@ -7,7 +7,7 @@ from enum import Enum
 from pathlib import Path
 
 import exifread
-import imagesize
+#import imagesize
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
@@ -16,6 +16,8 @@ from PySide6.QtWidgets import QMessageBox
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
+import pillow_jxl
+from PIL import Image as pilimage
 
 UNDO_STACK_SIZE = 32
 
@@ -124,23 +126,25 @@ class ImageListModel(QAbstractListModel):
                                   if path.suffix == '.txt'}
         for image_path in image_paths:
             try:
-                dimensions = imagesize.get(image_path)
-                # Check the Exif orientation tag and rotate the dimensions if
-                # necessary.
-                with open(image_path, 'rb') as image_file:
-                    try:
-                        exif_tags = exifread.process_file(
-                            image_file, details=False,
-                            stop_tag='Image Orientation')
-                        if 'Image Orientation' in exif_tags:
-                            orientations = (exif_tags['Image Orientation']
-                                            .values)
-                            if any(value in orientations
-                                   for value in (5, 6, 7, 8)):
-                                dimensions = (dimensions[1], dimensions[0])
-                    except Exception as exception:
-                        print(f'Failed to get Exif tags for {image_path}: '
-                              f'{exception}', file=sys.stderr)
+                #dimensions = imagesize.get(image_path)
+                with pilimage.open(image_path) as ci:
+                    dimensions = ci.size
+                    # Check the Exif orientation tag and rotate the dimensions if
+                    # necessary.
+                    with open(image_path, 'rb') as image_file:
+                        try:
+                            exif_tags = exifread.process_file(
+                                image_file, details=False,
+                                stop_tag='Image Orientation')
+                            if 'Image Orientation' in exif_tags:
+                                orientations = (exif_tags['Image Orientation']
+                                                .values)
+                                if any(value in orientations
+                                    for value in (5, 6, 7, 8)):
+                                    dimensions = (dimensions[1], dimensions[0])
+                        except Exception as exception:
+                            print(f'Failed to get Exif tags for {image_path}: '
+                                f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
                 print(f'Failed to get dimensions for {image_path}: '
                       f'{exception}', file=sys.stderr)
