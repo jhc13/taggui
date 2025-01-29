@@ -12,13 +12,13 @@ from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
+from PIL import Image as pilimage  # Import Pillow's Image class
+
 
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
-import pillow_jxl
-from PIL import Image as pilimage
-
+#import pillow_jxl  No need to import this as Pillow can load it
 UNDO_STACK_SIZE = 32
 
 
@@ -55,7 +55,7 @@ class ImageListModel(QAbstractListModel):
         self.tag_separator = tag_separator
         self.images: List[Image] = []
         self.undo_stack = deque(maxlen=UNDO_STACK_SIZE)
-        self.redo_stack: List[HistoryItem] = [] # Type hint for clarity
+        self.redo_stack: List[HistoryItem] = []  # Type hint for clarity
         self.proxy_image_list_model = None
         self.image_list_selection_model = None
 
@@ -76,14 +76,12 @@ class ImageListModel(QAbstractListModel):
         if role == Qt.ItemDataRole.DecorationRole:
             if image.thumbnail:
                 return image.thumbnail
-            image_reader = QImageReader(str(image.path))
-            image_reader.setAutoTransform(True)
-            pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
-                self.image_list_image_width,
-                Qt.TransformationMode.SmoothTransformation)
-            thumbnail = QIcon(pixmap)
-            image.thumbnail = thumbnail
-            return thumbnail
+            try:
+                return self.get_icon(image, self.image_list_image_width)
+            except Exception as e:
+                 print(f"Error getting icon for {image.path} {e}")
+                 return QIcon()
+
         if role == Qt.ItemDataRole.SizeHintRole:
             if image.thumbnail:
                 return image.thumbnail.availableSizes()[0]
@@ -95,6 +93,30 @@ class ImageListModel(QAbstractListModel):
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
         return None # Added return None for clarity
+
+    def get_icon(self, image: Image, image_width: int) -> QIcon:
+      """Load the image and return a QIcon. Use PIL for JXL"""
+      try:
+          if image.path.suffix.lower() == ".jxl":
+              pil_image = pilimage.open(image.path)
+              qimage = pil_image.toqimage()
+              if qimage.width() > image_width or qimage.height() > image_width * 3:
+                    qimage = pil_image.resize(QSize(image_width, image_width * 3)).toqimage()
+              pixmap = QPixmap.fromImage(qimage)
+              icon = QIcon(pixmap)
+              image.thumbnail = icon
+              return icon
+          else:
+                icon = QIcon(str(image.path))
+                if (icon.availableSizes() and (icon.availableSizes()[0].width() 
+                > image_width or icon.availableSizes()[0].height()
+                > image_width * 3)):
+                     return QIcon(QPixmap(str(image.path)).scaled(image_width, image_width * 3))
+                image.thumbnail = icon
+                return icon
+      except Exception as e:
+          print(f"Error loading image {image.path} {e}")
+          return QIcon()
 
     def load_directory(self, directory_path: Path):
         self.beginResetModel()  # Use begin/end reset for efficiency
@@ -174,7 +196,7 @@ class ImageListModel(QAbstractListModel):
                 errors='replace')
         except OSError:
             QMessageBox.critical(None, 'Error',
-                                 f'Failed to save tags for {image.path}.') # Simpler error message
+                                 f'Failed to save tags for {image.path}.')  # Simpler error message
 
     def restore_history_tags(self, is_undo: bool):
         if is_undo:
