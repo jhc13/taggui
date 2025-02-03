@@ -9,7 +9,16 @@ DEFAULT_SETTINGS = {
     'tag_separator': ',',
     'insert_space_after_tag_separator': True,
     'autocomplete_tags': True,
-    'models_directory_path': ''
+    'models_directory_path': '',
+    'export_preset': 'SDXL, SD3, Flux',
+    'export_resolution': 1024,
+    'export_upscaling': False,
+    'export_bucket_res_size': 64,
+    'export_bucket_strategy': 'crop',
+    'export_format': '.jpg - JPEG',
+    'export_quality': 75,
+    'export_directory_path': '',
+    'export_keep_dir_structure': False
 }
 
 

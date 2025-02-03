@@ -10,6 +10,7 @@ from transformers import AutoTokenizer
 
 from dialogs.batch_reorder_tags_dialog import BatchReorderTagsDialog
 from dialogs.find_and_replace_dialog import FindAndReplaceDialog
+from dialogs.export_dialog import ExportDialog
 from dialogs.settings_dialog import SettingsDialog
 from models.image_list_model import ImageListModel
 from models.image_tag_list_model import ImageTagListModel
@@ -256,6 +257,12 @@ class MainWindow(QMainWindow):
             self.proxy_image_list_model.index(select_index, 0))
 
     @Slot()
+    def export_images_dialog(self):
+        export_dialog = ExportDialog(parent=self, image_list_model=self.image_list_model)
+        export_dialog.exec()
+        return
+
+    @Slot()
     def show_settings_dialog(self):
         settings_dialog = SettingsDialog(parent=self)
         settings_dialog.exec()
@@ -313,6 +320,9 @@ class MainWindow(QMainWindow):
             [QKeySequence('Ctrl+Shift+L'), QKeySequence('F5')])
         self.reload_directory_action.triggered.connect(self.reload_directory)
         file_menu.addAction(self.reload_directory_action)
+        export_action = QAction('Export...', parent=self)
+        export_action.triggered.connect(self.export_images_dialog)
+        file_menu.addAction(export_action)
         settings_action = QAction('Settings...', parent=self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
