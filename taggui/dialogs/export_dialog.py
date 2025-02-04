@@ -1,8 +1,8 @@
 from enum import Enum
 from collections import defaultdict
-from math import floor
 import os
 import io
+from math import floor
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Slot
@@ -19,10 +19,10 @@ from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
 from models.image_list_model import ImageListModel
 
 Presets = {
-    'manual': (0, 0),
-    'Direct feed through': (0, 1),
-    'SD1': (512, 64),
-    'SDXL, SD3, Flux': (1024, 64)
+    'manual': (0, 0, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
+    'Direct feed through': (0, 1, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
+    'SD1': (512, 64, '512:512, 640:320, 576:384, 512:384, 640:384, 704:320'),
+    'SDXL, SD3, Flux': (1024, 64, '1024:1024, 1408:704, 1216:832, 1152:896, 1344:768, 1536:640')
 }
 
 class ExportFormat(str, Enum):
@@ -100,18 +100,6 @@ class ExportDialog(QDialog):
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
-        grid_layout.addWidget(QLabel('Allow upscaling'), grid_row, 0,
-                              Qt.AlignmentFlag.AlignRight)
-        self.upscaling_check_box = SettingsBigCheckBox(
-            key='export_upscaling',
-            default=DEFAULT_SETTINGS['export_upscaling'])
-        self.upscaling_check_box.setToolTip('Scale too small images to the requested size.\n'
-                                    'This should be avoided as it lowers the image quality.')
-        self.upscaling_check_box.stateChanged.connect(self.show_statistics)
-        grid_layout.addWidget(self.upscaling_check_box, grid_row, 1,
-                              Qt.AlignmentFlag.AlignLeft)
-
-        grid_row += 1
         grid_layout.addWidget(QLabel('Bucket resolution size (px)'), grid_row, 0,
                               Qt.AlignmentFlag.AlignRight)
         self.bucket_res_size_spin_box = SettingsSpinBox(
@@ -122,6 +110,30 @@ class ExportDialog(QDialog):
                                                  'It might cause minor cropping.')
         self.bucket_res_size_spin_box.textChanged.connect(self.show_statistics)
         grid_layout.addWidget(self.bucket_res_size_spin_box, grid_row, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
+        grid_layout.addWidget(QLabel('Prefered sizes'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        self.preferred_sizes_line_edit = SettingsLineEdit(
+            key='export_preferred_sizes',
+            default=DEFAULT_SETTINGS['export_preferred_sizes'])
+        self.preferred_sizes_line_edit.setMinimumWidth(500)
+        self.preferred_sizes_line_edit.setToolTip('Comma separated list of preferred sizes and aspect ratios.\n'
+                                                  "The inverse aspect ratio is automatically derived and doesn't need to be included.")
+        grid_layout.addWidget(self.preferred_sizes_line_edit, grid_row, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
+        grid_layout.addWidget(QLabel('Allow upscaling'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        self.upscaling_check_box = SettingsBigCheckBox(
+            key='export_upscaling',
+            default=DEFAULT_SETTINGS['export_upscaling'])
+        self.upscaling_check_box.setToolTip('Scale too small images to the requested size.\n'
+                                    'This should be avoided as it lowers the image quality.')
+        self.upscaling_check_box.stateChanged.connect(self.show_statistics)
+        grid_layout.addWidget(self.upscaling_check_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
@@ -140,6 +152,9 @@ class ExportDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         format_widget = QWidget()
         format_layout = QHBoxLayout()
+        format_layout.setContentsMargins(0, 0, 0, 0)
+        current_format = self.settings.value('export_format', type=str)
+        current_quality = self.settings.value('export_quality', type=str)
         self.format_combo_box = SettingsComboBox(key='export_format')
         self.format_combo_box.addItems(list(ExportFormat))
         self.format_combo_box.currentTextChanged.connect(self.format_change)
@@ -159,6 +174,9 @@ class ExportDialog(QDialog):
         format_widget.setLayout(format_layout)
         grid_layout.addWidget(format_widget, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
+        # ensure correct enable/disable and background color of the quality
+        self.format_change(current_format, False)
+        self.quality_change(current_quality)
 
         grid_row += 1
         grid_layout.addWidget(QLabel('Output color space'), grid_row, 0,
@@ -181,7 +199,7 @@ class ExportDialog(QDialog):
         self.export_directory_line_edit = SettingsLineEdit(
             key='export_directory_path',
             default=DEFAULT_SETTINGS['export_directory_path'])
-        self.export_directory_line_edit.setMinimumWidth(400)
+        self.export_directory_line_edit.setMinimumWidth(500)
         self.export_directory_line_edit.setClearButtonEnabled(True)
         grid_layout.addWidget(self.export_directory_line_edit, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
@@ -208,7 +226,7 @@ class ExportDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         self.statistics_table = QTableWidget(0, 5, self)
         self.statistics_table.setHorizontalHeaderLabels(['Width', 'Height', 'Count', 'Aspect ratio', 'Size utilization'])
-        self.statistics_table.setMinimumWidth(400)
+        self.statistics_table.setMinimumWidth(500)
         grid_layout.addWidget(self.statistics_table, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
@@ -218,25 +236,26 @@ class ExportDialog(QDialog):
         layout.addWidget(export_button)
 
         # update display
-        self.apply_preset(preset_combo_box.currentText())
+        self.apply_preset(preset_combo_box.currentText(), False)
         self.show_megapixels()
         self.inhibit_statistics_update = False
         self.show_statistics()
 
     @Slot()
-    def apply_preset(self, value):
+    def apply_preset(self, value, do_value_change = True):
+        preset = Presets[value]
         if value == 'manual':
             self.resolution_spin_box.setEnabled(True)
             self.bucket_res_size_spin_box.setEnabled(True)
         else:
-            preset = Presets[value]
             self.inhibit_statistics_update = True
-            self.resolution_spin_box.setValue(preset[0])
+            self.resolution_spin_box.setValue(preset[0]) if do_value_change else 0
             self.resolution_spin_box.setEnabled(False)
-            self.bucket_res_size_spin_box.setValue(preset[1])
+            self.bucket_res_size_spin_box.setValue(preset[1]) if do_value_change else 0
             self.bucket_res_size_spin_box.setEnabled(False)
             self.inhibit_statistics_update = False
             self.show_statistics()
+        self.preferred_sizes_line_edit.setText(preset[2]) if do_value_change else 0
 
     @Slot()
     def show_megapixels(self):
@@ -248,15 +267,15 @@ class ExportDialog(QDialog):
             self.megapixels.setText('-')
 
     @Slot()
-    def format_change(self, export_format):
+    def format_change(self, export_format, do_value_change = True):
         if export_format == ExportFormat.JPG:
-            self.quality_spin_box.setValue(75)
+            self.quality_spin_box.setValue(75) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
         elif export_format == ExportFormat.PNG:
-            self.quality_spin_box.setValue(100)
+            self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(False)
         elif export_format == ExportFormat.WEBP:
-            self.quality_spin_box.setValue(80)
+            self.quality_spin_box.setValue(80) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
 
     @Slot()
