@@ -2,14 +2,16 @@ from enum import Enum
 from collections import defaultdict
 from math import floor
 import os
+import io
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Slot
+from PySide6.QtGui import QColorSpace
 from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout, QLabel,
                                QLineEdit, QPushButton, QVBoxLayout, QHBoxLayout,
                                QTableWidget, QTableWidgetItem, QSizePolicy,
                                QMessageBox)
-from PIL import Image, ImageFilter #, ImageQt, ImageEnhance, ImageCms
+from PIL import Image, ImageFilter, ImageCms
 
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
@@ -33,6 +35,17 @@ ExportFormatDict = {
     ExportFormat.PNG: 'png',
     ExportFormat.WEBP: 'webp'
 }
+
+class IccProfileList(str, Enum):
+    SRgb = 'sRGB'
+    SRgbLinear = 'sRGB (linear gamma)'
+    AdobeRgb = 'AdobeRGB'
+    DisplayP3 = 'DisplayP3'
+    ProPhotoRgb = 'ProPhotoRGB'
+    # since PySide6.8:
+    Bt2020 = 'BT.2020'
+    Bt2100Pq = 'BT.2100(PQ)'
+    Bt2100Hlg = 'BT.2100 (HLG)'
 
 class BucketStrategy(str, Enum):
     CROP = 'crop'
@@ -145,6 +158,21 @@ class ExportDialog(QDialog):
                               Qt.AlignmentFlag.AlignLeft)
         format_widget.setLayout(format_layout)
         grid_layout.addWidget(format_widget, grid_row, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
+        grid_layout.addWidget(QLabel('Output color space'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        color_space_combo_box = SettingsComboBox(key='export_color_space')
+        color_space_combo_box.addItem("feed through (don't touch)")
+        color_space_combo_box.addItem('sRGB (implicit, without profile)')
+        color_space_combo_box.addItems([IccProfileList[e.name] for e in QColorSpace.NamedColorSpace])
+        color_space_combo_box.setToolTip('Color space of the exported images.\n'
+                                         'Most likely the trainer expects sRGB!\n'
+                                         '\n'
+                                         'Use "feed through" to keep the color space as it is.\n'
+                                         'Use "sRGB (implicit, without profile)" to save in sRGB but don\'t embed the ICC profile to save 8k file size.')
+        grid_layout.addWidget(color_space_combo_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
@@ -421,6 +449,11 @@ class ExportDialog(QDialog):
         bucket_res = self.bucket_res_size_spin_box.value()
         export_format = self.format_combo_box.currentText()
         quality = self.quality_spin_box.value()
+        color_space = self.settings.value('export_color_space', type=str)
+        save_profile = True
+        if color_space == 'sRGB (implicit, without profile)':
+            color_space = 'sRGB'
+            save_profile = False
         bucket_strategy = self.settings.value('export_bucket_strategy', type=str)
 
         for image_index in range(self.image_list_model.rowCount()):
@@ -471,12 +504,18 @@ class ExportDialog(QDialog):
             crop_height = floor((current_height - image_entry.target_dimensions[1]) / 2)
             cropped_image = sharpend_image.crop((crop_width, crop_height, current_width - crop_width, current_height - crop_height))
 
-            # TODO: apply color management as the input images might have an
-            #       arbitrary color space that doesn't fit to the expectation
-            #       of the trainer (most likely sRGB, but probably something
-            #       like Rec. 2100 with HDR in the future?)
-            #final_image = ImageCms.profileToProfile(cropped_image, srgb_profile, profile)
-            final_image = cropped_image
-
-            final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=final_image.info.get('icc_profile'))
+            if color_space == "feed through (don't touch)":
+                cropped_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=cropped_image.info.get('icc_profile'))
+            else:
+                source_profile_raw = image_file.info.get('icc_profile')
+                if source_profile_raw is None: # assume sRGB
+                    source_profile_raw = QColorSpace(QColorSpace.SRgb).iccProfile()
+                source_profile = ImageCms.ImageCmsProfile(io.BytesIO(source_profile_raw))
+                target_profile_raw = QColorSpace(getattr(QColorSpace, IccProfileList(color_space).name)).iccProfile()
+                target_profile = ImageCms.ImageCmsProfile(io.BytesIO(target_profile_raw))
+                final_image = ImageCms.profileToProfile(cropped_image, source_profile, target_profile)
+                if save_profile:
+                    final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=target_profile.tobytes())
+                else:
+                    final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=None)
         self.close()

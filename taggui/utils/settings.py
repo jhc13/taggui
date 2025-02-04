@@ -17,6 +17,7 @@ DEFAULT_SETTINGS = {
     'export_bucket_strategy': 'crop',
     'export_format': '.jpg - JPEG',
     'export_quality': 75,
+    'export_color_space': 'sRGB',
     'export_directory_path': '',
     'export_keep_dir_structure': False
 }
