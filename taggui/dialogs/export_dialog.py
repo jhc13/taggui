@@ -55,6 +55,9 @@ class BucketStrategy(str, Enum):
 
 class ExportDialog(QDialog):
     def __init__(self, parent, image_list_model: ImageListModel):
+        """
+        Main method to create the export dialog.
+        """
         super().__init__(parent)
         self.image_list_model = image_list_model
         self.settings = get_settings()
@@ -243,7 +246,11 @@ class ExportDialog(QDialog):
         self.show_statistics()
 
     @Slot()
-    def apply_preset(self, value, do_value_change = True):
+    def apply_preset(self, value: str, do_value_change: bool = True):
+        """
+        Slot to call when a new preset was selected to help the user to set
+        important settings to a consistent state.
+        """
         preset = Presets[value]
         if value == 'manual':
             self.resolution_spin_box.setEnabled(True)
@@ -260,6 +267,10 @@ class ExportDialog(QDialog):
 
     @Slot()
     def show_megapixels(self):
+        """
+        Slot to call when the resolution was changes to update the megapixel
+        display.
+        """
         resolution = self.resolution_spin_box.value()
         if resolution > 0:
             megapixels = resolution * resolution / 1024 / 1024
@@ -268,7 +279,10 @@ class ExportDialog(QDialog):
             self.megapixels.setText('-')
 
     @Slot()
-    def format_change(self, export_format, do_value_change = True):
+    def format_change(self, export_format: ExportFormat, do_value_change: bool = True):
+        """
+        Slot to call when the export format was changed.
+        """
         if export_format == ExportFormat.JPG:
             self.quality_spin_box.setValue(75) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
@@ -280,7 +294,10 @@ class ExportDialog(QDialog):
             self.quality_spin_box.setEnabled(True)
 
     @Slot()
-    def quality_change(self, quality):
+    def quality_change(self, quality: str):
+        """
+        Slot to call when the export quality setting was changed.
+        """
         if (self.format_combo_box.currentText() == ExportFormat.JPG) and int(quality) > 95:
             self.quality_spin_box.setStyleSheet('background: orange')
         else:
@@ -288,6 +305,9 @@ class ExportDialog(QDialog):
 
     @Slot()
     def show_statistics(self):
+        """
+        Update the statistics table content.
+        """
         if self.inhibit_statistics_update:
             return
 
@@ -356,16 +376,24 @@ class ExportDialog(QDialog):
             self.statistics_table.setItem(rowPosition, 3, QTableWidgetItem(f"{aspect_ratio:.3f}{notable_aspect_ratio}"))
             self.statistics_table.setItem(rowPosition, 4, QTableWidgetItem(f"{100*utilization:.1f}%"))
 
-    def target_dimensions(self, dimensions, resolution, upscaling, bucket_res):
+    def target_dimensions(self, dimensions: tuple[int, int], resolution: int, upscaling: bool, bucket_res: int):
         """
-        Given the original width and height, the bucket resolution step size,
-        and a maximum allowed area, return new dimensions (width, height)
-        where both dimensions are multiples of `bucket_res`, their product
-        does not exceed resolution**2, and the new aspect ratio (width/height)
-        is as close as possible to the original aspect ratio.
+        Determine the dimensions of an image it should have when it is exported.
 
-        Note: this gives the optimal answer and thus can be slower than the Kohya bucket
-              algorithm
+        Note: this gives the optimal answer and thus can be slower than the Kohya
+        bucket algorithm.
+
+        Parameters
+        ----------
+        dimensions : tuple[int, int]
+            The width and height of the image
+        resolution : int
+            The target resolution of the AI model. The target image pixels
+            will not exceed the square of this number
+        upscaling : bool
+            Is upscaling of images allowed?
+        bucket_res : int
+            The resolution of the buckets
         """
         width, height = dimensions
         if resolution == 0:
@@ -443,6 +471,9 @@ class ExportDialog(QDialog):
 
     @Slot()
     def set_export_directory_path(self):
+        """
+        Set the path of the directory to export to.
+        """
         export_directory_path = self.settings.value(
             'export_directory_path',
             defaultValue=DEFAULT_SETTINGS['export_directory_path'], type=str)
@@ -460,6 +491,9 @@ class ExportDialog(QDialog):
 
     @Slot()
     def do_export(self):
+        """
+        Export all images with the configured settings.
+        """
         directory_path = self.settings.value('directory_path', type=str)
         export_directory_path = Path(self.settings.value('export_directory_path', type=str))
         export_keep_dir_structure = self.settings.value('export_keep_dir_structure', type=bool)
