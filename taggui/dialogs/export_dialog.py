@@ -5,6 +5,7 @@ import io
 import re
 from math import floor, sqrt
 from pathlib import Path
+import shutil
 
 from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QColorSpace
@@ -557,6 +558,11 @@ class ExportDialog(QDialog):
                     export_path = export_path.parent / f"{stem}_{counter}{export_path.suffix}"
                     counter += 1
 
+            # copy the tag file first
+            if image_entry.path.with_suffix('.txt').exists():
+                shutil.copyfile(str(image_entry.path.with_suffix('.txt')), str(export_path.with_suffix('.txt')))
+
+            # then handle the image
             image_file = Image.open(image_entry.path)
             # Preserve alpha if present:
             if image_file.mode in ("RGBA", "LA", "PA") and not export_format == ExportFormat.JPG:  # Check for alpha channels
