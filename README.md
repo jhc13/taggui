@@ -260,51 +260,51 @@ The `Edit` menu contains additional features for batch tag operations, such as
 Exporting the images to a directory allows different options. By choosing the
 preset for the target AI model many important settings are automatically set.
 
-Resolution
-: The native resolution of the model, like 1024 for SDXL or Flux.
+`Resolution`:
+The native resolution of the model, like 1024 for SDXL or Flux.
 
-Image size
-: A hint showing the megapixels. The exported images will not exceed this
-: number.
+`Image size`:
+A hint showing the megapixels. The exported images will not exceed this
+number.
 
-Bucket resolution size
-: The bucket size the training tool is using.
+`Bucket resolution size`:
+The bucket size the training tool is using.
 
-Preferres sizes
-: A comma separated list of target sizes that should be preferred for the
-: exported images.
+`Preferres sizes`:
+A comma separated list of target sizes that should be preferred for the
+exported images.
 
-Allow upscaling
-: Do upscale images when set. This is bad for the quality but might reduce the
-: number of buckets that must be used for training.
+`Allow upscaling`:
+Do upscale images when set. This is bad for the quality but might reduce the
+number of buckets that must be used for training.
 
-Bucket fitting strategy
-: The method to make sure an image fits into a bucket. It can be a direct crop
-: that removes information from the side of an image. Or a scaling that changes
-: the aspect ratio of an image and can create slight distortions. Or a
-: combination of both that reduces each effect.
+`Bucket fitting strategy`:
+The method to make sure an image fits into a bucket. It can be a direct crop
+that removes information from the side of an image. Or a scaling that changes
+the aspect ratio of an image and can create slight distortions. Or a
+combination of both that reduces each effect.
 
-Output format
-: The file type and quality setting for formats that have a lossy compression.
-: Note: for JPEG a number above 95 should be avoided.
+`Output format`:
+The file type and quality setting for formats that have a lossy compression.
+Note: for JPEG a number above 95 should be avoided.
 
-Output color space
-: Most models will expect the images in sRGB format and don't contain any
-: color management. So it is important that the exporter handles this as
-: the images used for the training might use a different color space.
-: To save 8 kB for each image you might want to select "sRGB implicit" as that
-: converts the image to sRGB but doesn't store the ICC information.
-: When no color space convertation should happen you can choose "feed through".
-:
-: The simple "sRGB" is most likely the setting you want to choose here unless
-: you are an expert and have special requirements.
+`Output color space`:
+Most models will expect the images in sRGB format and don't contain any
+color management. So it is important that the exporter handles this as
+the images used for the training might use a different color space.
+To save 8 kB for each image you might want to select "sRGB implicit" as that
+converts the image to sRGB but doesn't store the ICC information.
+When no color space convertation should happen you can choose "feed through".
 
-Export directory
-: The place to export the images to.
+The simple "sRGB" is most likely the setting you want to choose here unless
+you are an expert and have special requirements.
 
-Keep input directory structure
-: When the source images are organized in subdirectories this structure will
-: be used for the exported images as well when selected.
+`Export directory`:
+The place to export the images to.
 
-Statistics
-: Preview of the generated image sizes from the export funtion.
+`Keep input directory structure`:
+When the source images are organized in subdirectories this structure will
+be used for the exported images as well when selected.
+
+`Statistics`:
+Preview of the generated image sizes from the export funtion.
