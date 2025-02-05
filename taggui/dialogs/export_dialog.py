@@ -2,7 +2,8 @@ from enum import Enum
 from collections import defaultdict
 import os
 import io
-from math import floor
+import re
+from math import floor, sqrt
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Slot
@@ -21,7 +22,7 @@ from models.image_list_model import ImageListModel
 Presets = {
     'manual': (0, 0, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
     'Direct feed through': (0, 1, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
-    'SD1': (512, 64, '512:512, 640:320, 576:384, 512:384, 640:384, 704:320'),
+    'SD1': (512, 64, '512:512, 640:320, 576:384, 512:384, 640:384, 768:320'),
     'SDXL, SD3, Flux': (1024, 64, '1024:1024, 1408:704, 1216:832, 1152:896, 1344:768, 1536:640')
 }
 
@@ -113,7 +114,7 @@ class ExportDialog(QDialog):
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
-        grid_layout.addWidget(QLabel('Prefered sizes'), grid_row, 0,
+        grid_layout.addWidget(QLabel('Preferred sizes'), grid_row, 0,
                               Qt.AlignmentFlag.AlignRight)
         self.preferred_sizes_line_edit = SettingsLineEdit(
             key='export_preferred_sizes',
@@ -304,6 +305,25 @@ class ExportDialog(QDialog):
             (16, 9, 16/9),
             (21, 9, 21/9),
         ]
+        self.preferred_sizes = []
+        for res_str in re.split(r'\s*,\s*', self.settings.value('export_preferred_sizes')):
+            try:
+                size_str = res_str.split(':')
+                width = max(int(size_str[0]), int(size_str[1]))
+                height = min(int(size_str[0]), int(size_str[1]))
+                self.preferred_sizes.append((width, height))
+                if not width == height:
+                    self.preferred_sizes.append((height, width))
+                # add exact aspect ratio of the preferred size to label it similar to the perfect one
+                aspect_ratio = width / height
+                for ar in aspect_ratios:
+                    if abs(ar[2] - aspect_ratio) < 0.15:
+                        aspect_ratios.append((ar[0], ar[1], aspect_ratio))
+                        break
+            except ValueError:
+                # Handle cases where the resolution string is not in the correct format
+                print(f"Warning: Invalid resolution format: {res_str}. Skipping.")
+                continue # Skip to the next resolution if there's an error
 
         image_dimensions = defaultdict(int)
         for image_index in range(self.image_list_model.rowCount()):
@@ -347,68 +367,79 @@ class ExportDialog(QDialog):
         Note: this gives the optimal answer and thus can be slower than the Kohya bucket
               algorithm
         """
+        width, height = dimensions
         if resolution == 0:
             # no rescale in this case, only cropping
-            return ((dimensions[0] // bucket_res)*bucket_res, (dimensions[1] // bucket_res)*bucket_res)
+            return ((width // bucket_res)*bucket_res, (height // bucket_res)*bucket_res)
+
+        if width < bucket_res or height < bucket_res:
+            # it doesn't make sense to use such a small image. But we shouldn't
+            # patronize the user
+            return dimensions
 
         if dimensions in self.resolution_cache:
             return self.resolution_cache[dimensions]
 
-        max_area = resolution**2
+        preferred_sizes_bonus = 0.4 # reduce the loss by this factor
 
-        # Compute the original aspect ratio.
-        target_ratio = dimensions[0] / dimensions[1]
+        max_pixels = resolution * resolution
+        opt_width = resolution * sqrt(width/height)
+        opt_height = resolution * sqrt(height/width)
+        if not upscaling:
+            opt_width = min(width, opt_width)
+            opt_height = min(height, opt_height)
 
-        # The maximum allowed product of multipliers.
-        T = max_area // (bucket_res * bucket_res)
+        # test 1, guaranteed to find a solution: shrink and crop
+        # 1.1: exact width
+        candidate_width = (opt_width // bucket_res) * bucket_res
+        candidate_height = ((height * candidate_width / width) // bucket_res) * bucket_res
+        loss = ((height * candidate_width / width) - candidate_height) * candidate_width
+        if (candidate_width, candidate_height) in self.preferred_sizes:
+            loss *= preferred_sizes_bonus
+        # 1.2: exact height
+        test_height = (opt_height // bucket_res) * bucket_res
+        test_width = ((width * test_height / height) // bucket_res) * bucket_res
+        test_loss = ((width * test_height / height) - test_width) * test_height
+        if (test_height, test_width) in self.preferred_sizes:
+            test_loss *= preferred_sizes_bonus
+        if test_loss < loss:
+            candidate_width = test_width
+            candidate_height = test_height
+            loss = test_loss
 
-        best_candidate = None  # will hold (new_width, new_height, error, area)
+        # test 2, going bigger might still fit in the size budget due to cropping
+        # 2.1: exact width
+        for delta in range(1, 10):
+            test_width = (opt_width // bucket_res + delta) * bucket_res
+            test_height = ((height * test_width / width) // bucket_res) * bucket_res
+            if test_width * test_height > max_pixels:
+                break
+            if (test_width > width or test_height > height) and not upscaling:
+                break
+            test_loss = ((height * test_width / width) - test_height) * test_width
+            if (test_height, test_width) in self.preferred_sizes:
+                test_loss *= preferred_sizes_bonus
+            if test_loss < loss:
+                candidate_width = test_width
+                candidate_height = test_height
+                loss = test_loss
+        # 2.2: exact height
+        for delta in range(1, 10):
+            test_height = (opt_height // bucket_res + delta) * bucket_res
+            test_width = ((width * test_height / height) // bucket_res) * bucket_res
+            if test_width * test_height > max_pixels:
+                break
+            if (test_width > width or test_height > height) and not upscaling:
+                break
+            test_loss = ((width * test_height / height) - test_width) * test_height
+            if (test_height, test_width) in self.preferred_sizes:
+                test_loss *= preferred_sizes_bonus
+            if test_loss < loss:
+                candidate_width = test_width
+                candidate_height = test_height
+                loss = test_loss
 
-        # Loop over possible values for b (the vertical multiplier).
-        # We choose b from 1 up to T (although many values will be skipped
-        # because the corresponding a then makes a * b > T).
-        for b in range(1, T + 1):
-            # Choose a so that a / b is as close as possible to target_ratio.
-            # (We round the ideal value a = target_ratio * b to the nearest integer.)
-            a = round(target_ratio * b)
-            if a < 1:
-                a = 1  # ensure at least bucket_res pixels
-
-            # Check that the candidate image area (in multiplier units) does not exceed T.
-            if a * b > T:
-                # If a*b is too big, skip the candidate.
-                continue
-
-            candidate_width = a * bucket_res
-            candidate_height = b * bucket_res
-            candidate_area = candidate_width * candidate_height
-
-            if not upscaling and (candidate_width > dimensions[0] or candidate_height > dimensions[1]):
-                continue
-
-            # Compute the aspect ratio error.
-            candidate_ratio = a / b
-            error = abs(candidate_ratio - target_ratio)
-            # compute the mean squared error of ratio and normalized maximum size
-            error = (candidate_ratio - target_ratio)**2 + ((max_area-candidate_area)/max_area)**2
-
-            # We choose the candidate with the lowest error. In case of a tie, we choose
-            # the one that uses the largest area (i.e. as close as possible to resolution**2).
-            if best_candidate is None:
-                best_candidate = (candidate_width, candidate_height, error, candidate_area)
-            else:
-                _, _, best_error, best_area = best_candidate
-                if (error < best_error) or (abs(error - best_error) < 1e-9 and candidate_area > best_area):
-                    best_candidate = (candidate_width, candidate_height, error, candidate_area)
-
-        # Fallback: if no candidate is found (this shouldn't happen for reasonable values),
-        # simply return the smallest possible image.
-        if best_candidate is None:
-            return bucket_res, bucket_res
-        else:
-            new_width, new_height, _, _ = best_candidate
-            self.resolution_cache[dimensions] = (new_width, new_height)
-            return new_width, new_height
+        return int(candidate_width), int(candidate_height)
 
     @Slot()
     def set_export_directory_path(self):
