@@ -322,9 +322,9 @@ class ExportDialog(QDialog):
             return
 
         self.resolution_cache = {}
-        resolution = self.resolution_spin_box.value()
-        upscaling = self.upscaling_check_box.isChecked()
-        bucket_res = self.bucket_res_size_spin_box.value()
+        resolution = self.settings.value('export_resolution', type=int)
+        upscaling = self.settings.value('export_upscaling', type=int)
+        bucket_res = self.settings.value('export_bucket_res_size', type=int)
 
         # notable aspect ratios
         aspect_ratios = [
@@ -549,11 +549,11 @@ class ExportDialog(QDialog):
             )
             return
 
-        resolution = self.resolution_spin_box.value()
-        upscaling = self.upscaling_check_box.isChecked()
-        bucket_res = self.bucket_res_size_spin_box.value()
-        export_format = self.format_combo_box.currentText()
-        quality = self.quality_spin_box.value()
+        resolution = self.settings.value('export_resolution', type=int)
+        upscaling = self.settings.value('export_upscaling', type=int)
+        bucket_res = self.settings.value('export_bucket_res_size', type=int)
+        export_format = self.settings.value('export_format', type=str)
+        quality = self.settings.value('export_quality', type=int)
         color_space = self.settings.value('export_color_space', type=str)
         save_profile = True
         if color_space == 'sRGB (implicit, without profile)':
