@@ -33,19 +33,17 @@ class SettingsDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
-            key='font_size', default=DEFAULT_SETTINGS['font_size'],
+            key='font_size',
             minimum=1, maximum=99)
         font_size_spin_box.valueChanged.connect(self.show_restart_warning)
         # Images that are too small cause lag, so set a minimum width.
         image_list_image_width_spin_box = SettingsSpinBox(
             key='image_list_image_width',
-            default=DEFAULT_SETTINGS['image_list_image_width'],
             minimum=16, maximum=9999)
         image_list_image_width_spin_box.valueChanged.connect(
             self.show_restart_warning)
         self.insert_space_after_tag_separator_check_box = SettingsBigCheckBox(
-            key='insert_space_after_tag_separator',
-            default=DEFAULT_SETTINGS['insert_space_after_tag_separator'])
+            key='insert_space_after_tag_separator')
         self.insert_space_after_tag_separator_check_box.stateChanged.connect(
             self.show_restart_warning)
         tag_separator_line_edit = QLineEdit()
@@ -60,8 +58,7 @@ class SettingsDialog(QDialog):
         tag_separator_line_edit.textChanged.connect(
             self.handle_tag_separator_change)
         autocomplete_tags_check_box = SettingsBigCheckBox(
-            key='autocomplete_tags',
-            default=DEFAULT_SETTINGS['autocomplete_tags'])
+            key='autocomplete_tags')
         autocomplete_tags_check_box.stateChanged.connect(
             self.show_restart_warning)
         self.models_directory_line_edit = SettingsLineEdit(
@@ -76,8 +73,7 @@ class SettingsDialog(QDialog):
             int(models_directory_button.sizeHint().width() * 1.3))
         models_directory_button.clicked.connect(self.set_models_directory_path)
         file_types_line_edit = SettingsLineEdit(
-            key='image_list_file_formats',
-            default=DEFAULT_SETTINGS['image_list_file_formats'])
+            key='image_list_file_formats')
         file_types_line_edit.setMinimumWidth(400)
         file_types_line_edit.textChanged.connect(self.show_restart_warning)
 
