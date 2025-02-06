@@ -8,6 +8,6 @@ from PySide6.QtGui import QIcon
 class Image:
     path: Path
     dimensions: tuple[int, int] | None
-    target_dimensions: tuple[int, int] | None
     tags: list[str] = field(default_factory=list)
+    target_dimensions: tuple[int, int] | None = None
     thumbnail: QIcon | None = None

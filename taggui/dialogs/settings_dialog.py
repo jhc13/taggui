@@ -62,8 +62,7 @@ class SettingsDialog(QDialog):
         autocomplete_tags_check_box.stateChanged.connect(
             self.show_restart_warning)
         self.models_directory_line_edit = SettingsLineEdit(
-            key='models_directory_path',
-            default=DEFAULT_SETTINGS['models_directory_path'])
+            key='models_directory_path')
         self.models_directory_line_edit.setMinimumWidth(400)
         self.models_directory_line_edit.setClearButtonEnabled(True)
         self.models_directory_line_edit.textChanged.connect(
