@@ -355,7 +355,8 @@ class ExportDialog(QDialog):
                         break
             except ValueError:
                 # Handle cases where the resolution string is not in the correct format
-                print(f'Warning: Invalid resolution format: {res_str}. Skipping.')
+                print(f'Warning: Invalid resolution format: {res_str}. Skipping.',
+                      file=sys.stderr)
                 continue # Skip to the next resolution if there's an error
 
         image_dimensions = defaultdict(int)
