@@ -606,7 +606,7 @@ class ExportDialog(QDialog):
                 # resize with the best method available
                 resized_image = image_file.resize((new_width, new_height), Image.LANCZOS)
                 # followed by a slight sharpening as it should be done
-                sharpend_image = resized_image.filter(ImageFilter.UnsharpMask(radius = 0.5, percent = 100, threshold = 3))
+                sharpend_image = resized_image.filter(ImageFilter.UnsharpMask(radius = 0.5, percent = 50, threshold = 0))
             else:
                 sharpend_image = image_file
 
