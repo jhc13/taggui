@@ -8,8 +8,8 @@ from pathlib import Path
 
 import exifread
 import imagesize
-from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
-                            Slot)
+from PySide6.QtCore import (QAbstractListModel, QModelIndex, QMimeData, QSize,
+                            Qt, QUrl, Signal, Slot)
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
@@ -59,6 +59,25 @@ class ImageListModel(QAbstractListModel):
         self.redo_stack = []
         self.proxy_image_list_model = None
         self.image_list_selection_model = None
+
+    def flags(self, index):
+        default_flags = super().flags(index)
+        if index.isValid():
+            return Qt.ItemFlags.ItemIsDragEnabled | default_flags
+        return default_flags
+
+    def mimeTypes(self):
+        return ('text/uri-list', 'text/plain')
+
+    def mimeData(self, indexes):
+        mimeData = QMimeData()
+        mimeData.setUrls([QUrl('file://' + str(self.data(
+            image_index, Qt.ItemDataRole.UserRole
+            ).path)) for image_index in indexes])
+        mimeData.setText('\r\n'.join(['file://' + str(self.data(
+            image_index, Qt.ItemDataRole.UserRole
+            ).path) for image_index in indexes]))
+        return mimeData
 
     def rowCount(self, parent=None) -> int:
         return len(self.images)
