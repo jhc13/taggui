@@ -20,6 +20,11 @@ from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox, SettingsComboBox)
 from models.image_list_model import ImageListModel
 
+try:
+    import pillow_jxl
+except ModuleNotFoundError:
+    pass
+
 Presets = {
     'manual': (0, 0, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
     'Direct feed through': (0, 1, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
@@ -29,11 +34,13 @@ Presets = {
 
 class ExportFormat(str, Enum):
     JPG = '.jpg - JPEG'
+    JPGXL = '.jxl - JPEG XL'
     PNG = '.png - PNG'
     WEBP = '.webp - WEBP'
 
 ExportFormatDict = {
     ExportFormat.JPG: 'jpeg',
+    ExportFormat.JPGXL: 'jxl',
     ExportFormat.PNG: 'png',
     ExportFormat.WEBP: 'webp'
 }
@@ -161,7 +168,12 @@ class ExportDialog(QDialog):
         format_layout = QHBoxLayout()
         format_layout.setContentsMargins(0, 0, 0, 0)
         self.format_combo_box = SettingsComboBox(key='export_format')
-        self.format_combo_box.addItems(list(ExportFormat))
+        supported_extensions = set(Image.registered_extensions().keys())
+        supported_formats = [
+            format for format in ExportFormat
+            if any(ext in supported_extensions for ext in format.value.split(' - ')[0].split(','))
+        ]
+        self.format_combo_box.addItems(supported_formats)
         self.format_combo_box.currentTextChanged.connect(self.format_change)
         format_layout.addWidget(self.format_combo_box,
                               Qt.AlignmentFlag.AlignLeft)
@@ -295,6 +307,9 @@ class ExportDialog(QDialog):
         """
         if export_format == ExportFormat.JPG:
             self.quality_spin_box.setValue(75) if do_value_change else 0
+            self.quality_spin_box.setEnabled(True)
+        if export_format == ExportFormat.JPGXL:
+            self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
         elif export_format == ExportFormat.PNG:
             self.quality_spin_box.setValue(100) if do_value_change else 0
@@ -615,9 +630,10 @@ class ExportDialog(QDialog):
             crop_width = floor((current_width - image_entry.target_dimensions[0]) / 2)
             crop_height = floor((current_height - image_entry.target_dimensions[1]) / 2)
             cropped_image = sharpend_image.crop((crop_width, crop_height, current_width - crop_width, current_height - crop_height))
+            lossless = quality > 99
 
             if color_space == "feed through (don't touch)":
-                cropped_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=cropped_image.info.get('icc_profile'))
+                cropped_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=cropped_image.info.get('icc_profile'), lossless=lossless)
             else:
                 source_profile_raw = image_file.info.get('icc_profile')
                 if source_profile_raw is None: # assume sRGB
@@ -627,7 +643,7 @@ class ExportDialog(QDialog):
                 target_profile = ImageCms.ImageCmsProfile(io.BytesIO(target_profile_raw))
                 final_image = ImageCms.profileToProfile(cropped_image, source_profile, target_profile)
                 if save_profile:
-                    final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=target_profile.tobytes())
+                    final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=target_profile.tobytes(), lossless=lossless)
                 else:
-                    final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=None)
+                    final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=None, lossless=lossless)
         self.close()
