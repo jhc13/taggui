@@ -10,17 +10,23 @@ from typing import List, Set, Tuple
 import exifread
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
-from PySide6.QtGui import QIcon, QImageReader, QPixmap
+from PySide6.QtGui import QIcon, QImageReader, QPixmap, QImage
 from PySide6.QtWidgets import QMessageBox
+import pillow_jxl
 from PIL import Image as pilimage  # Import Pillow's Image class
 
 
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
-#import pillow_jxl  No need to import this as Pillow can load it
 UNDO_STACK_SIZE = 32
 
+def pil_to_qimage(pil_image):
+    """Convert PIL image to QImage properly"""
+    pil_image = pil_image.convert("RGBA")
+    data = pil_image.tobytes("raw", "RGBA")
+    qimage = QImage(data, pil_image.width, pil_image.height, QImage.Format_RGBA8888)
+    return qimage
 
 def get_file_paths(directory_path: Path) -> Set[Path]:
     """
@@ -94,30 +100,36 @@ class ImageListModel(QAbstractListModel):
                          int(self.image_list_image_width * height / width))
         return None # Added return None for clarity
 
-    def get_icon(self, image: Image, image_width: int) -> QIcon:
-      """Load the image and return a QIcon. Use PIL for JXL"""
-      try:
-          if image.path.suffix.lower() == ".jxl":
-              pil_image = pilimage.open(image.path)
-              qimage = pil_image.toqimage()
-              if qimage.width() > image_width or qimage.height() > image_width * 3:
-                    qimage = pil_image.resize(QSize(image_width, image_width * 3)).toqimage()
-              pixmap = QPixmap.fromImage(qimage)
-              icon = QIcon(pixmap)
-              image.thumbnail = icon
-              return icon
-          else:
-                icon = QIcon(str(image.path))
-                if (icon.availableSizes() and (icon.availableSizes()[0].width() 
-                > image_width or icon.availableSizes()[0].height()
-                > image_width * 3)):
-                     return QIcon(QPixmap(str(image.path)).scaled(image_width, image_width * 3))
+
+    def get_icon(self, image, image_width: int) -> QIcon:
+        """Load the image and return a QIcon while keeping aspect ratio."""
+        try:
+            if image.path.suffix.lower() == ".jxl":
+                pil_image = pilimage.open(image.path)  # Uses pillow-jxl
+                qimage = pil_to_qimage(pil_image)
+
+                # Convert to QPixmap and scale while keeping aspect ratio
+                pixmap = QPixmap.fromImage(qimage)
+                pixmap = pixmap.scaled(image_width, image_width * 3, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+                icon = QIcon(pixmap)
                 image.thumbnail = icon
                 return icon
-      except Exception as e:
-          print(f"Error loading image {image.path} {e}")
-          return QIcon()
 
+            else:
+                icon = QIcon(str(image.path))
+                if icon.availableSizes():
+                    size = icon.availableSizes()[0]
+                    if size.width() > image_width or size.height() > image_width * 3:
+                        pixmap = QPixmap(str(image.path)).scaled(image_width, image_width * 3, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        return QIcon(pixmap)
+
+                image.thumbnail = icon
+                return icon
+
+        except Exception as e:
+            print(f"Error loading image {image.path}: {e}")
+            return QIcon()            
     def load_directory(self, directory_path: Path):
         self.beginResetModel()  # Use begin/end reset for efficiency
         self.images.clear()
