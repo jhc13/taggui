@@ -258,7 +258,7 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def export_images_dialog(self):
-        export_dialog = ExportDialog(parent=self, image_list_model=self.image_list_model)
+        export_dialog = ExportDialog(parent=self, image_list=self.image_list)
         export_dialog.exec()
         return
 

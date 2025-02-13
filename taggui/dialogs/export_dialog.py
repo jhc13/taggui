@@ -18,12 +18,17 @@ from PIL import Image, ImageFilter, ImageCms
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox, SettingsComboBox)
-from models.image_list_model import ImageListModel
+from widgets.image_list import ImageList
 
 try:
     import pillow_jxl
 except ModuleNotFoundError:
     pass
+
+class ExportFilter(str, Enum):
+    NONE = 'All images'
+    FILTERED = 'Filtered images'
+    SELECTED = 'Selected images'
 
 Presets = {
     'manual': (0, 0, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
@@ -61,12 +66,12 @@ class BucketStrategy(str, Enum):
     CROP_SCALE = 'crop and scale'
 
 class ExportDialog(QDialog):
-    def __init__(self, parent, image_list_model: ImageListModel):
+    def __init__(self, parent, image_list: ImageList):
         """
         Main method to create the export dialog.
         """
         super().__init__(parent)
-        self.image_list_model = image_list_model
+        self.image_list_view = image_list.list_view
         self.settings = get_settings()
         self.inhibit_statistics_update = True
         self.resolution_cache: dict[tuple, tuple] = {}
@@ -80,6 +85,15 @@ class ExportDialog(QDialog):
         grid_layout.setColumnStretch(1, 1)
 
         grid_row = 0
+        grid_layout.addWidget(QLabel('Image selection'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        preset_combo_box = SettingsComboBox(key='export_filter')
+        preset_combo_box.addItems(list(ExportFilter))
+        preset_combo_box.currentTextChanged.connect(self.show_statistics)
+        grid_layout.addWidget(preset_combo_box, grid_row, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
         grid_layout.addWidget(QLabel('Preset'), grid_row, 0,
                               Qt.AlignmentFlag.AlignRight)
         preset_combo_box = SettingsComboBox(key='export_preset')
@@ -253,12 +267,10 @@ class ExportDialog(QDialog):
 
         self.layout.addLayout(grid_layout)
 
-        export_button = QPushButton('Export')
-        if self.image_list_model.rowCount() > 0:
-            export_button.clicked.connect(self.do_export)
-        else:
-            export_button.setEnabled(False)
-        self.layout.addWidget(export_button)
+        self.export_button = QPushButton('Export')
+        self.export_button.clicked.connect(self.do_export)
+        self.export_button.setEnabled(False)
+        self.layout.addWidget(self.export_button)
 
         # update display
         self.apply_preset(preset_combo_box.currentText(), False)
@@ -374,9 +386,9 @@ class ExportDialog(QDialog):
                       file=sys.stderr)
                 continue # Skip to the next resolution if there's an error
 
+        image_list = self.get_image_list()
         image_dimensions = defaultdict(int)
-        for image_index in range(self.image_list_model.rowCount()):
-            this_image = self.image_list_model.index(image_index).data(Qt.ItemDataRole.UserRole)
+        for this_image in image_list:
             this_image.target_dimensions = self.target_dimensions(
                 this_image.dimensions, resolution, upscaling, bucket_res)
             image_dimensions[this_image.target_dimensions] += 1
@@ -385,6 +397,8 @@ class ExportDialog(QDialog):
                 image_dimensions.items(),
                 key=lambda x: x[0][0] / x[0][1]  # Sort by width/height ratio
             )
+        self.export_button.setEnabled(len(image_list) > 0)
+
 
         self.statistics_table.setRowCount(0) # clear old data
         for dimensions, count in sorted_dimensions:
@@ -529,10 +543,10 @@ class ExportDialog(QDialog):
         export_keep_dir_structure = self.settings.value('export_keep_dir_structure', type=bool)
         no_overwrite = True
 
-        image_count = self.image_list_model.rowCount()
+        image_list = self.get_image_list()
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(image_count)
+        self.progress_bar.setMaximum(len(image_list))
         self.layout.addWidget(self.progress_bar)
 
         if os.path.exists(export_directory_path):
@@ -577,9 +591,8 @@ class ExportDialog(QDialog):
             save_profile = False
         bucket_strategy = self.settings.value('export_bucket_strategy', type=str)
 
-        for image_index in range(image_count):
+        for image_index, image_entry in enumerate(self.get_image_list()):
             self.progress_bar.setValue(image_index)
-            image_entry = self.image_list_model.index(image_index).data(Qt.ItemDataRole.UserRole)
             if export_keep_dir_structure:
                 relative_path = image_entry.path.relative_to(directory_path)
                 export_path = export_directory_path / relative_path
@@ -647,3 +660,21 @@ class ExportDialog(QDialog):
                 else:
                     final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=None, lossless=lossless)
         self.close()
+
+    def get_image_list(self):
+        if self.settings.value('export_filter') == ExportFilter.FILTERED:
+            images = self.image_list_view.proxy_image_list_model.sourceModel()
+            image_list = []
+            for row in range(self.image_list_view.proxy_image_list_model.sourceModel().rowCount()):
+                source_index = self.image_list_view.proxy_image_list_model.sourceModel().index(row, 0)
+                proxy_index = self.image_list_view.proxy_image_list_model.mapFromSource(source_index)
+                if proxy_index.isValid():
+                    image_list.append(source_index.data(Qt.ItemDataRole.UserRole))
+        elif self.settings.value('export_filter') == ExportFilter.SELECTED:
+            images = self.image_list_view.proxy_image_list_model.sourceModel()
+            image_list = [image_index.data(Qt.ItemDataRole.UserRole) for image_index in self.image_list_view.get_selected_image_indices()]
+        else: # ExportFilter.NONE
+            images = self.image_list_view.proxy_image_list_model.sourceModel()
+            image_list = [images.index(image_index).data(Qt.ItemDataRole.UserRole) for image_index in range(images.rowCount())]
+
+        return image_list
