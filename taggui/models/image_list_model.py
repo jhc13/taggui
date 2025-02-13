@@ -19,6 +19,7 @@ from PIL import Image as pilimage  # Import Pillow's Image class
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
+
 UNDO_STACK_SIZE = 32
 
 def pil_to_qimage(pil_image):
@@ -28,9 +29,10 @@ def pil_to_qimage(pil_image):
     qimage = QImage(data, pil_image.width, pil_image.height, QImage.Format_RGBA8888)
     return qimage
 
-def get_file_paths(directory_path: Path) -> Set[Path]:
+def get_file_paths(directory_path: Path) -> set[Path]:
     """
-    Recursively get all file paths in a directory, including subdirectories.
+    Recursively get all file paths in a directory, including 
+    subdirectories.
     """
     file_paths = set()
     for path in directory_path.rglob("*"):  # Use rglob for recursive search
@@ -42,7 +44,7 @@ def get_file_paths(directory_path: Path) -> Set[Path]:
 @dataclass
 class HistoryItem:
     action_name: str
-    tags: List[List[str]]
+    tags: list[list[str]]
     should_ask_for_confirmation: bool
 
 
@@ -59,9 +61,9 @@ class ImageListModel(QAbstractListModel):
         super().__init__()
         self.image_list_image_width = image_list_image_width
         self.tag_separator = tag_separator
-        self.images: List[Image] = []
+        self.images: list[Image] = []
         self.undo_stack = deque(maxlen=UNDO_STACK_SIZE)
-        self.redo_stack: List[HistoryItem] = []  # Type hint for clarity
+        self.redo_stack = []
         self.proxy_image_list_model = None
         self.image_list_selection_model = None
 
@@ -75,6 +77,7 @@ class ImageListModel(QAbstractListModel):
         if role == Qt.ItemDataRole.UserRole:
             return image
         if role == Qt.ItemDataRole.DisplayRole:
+            # The text shown next to the thumbnail in the image list.
             text = image.path.name
             if image.tags:
                 text += f'\n{self.tag_separator.join(image.tags)}'
@@ -85,8 +88,8 @@ class ImageListModel(QAbstractListModel):
             try:
                 return self.get_icon(image, self.image_list_image_width)
             except Exception as e:
-                 print(f"Error getting icon for {image.path} {e}")
-                 return QIcon()
+                print(f"Error getting icon for {image.path} {e}")
+                return QIcon()
 
         if role == Qt.ItemDataRole.SizeHintRole:
             if image.thumbnail:
@@ -95,6 +98,7 @@ class ImageListModel(QAbstractListModel):
             if not dimensions:
                 return QSize(self.image_list_image_width,
                              self.image_list_image_width)
+            # Scale the dimensions to the image width.
             width, height = dimensions
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
@@ -117,42 +121,46 @@ class ImageListModel(QAbstractListModel):
                 return icon
 
             else:
-                icon = QIcon(str(image.path))
-                if icon.availableSizes():
-                    size = icon.availableSizes()[0]
-                    if size.width() > image_width or size.height() > image_width * 3:
-                        pixmap = QPixmap(str(image.path)).scaled(image_width, image_width * 3, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                        return QIcon(pixmap)
-
-                image.thumbnail = icon
-                return icon
+                
+                image_reader = QImageReader(str(image.path))
+                # Rotate the image based on the orientation tag.
+                image_reader.setAutoTransform(True)
+                pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
+                    self.image_list_image_width,
+                    Qt.TransformationMode.SmoothTransformation)
+                thumbnail = QIcon(pixmap)
+                image.thumbnail = thumbnail
+                return thumbnail
 
         except Exception as e:
             print(f"Error loading image {image.path}: {e}")
-            return QIcon()            
+            return QIcon()       
+
+
     def load_directory(self, directory_path: Path):
-        self.beginResetModel()  # Use begin/end reset for efficiency
         self.images.clear()
         self.undo_stack.clear()
         self.redo_stack.clear()
         self.update_undo_and_redo_actions_requested.emit()
-        
         file_paths = get_file_paths(directory_path)
         settings = get_settings()
         image_suffixes_string = settings.value(
             'image_list_file_formats',
             defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)
         
-        image_suffixes = [
-            suffix.strip().lower() if suffix.startswith('.') else f'.{suffix.strip().lower()}'
-            for suffix in image_suffixes_string.split(',')
-        ] # Optimized list comprehension
+        image_suffixes = []
+        for suffix in image_suffixes_string.split(','):
+            suffix = suffix.strip().lower()
+            if not suffix.startswith('.'):
+                suffix = '.' + suffix
+            image_suffixes.append(suffix)
 
         image_paths = {path for path in file_paths
                        if path.suffix.lower() in image_suffixes}
+        # Comparing paths is slow on some systems, so convert the paths to
+        # strings.
         text_file_path_strings = {str(path) for path in file_paths
                                   if path.suffix == '.txt'}
-        
         for image_path in image_paths:
             try:
                 with pilimage.open(image_path) as ci:
@@ -190,8 +198,8 @@ class ImageListModel(QAbstractListModel):
             self.images.append(image)
             
         self.images.sort(key=lambda image_: image_.path)
-        self.endResetModel()  # Use begin/end reset for efficiency
-
+        self.modelReset.emit()
+        
     def add_to_undo_stack(self, action_name: str,
                           should_ask_for_confirmation: bool):
         """Add the current state of the image tags to the undo stack."""
