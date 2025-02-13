@@ -5,6 +5,7 @@ from datetime import datetime
 
 import numpy as np
 import torch
+import pillow_jxl
 from PIL import Image as PilImage
 from PIL.ImageOps import exif_transpose
 from transformers import (AutoModelForVision2Seq, AutoProcessor,

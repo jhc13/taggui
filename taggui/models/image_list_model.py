@@ -5,13 +5,16 @@ from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import List, Set, Tuple
 
 import exifread
-import imagesize
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
-from PySide6.QtGui import QIcon, QImageReader, QPixmap
+from PySide6.QtGui import QIcon, QImageReader, QPixmap, QImage
 from PySide6.QtWidgets import QMessageBox
+import pillow_jxl
+from PIL import Image as pilimage  # Import Pillow's Image class
+
 
 from utils.image import Image
 from utils.settings import DEFAULT_SETTINGS, get_settings
@@ -19,18 +22,22 @@ from utils.utils import get_confirmation_dialog_reply, pluralize
 
 UNDO_STACK_SIZE = 32
 
+def pil_to_qimage(pil_image):
+    """Convert PIL image to QImage properly"""
+    pil_image = pil_image.convert("RGBA")
+    data = pil_image.tobytes("raw", "RGBA")
+    qimage = QImage(data, pil_image.width, pil_image.height, QImage.Format_RGBA8888)
+    return qimage
 
 def get_file_paths(directory_path: Path) -> set[Path]:
     """
-    Recursively get all file paths in a directory, including those in
+    Recursively get all file paths in a directory, including 
     subdirectories.
     """
     file_paths = set()
-    for path in directory_path.iterdir():
+    for path in directory_path.rglob("*"):  # Use rglob for recursive search
         if path.is_file():
             file_paths.add(path)
-        elif path.is_dir():
-            file_paths.update(get_file_paths(path))
     return file_paths
 
 
@@ -63,7 +70,9 @@ class ImageListModel(QAbstractListModel):
     def rowCount(self, parent=None) -> int:
         return len(self.images)
 
-    def data(self, index, role=None) -> Image | str | QIcon | QSize:
+    def data(self, index: QModelIndex, role=None) -> Image | str | QIcon | QSize | None: # Added None to possible return type
+        if not index.isValid() or index.row() >= len(self.images): #Handle invalid index
+            return None
         image = self.images[index.row()]
         if role == Qt.ItemDataRole.UserRole:
             return image
@@ -71,23 +80,17 @@ class ImageListModel(QAbstractListModel):
             # The text shown next to the thumbnail in the image list.
             text = image.path.name
             if image.tags:
-                caption = self.tag_separator.join(image.tags)
-                text += f'\n{caption}'
+                text += f'\n{self.tag_separator.join(image.tags)}'
             return text
         if role == Qt.ItemDataRole.DecorationRole:
-            # The thumbnail. If the image already has a thumbnail stored, use
-            # it. Otherwise, generate a thumbnail and save it to the image.
             if image.thumbnail:
                 return image.thumbnail
-            image_reader = QImageReader(str(image.path))
-            # Rotate the image based on the orientation tag.
-            image_reader.setAutoTransform(True)
-            pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
-                self.image_list_image_width,
-                Qt.TransformationMode.SmoothTransformation)
-            thumbnail = QIcon(pixmap)
-            image.thumbnail = thumbnail
-            return thumbnail
+            try:
+                return self.get_icon(image, self.image_list_image_width)
+            except Exception as e:
+                print(f"Error getting icon for {image.path} {e}")
+                return QIcon()
+
         if role == Qt.ItemDataRole.SizeHintRole:
             if image.thumbnail:
                 return image.thumbnail.availableSizes()[0]
@@ -95,10 +98,44 @@ class ImageListModel(QAbstractListModel):
             if not dimensions:
                 return QSize(self.image_list_image_width,
                              self.image_list_image_width)
-            width, height = dimensions
             # Scale the dimensions to the image width.
+            width, height = dimensions
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
+        return None # Added return None for clarity
+
+
+    def get_icon(self, image, image_width: int) -> QIcon:
+        """Load the image and return a QIcon while keeping aspect ratio."""
+        try:
+            if image.path.suffix.lower() == ".jxl":
+                pil_image = pilimage.open(image.path)  # Uses pillow-jxl
+                qimage = pil_to_qimage(pil_image)
+
+                # Convert to QPixmap and scale while keeping aspect ratio
+                pixmap = QPixmap.fromImage(qimage)
+                pixmap = pixmap.scaled(image_width, image_width * 3, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+                icon = QIcon(pixmap)
+                image.thumbnail = icon
+                return icon
+
+            else:
+                
+                image_reader = QImageReader(str(image.path))
+                # Rotate the image based on the orientation tag.
+                image_reader.setAutoTransform(True)
+                pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
+                    self.image_list_image_width,
+                    Qt.TransformationMode.SmoothTransformation)
+                thumbnail = QIcon(pixmap)
+                image.thumbnail = thumbnail
+                return thumbnail
+
+        except Exception as e:
+            print(f"Error loading image {image.path}: {e}")
+            return QIcon()       
+
 
     def load_directory(self, directory_path: Path):
         self.images.clear()
@@ -110,12 +147,14 @@ class ImageListModel(QAbstractListModel):
         image_suffixes_string = settings.value(
             'image_list_file_formats',
             defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)
+        
         image_suffixes = []
         for suffix in image_suffixes_string.split(','):
             suffix = suffix.strip().lower()
             if not suffix.startswith('.'):
                 suffix = '.' + suffix
             image_suffixes.append(suffix)
+
         image_paths = {path for path in file_paths
                        if path.suffix.lower() in image_suffixes}
         # Comparing paths is slow on some systems, so convert the paths to
@@ -124,43 +163,43 @@ class ImageListModel(QAbstractListModel):
                                   if path.suffix == '.txt'}
         for image_path in image_paths:
             try:
-                dimensions = imagesize.get(image_path)
-                # Check the Exif orientation tag and rotate the dimensions if
-                # necessary.
-                with open(image_path, 'rb') as image_file:
-                    try:
-                        exif_tags = exifread.process_file(
-                            image_file, details=False,
-                            stop_tag='Image Orientation')
-                        if 'Image Orientation' in exif_tags:
-                            orientations = (exif_tags['Image Orientation']
-                                            .values)
-                            if any(value in orientations
-                                   for value in (5, 6, 7, 8)):
-                                dimensions = (dimensions[1], dimensions[0])
-                    except Exception as exception:
-                        print(f'Failed to get Exif tags for {image_path}: '
-                              f'{exception}', file=sys.stderr)
+                with pilimage.open(image_path) as ci:
+                    dimensions = ci.size
+                    with open(image_path, 'rb') as image_file:
+                        try:
+                            exif_tags = exifread.process_file(
+                                image_file, details=False,
+                                stop_tag='Image Orientation')
+                            if 'Image Orientation' in exif_tags:
+                                orientations = (exif_tags['Image Orientation']
+                                                .values)
+                                if any(value in orientations
+                                    for value in (5, 6, 7, 8)):
+                                    dimensions = (dimensions[1], dimensions[0])
+                        except Exception as exception:
+                            print(f'Failed to get Exif tags for {image_path}: '
+                                f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
                 print(f'Failed to get dimensions for {image_path}: '
                       f'{exception}', file=sys.stderr)
                 dimensions = None
+            
             tags = []
             text_file_path = image_path.with_suffix('.txt')
             if str(text_file_path) in text_file_path_strings:
-                # `errors='replace'` inserts a replacement marker such as '?'
-                # when there is malformed data.
-                caption = text_file_path.read_text(encoding='utf-8',
-                                                   errors='replace')
-                if caption:
-                    tags = caption.split(self.tag_separator)
-                    tags = [tag.strip() for tag in tags]
-                    tags = [tag for tag in tags if tag]
+                try:
+                    caption = text_file_path.read_text(encoding='utf-8', errors='replace')
+                    if caption:
+                        tags = [tag.strip() for tag in caption.split(self.tag_separator) if tag.strip()] # Optimized tag creation
+                except Exception as exception:
+                   print(f'Failed to read caption for {text_file_path}: {exception}', file=sys.stderr)
+
             image = Image(image_path, dimensions, tags)
             self.images.append(image)
+            
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
-
+        
     def add_to_undo_stack(self, action_name: str,
                           should_ask_for_confirmation: bool):
         """Add the current state of the image tags to the undo stack."""
@@ -176,23 +215,21 @@ class ImageListModel(QAbstractListModel):
                 self.tag_separator.join(image.tags), encoding='utf-8',
                 errors='replace')
         except OSError:
-            error_message_box = QMessageBox()
-            error_message_box.setWindowTitle('Error')
-            error_message_box.setIcon(QMessageBox.Icon.Critical)
-            error_message_box.setText(f'Failed to save tags for {image.path}.')
-            error_message_box.exec()
+            QMessageBox.critical(None, 'Error',
+                                 f'Failed to save tags for {image.path}.')  # Simpler error message
 
     def restore_history_tags(self, is_undo: bool):
         if is_undo:
             source_stack = self.undo_stack
             destination_stack = self.redo_stack
         else:
-            # Redo.
             source_stack = self.redo_stack
             destination_stack = self.undo_stack
+
         if not source_stack:
             return
-        history_item = source_stack[-1]
+
+        history_item = source_stack.pop()
         if history_item.should_ask_for_confirmation:
             undo_or_redo_string = 'Undo' if is_undo else 'Redo'
             reply = get_confirmation_dialog_reply(
@@ -201,19 +238,19 @@ class ImageListModel(QAbstractListModel):
                          f'"{history_item.action_name}"?')
             if reply != QMessageBox.StandardButton.Yes:
                 return
-        source_stack.pop()
-        tags = [image.tags for image in self.images]
+        
         destination_stack.append(HistoryItem(
-            history_item.action_name, tags,
+            history_item.action_name, [image.tags for image in self.images], # Optimized tag capture
             history_item.should_ask_for_confirmation))
+        
         changed_image_indices = []
         for image_index, (image, history_image_tags) in enumerate(
                 zip(self.images, history_item.tags)):
-            if image.tags == history_image_tags:
-                continue
-            changed_image_indices.append(image_index)
-            image.tags = history_image_tags
-            self.write_image_tags_to_disk(image)
+            if image.tags != history_image_tags:
+                changed_image_indices.append(image_index)
+                image.tags = history_image_tags
+                self.write_image_tags_to_disk(image)
+
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -289,9 +326,11 @@ class ImageListModel(QAbstractListModel):
                 if find_text not in caption:
                     continue
                 caption = caption.replace(find_text, replace_text)
+            
             changed_image_indices.append(image_index)
             image.tags = caption.split(self.tag_separator)
             self.write_image_tags_to_disk(image)
+            
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -304,16 +343,18 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            old_caption = self.tag_separator.join(image.tags)
+            
+            old_tags = image.tags.copy()
             if do_not_reorder_first_tag:
                 first_tag = image.tags[0]
                 image.tags = [first_tag] + sorted(image.tags[1:])
             else:
                 image.tags.sort()
-            new_caption = self.tag_separator.join(image.tags)
-            if new_caption != old_caption:
+
+            if old_tags != image.tags:
                 changed_image_indices.append(image_index)
                 self.write_image_tags_to_disk(image)
+
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -330,7 +371,8 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            old_caption = self.tag_separator.join(image.tags)
+            
+            changed_image_indices.append(image_index)
             if do_not_reorder_first_tag:
                 first_tag = image.tags[0]
                 image.tags = [first_tag] + sorted(
@@ -338,10 +380,8 @@ class ImageListModel(QAbstractListModel):
                     reverse=True)
             else:
                 image.tags.sort(key=lambda tag: tag_counter[tag], reverse=True)
-            new_caption = self.tag_separator.join(image.tags)
-            if new_caption != old_caption:
-                changed_image_indices.append(image_index)
-                self.write_image_tags_to_disk(image)
+
+            self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -372,14 +412,16 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            changed_image_indices.append(image_index)
+            old_tags = image.tags.copy()
             if do_not_reorder_first_tag:
                 first_tag, *remaining_tags = image.tags
                 random.shuffle(remaining_tags)
                 image.tags = [first_tag] + remaining_tags
             else:
                 random.shuffle(image.tags)
-            self.write_image_tags_to_disk(image)
+            if old_tags != image.tags:
+              changed_image_indices.append(image_index)
+              self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -394,17 +436,18 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not any(tag in image.tags for tag in tags_to_move):
                 continue
-            old_caption = self.tag_separator.join(image.tags)
+            
+            old_tags = image.tags.copy()
             moved_tags = []
             for tag in tags_to_move:
                 tag_count = image.tags.count(tag)
                 moved_tags.extend([tag] * tag_count)
             unmoved_tags = [tag for tag in image.tags if tag not in moved_tags]
             image.tags = moved_tags + unmoved_tags
-            new_caption = self.tag_separator.join(image.tags)
-            if new_caption != old_caption:
-                changed_image_indices.append(image_index)
-                self.write_image_tags_to_disk(image)
+
+            if old_tags != image.tags:
+               changed_image_indices.append(image_index)
+               self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -425,7 +468,6 @@ class ImageListModel(QAbstractListModel):
                 continue
             changed_image_indices.append(image_index)
             removed_tag_count += tag_count - unique_tag_count
-            # Use a dictionary instead of a set to preserve the order.
             image.tags = list(dict.fromkeys(image.tags))
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
@@ -464,6 +506,7 @@ class ImageListModel(QAbstractListModel):
         self.dataChanged.emit(image_index, image_index)
         self.write_image_tags_to_disk(image)
 
+
     @Slot(list, list)
     def add_tags(self, tags: list[str], image_indices: list[QModelIndex]):
         """Add one or more tags to one or more images."""
@@ -479,6 +522,7 @@ class ImageListModel(QAbstractListModel):
         min_image_index = min(image_indices, key=lambda index: index.row())
         max_image_index = max(image_indices, key=lambda index: index.row())
         self.dataChanged.emit(min_image_index, max_image_index)
+
 
     @Slot(list, str)
     def rename_tags(self, old_tags: list[str], new_tag: str,
@@ -506,6 +550,7 @@ class ImageListModel(QAbstractListModel):
                               for image_tag in image.tags]
             changed_image_indices.append(image_index)
             self.write_image_tags_to_disk(image)
+
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -521,6 +566,7 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
+            
             if use_regex:
                 pattern = tags[0]
                 if not any(re.fullmatch(pattern=pattern, string=image_tag)
@@ -536,6 +582,7 @@ class ImageListModel(QAbstractListModel):
                               if image_tag not in tags]
             changed_image_indices.append(image_index)
             self.write_image_tags_to_disk(image)
+
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
