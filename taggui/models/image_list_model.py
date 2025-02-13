@@ -272,14 +272,11 @@ class ImageListModel(QAbstractListModel):
             return True
         if scope == Scope.FILTERED_IMAGES:
             return self.proxy_image_list_model.is_image_in_filtered_images(
-                image) if self.proxy_image_list_model else False # Handle potential None
+                image)
         if scope == Scope.SELECTED_IMAGES:
-            if self.proxy_image_list_model and self.image_list_selection_model: #Handle potential None
-                proxy_index = self.proxy_image_list_model.mapFromSource(
-                    self.index(image_index))
-                return self.image_list_selection_model.isSelected(proxy_index)
-            return False
-        return False
+            proxy_index = self.proxy_image_list_model.mapFromSource(
+                self.index(image_index))
+            return self.image_list_selection_model.isSelected(proxy_index)
 
     def get_text_match_count(self, text: str, scope: Scope | str,
                              whole_tags_only: bool, use_regex: bool) -> int:
@@ -290,10 +287,10 @@ class ImageListModel(QAbstractListModel):
                 continue
             if whole_tags_only:
                 if use_regex:
-                    match_count += sum(
-                        1 for tag in image.tags
+                    match_count += len([
+                        tag for tag in image.tags
                         if re.fullmatch(pattern=text, string=tag)
-                    )
+                    ])
                 else:
                     match_count += image.tags.count(text)
             else:
@@ -330,11 +327,9 @@ class ImageListModel(QAbstractListModel):
                     continue
                 caption = caption.replace(find_text, replace_text)
             
-            new_tags = caption.split(self.tag_separator)
-            if new_tags != image.tags:
-               changed_image_indices.append(image_index)
-               image.tags = new_tags
-               self.write_image_tags_to_disk(image)
+            changed_image_indices.append(image_index)
+            image.tags = caption.split(self.tag_separator)
+            self.write_image_tags_to_disk(image)
             
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
@@ -377,7 +372,7 @@ class ImageListModel(QAbstractListModel):
             if len(image.tags) < 2:
                 continue
             
-            old_tags = image.tags.copy()
+            changed_image_indices.append(image_index)
             if do_not_reorder_first_tag:
                 first_tag = image.tags[0]
                 image.tags = [first_tag] + sorted(
@@ -386,9 +381,7 @@ class ImageListModel(QAbstractListModel):
             else:
                 image.tags.sort(key=lambda tag: tag_counter[tag], reverse=True)
 
-            if old_tags != image.tags:
-                 changed_image_indices.append(image_index)
-                 self.write_image_tags_to_disk(image)
+            self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -401,14 +394,12 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            old_tags = image.tags.copy()
+            changed_image_indices.append(image_index)
             if do_not_reorder_first_tag:
                 image.tags = [image.tags[0]] + list(reversed(image.tags[1:]))
             else:
                 image.tags = list(reversed(image.tags))
-            if old_tags != image.tags:
-              changed_image_indices.append(image_index)
-              self.write_image_tags_to_disk(image)
+            self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -435,7 +426,7 @@ class ImageListModel(QAbstractListModel):
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
 
-    def move_tags_to_front(self, tags_to_move: List[str]):
+    def move_tags_to_front(self, tags_to_move: list[str]):
         """
         Move one or more tags to the front of the tags list for each image.
         """
@@ -507,37 +498,34 @@ class ImageListModel(QAbstractListModel):
                                   self.index(changed_image_indices[-1]))
         return removed_tag_count
 
-    def update_image_tags(self, image_index: QModelIndex, tags: List[str]):
+    def update_image_tags(self, image_index: QModelIndex, tags: list[str]):
         image: Image = self.data(image_index, Qt.ItemDataRole.UserRole)
-        if image and image.tags != tags:  # Check if image is not None
-            image.tags = tags
-            self.dataChanged.emit(image_index, image_index)
-            self.write_image_tags_to_disk(image)
+        if image.tags == tags:
+            return
+        image.tags = tags
+        self.dataChanged.emit(image_index, image_index)
+        self.write_image_tags_to_disk(image)
 
 
     @Slot(list, list)
-    def add_tags(self, tags: List[str], image_indices: List[QModelIndex]):
+    def add_tags(self, tags: list[str], image_indices: list[QModelIndex]):
         """Add one or more tags to one or more images."""
         if not image_indices:
             return
         action_name = f'Add {pluralize("Tag", len(tags))}'
         should_ask_for_confirmation = len(image_indices) > 1
         self.add_to_undo_stack(action_name, should_ask_for_confirmation)
-        changed_image_indices = []
         for image_index in image_indices:
             image: Image = self.data(image_index, Qt.ItemDataRole.UserRole)
-            if image:
-              image.tags.extend(tags)
-              self.write_image_tags_to_disk(image)
-              changed_image_indices.append(image_index.row())
-        if changed_image_indices:
-            min_image_index = min(changed_image_indices)
-            max_image_index = max(changed_image_indices)
-            self.dataChanged.emit(self.index(min_image_index), self.index(max_image_index))
+            image.tags.extend(tags)
+            self.write_image_tags_to_disk(image)
+        min_image_index = min(image_indices, key=lambda index: index.row())
+        max_image_index = max(image_indices, key=lambda index: index.row())
+        self.dataChanged.emit(min_image_index, max_image_index)
 
 
-    @Slot(list, str, str, bool)
-    def rename_tags(self, old_tags: List[str], new_tag: str,
+    @Slot(list, str)
+    def rename_tags(self, old_tags: list[str], new_tag: str,
                     scope: Scope | str = Scope.ALL_IMAGES,
                     use_regex: bool = False):
         self.add_to_undo_stack(
@@ -547,26 +535,28 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
-            
-            old_tags_copy = image.tags.copy()
             if use_regex:
                 pattern = old_tags[0]
+                if not any(re.fullmatch(pattern=pattern, string=image_tag)
+                           for image_tag in image.tags):
+                    continue
                 image.tags = [new_tag if re.fullmatch(pattern=pattern,
                                                       string=image_tag)
                               else image_tag for image_tag in image.tags]
             else:
+                if not any(old_tag in image.tags for old_tag in old_tags):
+                    continue
                 image.tags = [new_tag if image_tag in old_tags else image_tag
                               for image_tag in image.tags]
-            if old_tags_copy != image.tags:
-              changed_image_indices.append(image_index)
-              self.write_image_tags_to_disk(image)
+            changed_image_indices.append(image_index)
+            self.write_image_tags_to_disk(image)
 
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
 
-    @Slot(list, str, bool)
-    def delete_tags(self, tags: List[str],
+    @Slot(list)
+    def delete_tags(self, tags: list[str],
                     scope: Scope | str = Scope.ALL_IMAGES,
                     use_regex: bool = False):
         self.add_to_undo_stack(
@@ -577,18 +567,21 @@ class ImageListModel(QAbstractListModel):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
             
-            old_tags_copy = image.tags.copy()
             if use_regex:
                 pattern = tags[0]
+                if not any(re.fullmatch(pattern=pattern, string=image_tag)
+                           for image_tag in image.tags):
+                    continue
                 image.tags = [image_tag for image_tag in image.tags
                               if not re.fullmatch(pattern=pattern,
                                                   string=image_tag)]
             else:
+                if not any(tag in image.tags for tag in tags):
+                    continue
                 image.tags = [image_tag for image_tag in image.tags
                               if image_tag not in tags]
-            if old_tags_copy != image.tags:
-               changed_image_indices.append(image_index)
-               self.write_image_tags_to_disk(image)
+            changed_image_indices.append(image_index)
+            self.write_image_tags_to_disk(image)
 
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
