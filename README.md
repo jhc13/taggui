@@ -143,6 +143,9 @@ apply:
 - `path`: Images that contain the filter term in the full file path
     - `path:cat` will match images such as `C:\Users\cats\dog.jpg` or
       `/home/dogs/cat.jpg`.
+- `size`: Images that have the given size, stated in double colon separated
+  numbers.
+    - `size:512:512` will match images of the dimension 512x512 pixels.
 - You can also use a filter term with no prefix to filter for images that
   contain the term in either the caption or the file path.
     - `cat` will match images containing `cat` in the caption or file path.
@@ -165,6 +168,9 @@ comparison.
       caption.
     - `tokens:<=50` will match images that have 50 or fewer tokens in the
       caption.
+- `x` and `y`: will match images with the specified x or y dimension.
+    - `x:>512` will match images where the width is greater than 512 pixels.
+    - `y:=1024` will match images where the height is exactly 1024 pixels.
 
 ### Spaces and quotes
 
@@ -259,6 +265,13 @@ The `Edit` menu contains additional features for batch tag operations, such as
 
 Exporting the images to a directory allows different options. By choosing the
 preset for the target AI model many important settings are automatically set.
+
+`Image selection`:
+Select whether all images, or those with the current filter or only the
+currently selected images should be exported.
+
+`Preset`:
+Choose a given preset or `manual` to set your own values.
 
 `Resolution`:
 The native resolution of the model, like 1024 for SDXL or Flux.
