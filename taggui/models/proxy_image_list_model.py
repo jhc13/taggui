@@ -37,6 +37,12 @@ class ProxyImageListModel(QSortFilterProxyModel):
                 return fnmatchcase(image.path.name, f'*{filter_[1]}*')
             if filter_[0] == 'path':
                 return fnmatchcase(str(image.path), f'*{filter_[1]}*')
+            if filter_[0] == 'size':
+                # accept any dimension separator of [x:]
+                dimension = (filter_[1]).replace(':', 'x').split('x')
+                return (len(dimension) == 2
+                        and dimension[0] == str(image.dimensions[0])
+                        and dimension[1] == str(image.dimensions[1]))
         if filter_[1] == 'AND':
             return (self.does_image_match_filter(image, filter_[0])
                     and self.does_image_match_filter(image, filter_[2:]))
@@ -63,6 +69,10 @@ class ProxyImageListModel(QSortFilterProxyModel):
             caption = self.tag_separator.join(image.tags)
             # Subtract 2 for the `<|startoftext|>` and `<|endoftext|>` tokens.
             number_to_compare = len(self.tokenizer(caption).input_ids) - 2
+        elif filter_[0] == 'x':
+            number_to_compare = image.dimensions[0]
+        elif filter_[0] == 'y':
+            number_to_compare = image.dimensions[1]
         return comparison_operator(number_to_compare, int(filter_[2]))
 
     def filterAcceptsRow(self, source_row: int,
