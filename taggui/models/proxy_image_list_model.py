@@ -6,7 +6,7 @@ from transformers import PreTrainedTokenizerBase
 
 from models.image_list_model import ImageListModel
 from utils.image import Image
-
+import utils.target_dimension as target_dimension
 
 class ProxyImageListModel(QSortFilterProxyModel):
     def __init__(self, image_list_model: ImageListModel,
@@ -43,6 +43,14 @@ class ProxyImageListModel(QSortFilterProxyModel):
                 return (len(dimension) == 2
                         and dimension[0] == str(image.dimensions[0])
                         and dimension[1] == str(image.dimensions[1]))
+            if filter_[0] == 'target':
+                # accept any dimension separator of [x:]
+                dimension = (filter_[1]).replace(':', 'x').split('x')
+                if image.target_dimensions == None:
+                    image.target_dimensions = target_dimension.get(image.dimensions)
+                return (len(dimension) == 2 #and image.target_dimensions != None
+                        and dimension[0] == str(image.target_dimensions[0])
+                        and dimension[1] == str(image.target_dimensions[1]))
         if filter_[1] == 'AND':
             return (self.does_image_match_filter(image, filter_[0])
                     and self.does_image_match_filter(image, filter_[2:]))

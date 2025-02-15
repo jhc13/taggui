@@ -2,8 +2,7 @@ from enum import Enum
 from collections import defaultdict
 import os
 import io
-import re
-from math import floor, sqrt
+from math import floor
 from pathlib import Path
 import shutil
 
@@ -12,12 +11,14 @@ from PySide6.QtGui import QColorSpace
 from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout,
                                QLabel, QLineEdit, QPushButton, QTableWidget,
                                QTableWidgetItem, QProgressBar, QMessageBox,
-                               QVBoxLayout, QHBoxLayout, QSizePolicy)
+                               QVBoxLayout, QHBoxLayout, QSizePolicy,
+                               QAbstractItemView)
 from PIL import Image, ImageFilter, ImageCms
 
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox, SettingsComboBox)
+import utils.target_dimension as target_dimension
 from widgets.image_list import ImageList
 
 try:
@@ -71,10 +72,9 @@ class ExportDialog(QDialog):
         Main method to create the export dialog.
         """
         super().__init__(parent)
-        self.image_list_view = image_list.list_view
+        self.image_list = image_list
         self.settings = get_settings()
         self.inhibit_statistics_update = True
-        self.resolution_cache: dict[tuple, tuple] = {}
         self.setWindowTitle('Export')
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(20, 20, 20, 20)
@@ -262,6 +262,8 @@ class ExportDialog(QDialog):
         self.statistics_table.setHorizontalHeaderLabels(
             ['Width', 'Height', 'Count', 'Aspect ratio', 'Size utilization'])
         self.statistics_table.setMinimumWidth(500)
+        self.statistics_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.statistics_table.itemDoubleClicked.connect(self.set_filter)
         grid_layout.addWidget(self.statistics_table, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
@@ -348,7 +350,6 @@ class ExportDialog(QDialog):
         if self.inhibit_statistics_update:
             return
 
-        self.resolution_cache = {}
         resolution = self.settings.value('export_resolution', type=int)
         upscaling = self.settings.value('export_upscaling', type=int)
         bucket_res = self.settings.value('export_bucket_res_size', type=int)
@@ -362,36 +363,15 @@ class ExportDialog(QDialog):
             (16, 9, 16/9),
             (21, 9, 21/9),
         ]
-        self.preferred_sizes = []
-        for res_str in re.split(r'\s*,\s*', self.settings.value('export_preferred_sizes') or ''):
-            try:
-                if res_str == '':
-                    continue
-                size_str = res_str.split(':')
-                width = max(int(size_str[0]), int(size_str[1]))
-                height = min(int(size_str[0]), int(size_str[1]))
-                self.preferred_sizes.append((width, height))
-                if not width == height:
-                    self.preferred_sizes.append((height, width))
-                # add exact aspect ratio of the preferred size to label it
-                # similar to the perfect one
-                aspect_ratio = width / height
-                for ar in aspect_ratios:
-                    if abs(ar[2] - aspect_ratio) < 0.15:
-                        aspect_ratios.append((ar[0], ar[1], aspect_ratio))
-                        break
-            except ValueError:
-                # Handle cases where the resolution string is not in the correct format
-                print(f'Warning: Invalid resolution format: {res_str}. Skipping.',
-                      file=sys.stderr)
-                continue # Skip to the next resolution if there's an error
+        aspect_ratios = target_dimension.prepare(aspect_ratios)
 
         image_list = self.get_image_list()
         image_dimensions = defaultdict(int)
         for this_image in image_list:
-            this_image.target_dimensions = self.target_dimensions(
-                this_image.dimensions, resolution, upscaling, bucket_res)
+            this_image.target_dimensions = target_dimension.get(
+                this_image.dimensions)
             image_dimensions[this_image.target_dimensions] += 1
+        self.image_list.proxy_image_list_model.invalidate()
 
         sorted_dimensions = sorted(
                 image_dimensions.items(),
@@ -420,98 +400,18 @@ class ExportDialog(QDialog):
             self.statistics_table.setItem(rowPosition, 3, QTableWidgetItem(f"{aspect_ratio:.3f}{notable_aspect_ratio}"))
             self.statistics_table.setItem(rowPosition, 4, QTableWidgetItem(f"{100*utilization:.1f}%"))
 
-    def target_dimensions(self, dimensions: tuple[int, int], resolution: int, upscaling: bool, bucket_res: int):
-        """
-        Determine the dimensions of an image it should have when it is exported.
-
-        Note: this gives the optimal answer and thus can be slower than the Kohya
-        bucket algorithm.
-
-        Parameters
-        ----------
-        dimensions : tuple[int, int]
-            The width and height of the image
-        resolution : int
-            The target resolution of the AI model. The target image pixels
-            will not exceed the square of this number
-        upscaling : bool
-            Is upscaling of images allowed?
-        bucket_res : int
-            The resolution of the buckets
-        """
-        width, height = dimensions
-        if resolution == 0:
-            # no rescale in this case, only cropping
-            return ((width // bucket_res)*bucket_res, (height // bucket_res)*bucket_res)
-
-        if width < bucket_res or height < bucket_res:
-            # it doesn't make sense to use such a small image. But we shouldn't
-            # patronize the user
-            return dimensions
-
-        if dimensions in self.resolution_cache:
-            return self.resolution_cache[dimensions]
-
-        preferred_sizes_bonus = 0.4 # reduce the loss by this factor
-
-        max_pixels = resolution * resolution
-        opt_width = resolution * sqrt(width/height)
-        opt_height = resolution * sqrt(height/width)
-        if not upscaling:
-            opt_width = min(width, opt_width)
-            opt_height = min(height, opt_height)
-
-        # test 1, guaranteed to find a solution: shrink and crop
-        # 1.1: exact width
-        candidate_width = (opt_width // bucket_res) * bucket_res
-        candidate_height = ((height * candidate_width / width) // bucket_res) * bucket_res
-        loss = ((height * candidate_width / width) - candidate_height) * candidate_width
-        if (candidate_width, candidate_height) in self.preferred_sizes:
-            loss *= preferred_sizes_bonus
-        # 1.2: exact height
-        test_height = (opt_height // bucket_res) * bucket_res
-        test_width = ((width * test_height / height) // bucket_res) * bucket_res
-        test_loss = ((width * test_height / height) - test_width) * test_height
-        if (test_height, test_width) in self.preferred_sizes:
-            test_loss *= preferred_sizes_bonus
-        if test_loss < loss:
-            candidate_width = test_width
-            candidate_height = test_height
-            loss = test_loss
-
-        # test 2, going bigger might still fit in the size budget due to cropping
-        # 2.1: exact width
-        for delta in range(1, 10):
-            test_width = (opt_width // bucket_res + delta) * bucket_res
-            test_height = ((height * test_width / width) // bucket_res) * bucket_res
-            if test_width * test_height > max_pixels:
-                break
-            if (test_width > width or test_height > height) and not upscaling:
-                break
-            test_loss = ((height * test_width / width) - test_height) * test_width
-            if (test_height, test_width) in self.preferred_sizes:
-                test_loss *= preferred_sizes_bonus
-            if test_loss < loss:
-                candidate_width = test_width
-                candidate_height = test_height
-                loss = test_loss
-        # 2.2: exact height
-        for delta in range(1, 10):
-            test_height = (opt_height // bucket_res + delta) * bucket_res
-            test_width = ((width * test_height / height) // bucket_res) * bucket_res
-            if test_width * test_height > max_pixels:
-                break
-            if (test_width > width or test_height > height) and not upscaling:
-                break
-            test_loss = ((width * test_height / height) - test_width) * test_height
-            if (test_height, test_width) in self.preferred_sizes:
-                test_loss *= preferred_sizes_bonus
-            if test_loss < loss:
-                candidate_width = test_width
-                candidate_height = test_height
-                loss = test_loss
-
-        return int(candidate_width), int(candidate_height)
+    @Slot()
+    def set_filter(self, selected_table_item):
+        row = selected_table_item.row()
+        width = self.statistics_table.model().index(row, 0).data()
+        height = self.statistics_table.model().index(row, 1).data()
+        filter = f'target:{width}:{height}'
+        text = self.image_list.filter_line_edit.text()
+        if text != '':
+            self.image_list.filter_line_edit.setText(f'{filter} AND ({text})')
+        else:
+            self.image_list.filter_line_edit.setText(filter)
+        self.close()
 
     @Slot()
     def set_export_directory_path(self):
@@ -662,19 +562,20 @@ class ExportDialog(QDialog):
         self.close()
 
     def get_image_list(self):
+        image_list_view = self.image_list.list_view
         if self.settings.value('export_filter') == ExportFilter.FILTERED:
-            images = self.image_list_view.proxy_image_list_model.sourceModel()
+            images = image_list_view.proxy_image_list_model.sourceModel()
             image_list = []
-            for row in range(self.image_list_view.proxy_image_list_model.sourceModel().rowCount()):
-                source_index = self.image_list_view.proxy_image_list_model.sourceModel().index(row, 0)
-                proxy_index = self.image_list_view.proxy_image_list_model.mapFromSource(source_index)
+            for row in range(image_list_view.proxy_image_list_model.sourceModel().rowCount()):
+                source_index = image_list_view.proxy_image_list_model.sourceModel().index(row, 0)
+                proxy_index = image_list_view.proxy_image_list_model.mapFromSource(source_index)
                 if proxy_index.isValid():
                     image_list.append(source_index.data(Qt.ItemDataRole.UserRole))
         elif self.settings.value('export_filter') == ExportFilter.SELECTED:
-            images = self.image_list_view.proxy_image_list_model.sourceModel()
-            image_list = [image_index.data(Qt.ItemDataRole.UserRole) for image_index in self.image_list_view.get_selected_image_indices()]
+            images = image_list_view.proxy_image_list_model.sourceModel()
+            image_list = [image_index.data(Qt.ItemDataRole.UserRole) for image_index in image_list_view.get_selected_image_indices()]
         else: # ExportFilter.NONE
-            images = self.image_list_view.proxy_image_list_model.sourceModel()
+            images = image_list_view.proxy_image_list_model.sourceModel()
             image_list = [images.index(image_index).data(Qt.ItemDataRole.UserRole) for image_index in range(images.rowCount())]
 
         return image_list
