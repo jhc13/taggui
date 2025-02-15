@@ -442,6 +442,7 @@ class ExportDialog(QDialog):
         export_directory_path = Path(self.settings.value('export_directory_path', type=str))
         export_keep_dir_structure = self.settings.value('export_keep_dir_structure', type=bool)
         no_overwrite = True
+        only_missing = True
 
         image_list = self.get_image_list()
         self.progress_bar = QProgressBar(self)
@@ -462,8 +463,9 @@ class ExportDialog(QDialog):
                 msgBox.setIcon(QMessageBox.Warning)
                 msgBox.setWindowTitle('Path warning')
                 msgBox.setText('The export directory path is not empty')
-                overwrite_button = msgBox.addButton('Overwrite', QMessageBox.YesRole)
-                rename_button = msgBox.addButton('Rename', QMessageBox.NoRole)
+                overwrite_button = msgBox.addButton('Overwrite', QMessageBox.DestructiveRole)
+                rename_button = msgBox.addButton('Rename', QMessageBox.YesRole)
+                only_missing_button = msgBox.addButton('Only missing', QMessageBox.AcceptRole)
                 msgBox.addButton(QMessageBox.Cancel)
                 msgBox.setDefaultButton(QMessageBox.Cancel)
                 button = msgBox.exec_()
@@ -471,6 +473,9 @@ class ExportDialog(QDialog):
                     return
                 if msgBox.clickedButton() == overwrite_button:
                     no_overwrite = False
+                    only_missing = False
+                if msgBox.clickedButton() == rename_button:
+                    only_missing = False
         else:
             QMessageBox.critical(
                 self,
@@ -500,6 +505,9 @@ class ExportDialog(QDialog):
             else:
                 export_path = export_directory_path / image_entry.path.name
             export_path = export_path.with_suffix(export_format.split(' ', 1)[0])
+
+            if export_path.exists() and only_missing:
+                continue
 
             if no_overwrite:
                 stem = export_path.stem
