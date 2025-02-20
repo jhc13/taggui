@@ -2,7 +2,7 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QDialog, QFileDialog, QGridLayout, QLabel,
                                QLineEdit, QPushButton, QVBoxLayout)
 
-from utils.settings import DEFAULT_SETTINGS, get_settings
+from utils.settings import DEFAULT_SETTINGS, settings
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox)
 
@@ -10,7 +10,6 @@ from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
 class SettingsDialog(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
-        self.settings = get_settings()
         self.setWindowTitle('Settings')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -47,7 +46,7 @@ class SettingsDialog(QDialog):
         self.insert_space_after_tag_separator_check_box.stateChanged.connect(
             self.show_restart_warning)
         tag_separator_line_edit = QLineEdit()
-        tag_separator = self.settings.value(
+        tag_separator = settings.value(
             'tag_separator', defaultValue=DEFAULT_SETTINGS['tag_separator'],
             type=str)
         if tag_separator == '\n':
@@ -128,18 +127,18 @@ class SettingsDialog(QDialog):
             self.disable_insert_space_after_tag_separator_check_box()
         else:
             self.insert_space_after_tag_separator_check_box.setEnabled(True)
-        self.settings.setValue('tag_separator', tag_separator)
+        settings.setValue('tag_separator', tag_separator)
         self.show_restart_warning()
 
     @Slot()
     def set_models_directory_path(self):
-        models_directory_path = self.settings.value(
+        models_directory_path = settings.value(
             'models_directory_path',
             defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         if models_directory_path:
             initial_directory_path = models_directory_path
-        elif self.settings.contains('directory_path'):
-            initial_directory_path = self.settings.value('directory_path')
+        elif settings.contains('directory_path'):
+            initial_directory_path = settings.value('directory_path')
         else:
             initial_directory_path = ''
         models_directory_path = QFileDialog.getExistingDirectory(

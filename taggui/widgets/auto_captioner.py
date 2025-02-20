@@ -15,7 +15,7 @@ from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
 from utils.enums import CaptionDevice, CaptionPosition
-from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
+from utils.settings import DEFAULT_SETTINGS, settings, get_tag_separator
 from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsDoubleSpinBox,
                                     FocusedScrollSettingsSpinBox,
@@ -50,7 +50,6 @@ class HorizontalLine(QFrame):
 class CaptionSettingsForm(QVBoxLayout):
     def __init__(self):
         super().__init__()
-        self.settings = get_settings()
         try:
             import bitsandbytes
             self.is_bitsandbytes_available = True
@@ -241,7 +240,7 @@ class CaptionSettingsForm(QVBoxLayout):
             self.load_in_4_bit_check_box.setChecked(False)
 
     def get_local_model_paths(self) -> list[str]:
-        models_directory_path = self.settings.value(
+        models_directory_path = settings.value(
             'models_directory_path',
             defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         if not models_directory_path:
@@ -357,7 +356,6 @@ class AutoCaptioner(QDockWidget):
         super().__init__()
         self.image_list_model = image_list_model
         self.image_list = image_list
-        self.settings = get_settings()
         self.is_captioning = False
         self.captioning_thread = None
         self.processor = None
@@ -482,7 +480,7 @@ class AutoCaptioner(QDockWidget):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
         tag_separator = get_tag_separator()
-        models_directory_path = self.settings.value(
+        models_directory_path = settings.value(
             'models_directory_path',
             defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         models_directory_path = (Path(models_directory_path)

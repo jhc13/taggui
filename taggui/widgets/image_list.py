@@ -18,7 +18,7 @@ from pyparsing import (CaselessKeyword, CaselessLiteral, Group, OpAssoc,
 
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
-from utils.settings import get_settings
+from utils.settings import settings
 from utils.settings_widgets import SettingsComboBox
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
@@ -235,7 +235,6 @@ class ImageListView(QListView):
         caption = (f'Select directory to move {selected_image_count} selected '
                    f'{pluralize("Image", selected_image_count)} and '
                    f'{pluralize("caption", selected_image_count)} to')
-        settings = get_settings()
         move_directory_path = QFileDialog.getExistingDirectory(
             parent=self, caption=caption,
             dir=settings.value('directory_path', type=str))
@@ -262,7 +261,6 @@ class ImageListView(QListView):
         caption = (f'Select directory to copy {selected_image_count} selected '
                    f'{pluralize("Image", selected_image_count)} and '
                    f'{pluralize("caption", selected_image_count)} to')
-        settings = get_settings()
         copy_directory_path = QFileDialog.getExistingDirectory(
             parent=self, caption=caption,
             dir=settings.value('directory_path', type=str))

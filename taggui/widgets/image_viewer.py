@@ -1,90 +1,226 @@
+from enum import Enum
+from math import floor
 from pathlib import Path
-from PySide6.QtCore import QModelIndex, QPoint, QPointF, QRect, QSize, Qt, Signal, Slot, QEvent
-from PySide6.QtGui import QCursor, QImageReader, QMouseEvent, QPixmap, QResizeEvent, QWheelEvent
-from PySide6.QtWidgets import (QFrame, QLabel, QScrollArea, QSizePolicy, QVBoxLayout,
-                               QWidget)
-
+from PySide6.QtCore import (QModelIndex, QPoint, QPointF, QRect, QRectF, QSize,
+                            QSizeF, Qt, Signal, Slot, QEvent)
+from PySide6.QtGui import (QCursor, QColor, QPainter, QPainterPath, QPen,
+                           QPixmap, QTransform)
+from PySide6.QtWidgets import (QGraphicsItem, QGraphicsPixmapItem,
+                               QGraphicsRectItem, QGraphicsScene, QGraphicsView,
+                               QVBoxLayout, QWidget)
+from utils.settings import settings
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image
+import utils.target_dimension as target_dimension
+from dialogs.export_dialog import BucketStrategy
 
-class ImageLabel(QLabel):
-    def __init__(self, scroll_area):
-        super().__init__()
-        self.scroll_area = scroll_area
-        self.image_path = None
-        self.is_zoom_to_fit = True
-        self.zoom_factor = 1.0
-        self.in_update = False
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
-        self.setScaledContents(False)
+class ImageMarking(str, Enum):
+    CROP = 'crop'
+    HINT = 'hint'
+    INCLUDE = 'include in mask'
+    EXCLUDE = 'exclude from mask'
 
-    def resizeEvent(self, event: QResizeEvent):
-        """Resize the image whenever the label is resized."""
-        if self.image_path:
-            self.update_image()
+class RectPosition(str, Enum):
+    TL = 'top left'
+    TOP = 'top'
+    TR = 'top right'
+    RIGHT = 'right'
+    BR = 'bottom right'
+    BOTTOM = 'bottom'
+    BL = 'bottom left'
+    LEFT = 'left'
 
-    def load_image(self, image_path: Path):
-        self.image_path = image_path
-        image_reader = QImageReader(str(self.image_path))
-        # Rotate the image according to the orientation tag.
-        image_reader.setAutoTransform(True)
-        self.pixmap_orig = QPixmap.fromImageReader(image_reader)
-        self.pixmap_orig.setDevicePixelRatio(self.devicePixelRatio())
-        self.update_image()
+class CustomRectItem(QGraphicsRectItem):
+    # the halfed size of the pen in local coordinates to make sure it stays the
+    # same during zooming
+    pen_half_width = 1.0
+    # the minimal size of the active area in scene coordinates
+    handle_half_size = 5
+    zoom_factor = 1.0
+    # The size of the image this rect belongs to
+    image_size = QRectF(0, 0, 1, 1)
 
-    def update_image(self):
-        if not self.pixmap_orig or self.in_update:
-            return
+    def __init__(self, rect: QRect, rect_type: ImageMarking, target_size: QSize=None, parent=None):
+        super().__init__(rect.toRectF(), parent)
+        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
+        self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
+        self.setAcceptHoverEvents(True)
+        self.rect_type = rect_type
+        self.color = {
+            ImageMarking.CROP: Qt.blue,
+            ImageMarking.HINT: Qt.gray,
+            ImageMarking.INCLUDE: Qt.green,
+            ImageMarking.EXCLUDE: Qt.red,
+            }[rect_type]
+        self.target_size = target_size
+        self.handle_selected = None
+        self.mouse_press_pos = None
+        self.mouse_press_rect = None
 
-        self.in_update = True
+    def change_pen_half_width(self):
+        self.prepareGeometryChange()
 
-        if self.is_zoom_to_fit:
-            self.zoom_factor = self.zoom_fit_ratio()
+    def handleAt(self, point: QPointF) -> RectPosition | None:
+        handle_space = -min(self.pen_half_width - self.handle_half_size, 0)/self.zoom_factor
+        left = point.x() < self.rect().left() + handle_space
+        right = point.x() > self.rect().right() - handle_space
+        top = point.y() < self.rect().top() + handle_space
+        bottom = point.y() > self.rect().bottom() - handle_space
+        if top:
+            if left:
+                return RectPosition.TL
+            elif right:
+                return RectPosition.TR
+            return RectPosition.TOP
+        elif bottom:
+            if left:
+                return RectPosition.BL
+            elif right:
+                return RectPosition.BR
+            return RectPosition.BOTTOM
+        if left:
+            return RectPosition.LEFT
+        elif right:
+            return RectPosition.RIGHT
 
-        pixmap = self.pixmap_orig.scaled(
-            self.pixmap_orig.size() * self.pixmap_orig.devicePixelRatio() * self.zoom_factor,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
-        self.setPixmap(pixmap)
-        self.adjustSize()
-        self.in_update = False
+        return None
 
-    def zoom_in(self):
-        self.is_zoom_to_fit = False # No longer zoom to fit
-        self.zoom_factor = min(self.zoom_factor * 1.25, 4)
-        self.update_image()
+    def hoverMoveEvent(self, event):
+        handle = self.handleAt(event.pos())
+        if handle == RectPosition.TL or handle == RectPosition.BR:
+            self.setCursor(Qt.SizeFDiagCursor)
+        elif handle == RectPosition.TR or handle == RectPosition.BL:
+            self.setCursor(Qt.SizeBDiagCursor)
+        elif handle == RectPosition.TOP or handle == RectPosition.BOTTOM:
+            self.setCursor(Qt.SizeVerCursor)
+        elif handle == RectPosition.LEFT or handle == RectPosition.RIGHT:
+            self.setCursor(Qt.SizeHorCursor)
+        else:
+            self.setCursor(Qt.OpenHandCursor)
+            event.ignore()
+        super().hoverMoveEvent(event)
 
-    def zoom_out(self):
-        self.is_zoom_to_fit = False # No longer zoom to fit
-        zoom_fit_ratio = self.zoom_fit_ratio()
-        self.zoom_factor = max(self.zoom_factor / 1.25, min(self.zoom_fit_ratio(), 1.0))
-        if self.zoom_factor == zoom_fit_ratio:
-            self.is_zoom_to_fit = True # At the limit? Activate fit mode again
-        self.update_image()
+    def mousePressEvent(self, event):
+        self.handle_selected = self.handleAt(event.pos())
+        if self.handle_selected:
+            self.mouse_press_pos = event.pos()
+            self.mouse_press_scene_pos = event.scenePos()
+            self.mouse_press_rect = self.rect()
+        else:
+            event.ignore()
+        super().mousePressEvent(event)
 
-    def zoom_original(self):
-        self.is_zoom_to_fit = False # No longer zoom to fit
-        self.zoom_factor = 1.0
-        self.update_image()
+    def mouseMoveEvent(self, event):
+        if self.handle_selected:
+            rect = self.rect()
+            pos_quantizised = event.scenePos().toPoint().toPointF()
+            if self.handle_selected == RectPosition.TL:
+                rect.setTopLeft(pos_quantizised)
+                if rect.width() < 0 and rect.height() < 0:
+                    self.handle_selected = RectPosition.BR
+                elif rect.width() < 0:
+                    self.handle_selected = RectPosition.TR
+                elif rect.height() < 0:
+                    self.handle_selected = RectPosition.BL
+            elif self.handle_selected == RectPosition.TOP:
+                rect.setTop(pos_quantizised.y())
+                if rect.height() < 0:
+                    self.handle_selected = RectPosition.BOTTOM
+            elif self.handle_selected == RectPosition.TR:
+                rect.setTopRight(pos_quantizised)
+                if rect.width() < 0 and rect.height() < 0:
+                    self.handle_selected = RectPosition.BL
+                elif rect.width() < 0:
+                    self.handle_selected = RectPosition.TL
+                elif rect.height() < 0:
+                    self.handle_selected = RectPosition.BR
+            elif self.handle_selected == RectPosition.RIGHT:
+                rect.setRight(pos_quantizised.x())
+                if rect.width() < 0:
+                    self.handle_selected = RectPosition.LEFT
+            elif self.handle_selected == RectPosition.BR:
+                rect.setBottomRight(pos_quantizised)
+                if rect.width() < 0 and rect.height() < 0:
+                    self.handle_selected = RectPosition.TL
+                elif rect.width() < 0:
+                    self.handle_selected = RectPosition.BL
+                elif rect.height() < 0:
+                    self.handle_selected = RectPosition.TR
+            elif self.handle_selected == RectPosition.BOTTOM:
+                rect.setBottom(pos_quantizised.y())
+                if rect.height() < 0:
+                    self.handle_selected = RectPosition.TOP
+            elif self.handle_selected == RectPosition.BL:
+                rect.setBottomLeft(pos_quantizised)
+                if rect.width() < 0 and rect.height() < 0:
+                    self.handle_selected = RectPosition.TR
+                elif rect.width() < 0:
+                    self.handle_selected = RectPosition.BR
+                elif rect.height() < 0:
+                    self.handle_selected = RectPosition.TL
+            elif self.handle_selected == RectPosition.LEFT:
+                rect.setLeft(pos_quantizised.x())
+                if rect.width() < 0:
+                    self.handle_selected = RectPosition.RIGHT
 
-    def zoom_fit(self):
-        self.is_zoom_to_fit = True
-        self.update_image()
+            if rect.width() == 0 or rect.height() == 0:
+                self.setRect(rect)
+            else:
+                rect = rect.intersected(self.image_size)
+                self.setRect(rect)
+                self.size_changed()
+        super().mouseMoveEvent(event)
 
-    def zoom_fit_ratio(self):
-        widget_width = self.scroll_area.viewport().width()
-        widget_height = self.scroll_area.viewport().height()
-        image_width = self.pixmap_orig.width()
-        image_height = self.pixmap_orig.height()
+    def mouseReleaseEvent(self, event):
+        if self.handle_selected:
+            self.handle_selected = None
+        super().mouseReleaseEvent(event)
 
-        if image_width > 0 and image_height > 0:
-            width_ratio = widget_width / image_width
-            height_ratio = widget_height / image_height
-            return min(width_ratio, height_ratio)
+    def paint(self, painter, option, widget=None):
+        if self.rect_type == ImageMarking.CROP:
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(255, 0, 0, 127))
+            path = QPainterPath()
+            path.addRect(self.rect())
+            to_crop = self.rect().size() - self.target_size
+            path.addRect(QRectF(QPointF(self.rect().x()+to_crop.width()/2,
+                                        self.rect().y()+to_crop.height()/2), self.target_size))
+            painter.drawPath(path)
 
-        return 1.0 # this should not happen anyway
+        pen_half_width = self.pen_half_width / self.zoom_factor
+        pen = QPen(self.color, 2*pen_half_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(self.rect().adjusted(-pen_half_width, -pen_half_width,
+                                              pen_half_width, pen_half_width))
+
+    def shape(self):
+        path = super().shape()
+        adjust = (self.pen_half_width + max(self.pen_half_width,
+                                            self.handle_half_size))/self.zoom_factor
+        path.addRect(self.rect().adjusted(-adjust, -adjust, adjust, adjust))
+        return path
+
+    def boundingRect(self):
+        adjust = (self.pen_half_width + max(self.pen_half_width,
+                                            self.handle_half_size))/self.zoom_factor
+        return self.rect().adjusted(-adjust, -adjust, adjust, adjust)
+
+    def size_changed(self):
+        if self.rect_type == ImageMarking.CROP:
+            bucket_strategy = settings.value('export_bucket_strategy', type=str)
+            current = self.rect().size()
+            if bucket_strategy == BucketStrategy.SCALE:
+                self.target_size = current
+            else: # CROP or CROP_SCALE
+                target_width, target_height = target_dimension.get(current.toTuple())
+                if current.height() * target_width / current.width() < target_height: # too wide
+                    scale = current.height() / target_height
+                else: # too high
+                    scale = current.width() / target_width
+                self.target_size = QSize(target_width*scale, target_height*scale)
+                if bucket_strategy == BucketStrategy.CROP_SCALE:
+                    self.target_size = (self.target_size + current.toSize())/2
 
 class ImageViewer(QWidget):
     zoom = Signal(float, name='zoomChanged')
@@ -92,149 +228,111 @@ class ImageViewer(QWidget):
     def __init__(self, proxy_image_list_model: ProxyImageListModel):
         super().__init__()
         self.proxy_image_list_model = proxy_image_list_model
-        self.drag_start_pos = None
-        self.drag_image_pos = None
+        CustomRectItem.pen_half_width = round(self.devicePixelRatio())
+        CustomRectItem.zoom_factor = 1.0
+        self.is_zoom_to_fit = True
+        self.scene = QGraphicsScene()
+        self.view = QGraphicsView(self.scene)
+        self.view.setRenderHint(QPainter.Antialiasing)
+        self.view.setDragMode(QGraphicsView.ScrollHandDrag)
+        self.view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        self.view.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+        settings.change.connect(self.setting_change)
 
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setFrameStyle(QFrame.NoFrame)
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        # Install event filter on the scroll area as the wheelEvent handler
-        # didn't catch everything leading to strange bugs during zooming
-        self.scroll_area.viewport().installEventFilter(self)
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.scroll_area)
+        layout = QVBoxLayout()
+        layout.addWidget(self.view)
         self.setLayout(layout)
 
+        self.image_item: QGraphicsPixmapItem|None = None
+        self.rect_items: list[CustomRectItem] = []
 
-        self.image_label = ImageLabel(self.scroll_area)
-        self.scroll_area.setWidget(self.image_label)
+        self.view.wheelEvent = self.wheelEvent
 
     @Slot()
     def load_image(self, proxy_image_index: QModelIndex):
         image: Image = self.proxy_image_list_model.data(
             proxy_image_index, Qt.ItemDataRole.UserRole)
-        self.image_label.load_image(image.path)
-        self.zoom_emit()
+
+        pixmap = QPixmap(str(image.path))
+        if self.image_item:
+            self.scene.removeItem(self.image_item)
+        self.image_item = QGraphicsPixmapItem(pixmap)
+        self.scene.addItem(self.image_item)
+        self.scene.setSceneRect(self.image_item.boundingRect()
+                                .adjusted(-1, -1, 1, 1)) # space for rect border
+        CustomRectItem.image_size = self.image_item.boundingRect()
+        self.zoom_fit()
+
+        image.crops = {(10,20,70,140): (64,128)}
+        image.hints = [(200,220,100,100), (250,270,100,200)]
+        for rect, target in image.crops.items():
+            self.add_rectangle(QRect(*rect), ImageMarking.CROP, QSize(*target))
+        for rect in image.hints:
+            self.add_rectangle(QRect(*rect), ImageMarking.HINT)
+
+    @Slot()
+    def setting_change(self, key, value):
+        if key == 'export_bucket_strategy':
+            for rect in self.rect_items:
+                rect.size_changed()
+            self.scene.invalidate()
 
     @Slot()
     def zoom_in(self, center_pos: QPoint = None):
-        factors = self.get_scroll_area_factors()
-        self.image_label.zoom_in()
-        self.move_scroll_area(factors)
+        CustomRectItem.zoom_factor = min(CustomRectItem.zoom_factor * 1.25, 16)
+        self.is_zoom_to_fit = False
         self.zoom_emit()
 
     @Slot()
     def zoom_out(self, center_pos: QPoint = None):
-        factors = self.get_scroll_area_factors()
-        self.image_label.zoom_out()
-        self.move_scroll_area(factors)
+        view = self.view.viewport().size()
+        scene = self.scene.sceneRect()
+        CustomRectItem.zoom_factor = max(CustomRectItem.zoom_factor / 1.25,
+                                         min(view.width()/scene.width(),
+                                             view.height()/scene.height()))
+        self.is_zoom_to_fit = False
         self.zoom_emit()
 
     @Slot()
     def zoom_original(self):
-        factors = self.get_scroll_area_factors()
-        self.image_label.zoom_original()
-        self.move_scroll_area(factors)
+        CustomRectItem.zoom_factor = 1.0
+        self.is_zoom_to_fit = False
         self.zoom_emit()
 
     @Slot()
     def zoom_fit(self):
-        self.image_label.zoom_fit()
+        self.view.fitInView(self.scene.sceneRect(), Qt.KeepAspectRatio)
+        CustomRectItem.zoom_factor = self.view.transform().m11()
+        self.is_zoom_to_fit = True
         self.zoom_emit()
 
     def zoom_emit(self):
-        if self.image_label.is_zoom_to_fit:
+        transform = self.view.transform()
+        self.view.setTransform(QTransform(
+            CustomRectItem.zoom_factor, transform.m12(), transform.m13(),
+            transform.m21(), CustomRectItem.zoom_factor, transform.m23(),
+            transform.m31(), transform.m32(), transform.m33()))
+        if self.is_zoom_to_fit:
             self.zoom.emit(-1)
         else:
-            self.zoom.emit(self.image_label.zoom_factor)
+            self.zoom.emit(CustomRectItem.zoom_factor)
 
-    def mousePressEvent(self, event: QMouseEvent):
-        if event.button() == Qt.MouseButton.MiddleButton:
-            # Reset zoom - and toggle between original size and fit mode
-            if self.image_label.is_zoom_to_fit:
-                self.zoom_original()
-            else:
-                self.zoom_fit()
-        elif event.button() == Qt.MouseButton.LeftButton:
-            self.drag_start_pos = event.pos()
-            self.drag_image_pos = (self.scroll_area.horizontalScrollBar().value(), self.scroll_area.verticalScrollBar().value())
-            self.setCursor(QCursor(Qt.CursorShape.ClosedHandCursor))
+    def wheelEvent(self, event):
+        old_pos = self.view.mapToScene(event.position().toPoint())
+
+        if event.angleDelta().y() > 0:
+            self.zoom_in()
         else:
-            super().mousePressEvent(event)
+            self.zoom_out()
 
-    def mouseMoveEvent(self, event: QMouseEvent):
-        if self.drag_start_pos:
-            delta = event.pos() - self.drag_start_pos
-            self.scroll_area.horizontalScrollBar().setValue(self.drag_image_pos[0] - delta.x())
-            self.scroll_area.verticalScrollBar().setValue(self.drag_image_pos[1] - delta.y())
-        super().mouseMoveEvent(event)
+        new_pos = self.view.mapToScene(event.position().toPoint())
+        delta = new_pos - old_pos
+        self.view.translate(delta.x(), delta.y())
 
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.drag_start_pos = None
-            self.drag_image_pos = None
-            self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
-        super().mouseReleaseEvent(event)
+    def add_rectangle(self, rect: QRect, rect_type: ImageMarking, size: QSize = None):
+        rect_item = CustomRectItem(rect, rect_type, size)
+        self.scene.addItem(rect_item)
+        self.rect_items.append(rect_item)
 
-    def eventFilter(self, source, event):
-        if event.type() == QEvent.Wheel:
-            if event.modifiers() & Qt.ControlModifier:
-                # Handle the control key + mouse wheel event
-                factors = self.get_scroll_area_factors(event.position())
-
-                if event.angleDelta().y() > 0:
-                    self.zoom_in()
-                else:
-                    self.zoom_out()
-
-                self.move_scroll_area(factors)
-                return True  # Event is handled
-        return super().eventFilter(source, event)
-
-    def get_scroll_area_factors(self, position: QPointF | None = None) -> tuple[float, float, float, float]:
-        """
-        Get the factos (fractions, percentages) of the mouse position on the
-        image as well as it on the scroll area.
-        """
-        widgetPos = self.image_label.geometry()
-        image_size = self.image_label.pixmap_orig.size()*self.image_label.zoom_factor
-        if image_size.width() < self.scroll_area.viewport().width():
-            offset_x = (self.scroll_area.width() - image_size.width())/2
-        else:
-            offset_x = 0
-        if image_size.height() < self.scroll_area.viewport().height():
-            offset_y = (self.scroll_area.height() - image_size.height())/2
-        else:
-            offset_y = 0
-
-        if position:
-            img_fac_x = (position.x()-widgetPos.x()-offset_x)/image_size.width()
-            img_fac_y = (position.y()-widgetPos.y()-offset_y)/image_size.height()
-            scroll_area_fac_x = position.x() / self.scroll_area.viewport().width()
-            scroll_area_fac_y = position.y() / self.scroll_area.viewport().height()
-        else:
-            # No position -> assume center
-            img_fac_x = (self.scroll_area.viewport().width()/2-widgetPos.x()-offset_x)/image_size.width()
-            img_fac_y = (self.scroll_area.viewport().height()/2-widgetPos.y()-offset_y)/image_size.height()
-            scroll_area_fac_x = 0.5
-            scroll_area_fac_y = 0.5
-
-        return (img_fac_x, img_fac_y, scroll_area_fac_x, scroll_area_fac_y)
-
-    def move_scroll_area(self, factors):
-        """
-        Move the image in the scroll area so that the (fractional) position
-        on the image appears on the (fractional) position of the scroll area
-        """
-        img_fac_x, img_fac_y, scroll_area_fac_x, scroll_area_fac_y = factors
-        image_size = self.image_label.pixmap_orig.size()*self.image_label.zoom_factor
-        if image_size.width() > self.scroll_area.viewport().width():
-            viewport_x = scroll_area_fac_x * self.scroll_area.viewport().width()
-            scroll_area_x = img_fac_x * image_size.width()
-            self.scroll_area.horizontalScrollBar().setValue(scroll_area_x - viewport_x)
-        if image_size.height() > self.scroll_area.viewport().height():
-            viewport_y = scroll_area_fac_y * self.scroll_area.viewport().height()
-            scroll_area_y = img_fac_y * image_size.height()
-            self.scroll_area.verticalScrollBar().setValue(scroll_area_y - viewport_y)
+    def resizeEvent(self, event):
+        super().resizeEvent(event)

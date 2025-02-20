@@ -1,7 +1,7 @@
 from math import sqrt
 import re
 
-from utils.settings import DEFAULT_SETTINGS, get_settings
+from utils.settings import DEFAULT_SETTINGS, settings
 
 # singleton data store
 _preferred_sizes : list[tuple[int, int]] | None = None
@@ -22,7 +22,7 @@ def prepare(aspect_ratios : list[tuple[int, int, int]] | None = None) -> list[tu
     """
     global _preferred_sizes
     _preferred_sizes = []
-    for res_str in re.split(r'\s*,\s*', get_settings().value('export_preferred_sizes') or ''):
+    for res_str in re.split(r'\s*,\s*', settings.value('export_preferred_sizes') or ''):
         try:
             if res_str == '':
                 continue
@@ -63,11 +63,11 @@ def get(dimensions: tuple[int, int]):
     width, height = dimensions
     # The target resolution of the AI model. The target image pixels
     # will not exceed the square of this number
-    resolution = get_settings().value('export_resolution', defaultValue=DEFAULT_SETTINGS['export_resolution'], type=int)
+    resolution = settings.value('export_resolution', defaultValue=DEFAULT_SETTINGS['export_resolution'], type=int)
     # Is upscaling of images allowed?
-    upscaling = get_settings().value('export_upscaling', defaultValue=DEFAULT_SETTINGS['export_upscaling'], type=bool)
+    upscaling = settings.value('export_upscaling', defaultValue=DEFAULT_SETTINGS['export_upscaling'], type=bool)
     # The resolution of the buckets
-    bucket_res = get_settings().value('export_bucket_res_size', defaultValue=DEFAULT_SETTINGS['export_bucket_res_size'], type=int)
+    bucket_res = settings.value('export_bucket_res_size', defaultValue=DEFAULT_SETTINGS['export_bucket_res_size'], type=int)
 
     if not _preferred_sizes:
         prepare()
@@ -92,14 +92,14 @@ def get(dimensions: tuple[int, int]):
 
     # test 1, guaranteed to find a solution: shrink and crop
     # 1.1: exact width
-    candidate_width = (opt_width // bucket_res) * bucket_res
-    candidate_height = ((height * candidate_width / width) // bucket_res) * bucket_res
+    candidate_width = max(opt_width // bucket_res, 1) * bucket_res
+    candidate_height = max((height * candidate_width / width) // bucket_res, 1) * bucket_res
     loss = ((height * candidate_width / width) - candidate_height) * candidate_width
     if (candidate_width, candidate_height) in _preferred_sizes:
         loss *= preferred_sizes_bonus
     # 1.2: exact height
-    test_height = (opt_height // bucket_res) * bucket_res
-    test_width = ((width * test_height / height) // bucket_res) * bucket_res
+    test_height = max(opt_height // bucket_res, 1) * bucket_res
+    test_width = max((width * test_height / height) // bucket_res, 1) * bucket_res
     test_loss = ((width * test_height / height) - test_width) * test_height
     if (test_height, test_width) in _preferred_sizes:
         test_loss *= preferred_sizes_bonus
@@ -111,8 +111,8 @@ def get(dimensions: tuple[int, int]):
     # test 2, going bigger might still fit in the size budget due to cropping
     # 2.1: exact width
     for delta in range(1, 10):
-        test_width = (opt_width // bucket_res + delta) * bucket_res
-        test_height = ((height * test_width / width) // bucket_res) * bucket_res
+        test_width = max(opt_width // bucket_res + delta, 1) * bucket_res
+        test_height = max((height * test_width / width) // bucket_res, 1) * bucket_res
         if test_width * test_height > max_pixels:
             break
         if (test_width > width or test_height > height) and not upscaling:
@@ -126,8 +126,8 @@ def get(dimensions: tuple[int, int]):
                 loss = test_loss
     # 2.2: exact height
     for delta in range(1, 10):
-        test_height = (opt_height // bucket_res + delta) * bucket_res
-        test_width = ((width * test_height / height) // bucket_res) * bucket_res
+        test_height = max(opt_height // bucket_res + delta, 1) * bucket_res
+        test_width = max((width * test_height / height) // bucket_res, 1) * bucket_res
         if test_width * test_height > max_pixels:
             break
         if (test_width > width or test_height > height) and not upscaling:

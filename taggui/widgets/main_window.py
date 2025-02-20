@@ -19,7 +19,7 @@ from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import BigPushButton
 from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
-from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
+from utils.settings import DEFAULT_SETTINGS, settings, get_tag_separator
 from utils.shortcut_remover import ShortcutRemover
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
@@ -37,11 +37,10 @@ class MainWindow(QMainWindow):
     def __init__(self, app: QApplication):
         super().__init__()
         self.app = app
-        self.settings = get_settings()
         # The path of the currently loaded directory. This is set later when a
         # directory is loaded.
         self.directory_path = None
-        image_list_image_width = self.settings.value(
+        image_list_image_width = settings.value(
             'image_list_image_width',
             defaultValue=DEFAULT_SETTINGS['image_list_image_width'], type=int)
         tag_separator = get_tag_separator()
@@ -207,13 +206,13 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """Save the window geometry and state before closing."""
-        self.settings.setValue('geometry', self.saveGeometry())
-        self.settings.setValue('window_state', self.saveState())
+        settings.setValue('geometry', self.saveGeometry())
+        settings.setValue('window_state', self.saveState())
         super().closeEvent(event)
 
     def set_font_size(self):
         font = self.app.font()
-        font_size = self.settings.value(
+        font_size = settings.value(
             'font_size', defaultValue=DEFAULT_SETTINGS['font_size'], type=int)
         font.setPointSize(font_size)
         self.app.setFont(font)
@@ -247,7 +246,7 @@ class MainWindow(QMainWindow):
                        save_path_to_settings: bool = False):
         self.directory_path = path.resolve()
         if save_path_to_settings:
-            self.settings.setValue('directory_path', str(self.directory_path))
+            settings.setValue('directory_path', str(self.directory_path))
         self.setWindowTitle(path.name)
         self.image_list_model.load_directory(path)
         self.image_list.filter_line_edit.clear()
@@ -282,7 +281,7 @@ class MainWindow(QMainWindow):
         select_index_key = ('image_index'
                             if self.proxy_image_list_model.filter is None
                             else 'filtered_image_index')
-        select_index = self.settings.value(select_index_key, type=int) or 0
+        select_index = settings.value(select_index_key, type=int) or 0
         self.load_directory(self.directory_path)
         self.image_list.filter_line_edit.setText(filter_text)
         # If the selected image index is out of bounds due to images being
@@ -459,7 +458,7 @@ class MainWindow(QMainWindow):
             self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
             # Select the previously selected image in the unfiltered image
             # list.
-            select_index = self.settings.value('image_index', type=int) or 0
+            select_index = settings.value('image_index', type=int) or 0
             self.image_list.list_view.setCurrentIndex(
                 self.proxy_image_list_model.index(select_index, 0))
         else:
@@ -473,7 +472,7 @@ class MainWindow(QMainWindow):
         settings_key = ('image_index'
                         if self.proxy_image_list_model.filter is None
                         else 'filtered_image_index')
-        self.settings.setValue(settings_key, proxy_image_index.row())
+        settings.setValue(settings_key, proxy_image_index.row())
 
     def connect_toolbar_signals(self):
         self.zoom_fit_best_action.triggered.connect(
@@ -620,19 +619,19 @@ class MainWindow(QMainWindow):
 
     def restore(self):
         # Restore the window geometry and state.
-        if self.settings.contains('geometry'):
-            self.restoreGeometry(self.settings.value('geometry', type=bytes))
+        if settings.contains('geometry'):
+            self.restoreGeometry(settings.value('geometry', type=bytes))
         else:
             self.showMaximized()
-        self.restoreState(self.settings.value('window_state', type=bytes))
+        self.restoreState(settings.value('window_state', type=bytes))
         # Get the last index of the last selected image.
-        if self.settings.contains('image_index'):
-            image_index = self.settings.value('image_index', type=int)
+        if settings.contains('image_index'):
+            image_index = settings.value('image_index', type=int)
         else:
             image_index = 0
         # Load the last loaded directory.
-        if self.settings.contains('directory_path'):
-            directory_path = Path(self.settings.value('directory_path',
+        if settings.contains('directory_path'):
+            directory_path = Path(settings.value('directory_path',
                                                       type=str))
             if directory_path.is_dir():
                 self.load_directory(directory_path, select_index=image_index)

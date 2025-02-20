@@ -1,4 +1,4 @@
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QSettings, Signal
 
 # Defaults for settings that are accessed from multiple places.
 DEFAULT_SETTINGS = {
@@ -25,13 +25,22 @@ DEFAULT_SETTINGS = {
 }
 
 
-def get_settings() -> QSettings:
-    settings = QSettings('taggui', 'taggui')
-    return settings
+class Settings(QSettings):
+    # Signal that shows that the setting with the given string was changes
+    change = Signal(str, object, name='settingsChanged')
+
+    def __init__(self):
+        super().__init__('taggui', 'taggui')
+
+    def setValue(self, key, value):
+        super().setValue(key, value)
+        self.change.emit(key, value)
+
+# Common shared instance to ensure the Signal is also shared
+settings = Settings()
 
 
 def get_tag_separator() -> str:
-    settings = get_settings()
     tag_separator = settings.value(
         'tag_separator', defaultValue=DEFAULT_SETTINGS['tag_separator'],
         type=str)

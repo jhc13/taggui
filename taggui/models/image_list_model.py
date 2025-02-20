@@ -14,7 +14,7 @@ from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
 from utils.image import Image
-from utils.settings import DEFAULT_SETTINGS, get_settings
+from utils.settings import DEFAULT_SETTINGS, settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
 UNDO_STACK_SIZE = 32
@@ -106,7 +106,6 @@ class ImageListModel(QAbstractListModel):
         self.redo_stack.clear()
         self.update_undo_and_redo_actions_requested.emit()
         file_paths = get_file_paths(directory_path)
-        settings = get_settings()
         image_suffixes_string = settings.value(
             'image_list_file_formats',
             defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)

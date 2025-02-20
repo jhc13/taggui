@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout,
                                QAbstractItemView)
 from PIL import Image, ImageFilter, ImageCms
 
-from utils.settings import DEFAULT_SETTINGS, get_settings
+from utils.settings import DEFAULT_SETTINGS, settings
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox, SettingsComboBox)
 import utils.target_dimension as target_dimension
@@ -73,7 +73,6 @@ class ExportDialog(QDialog):
         """
         super().__init__(parent)
         self.image_list = image_list
-        self.settings = get_settings()
         self.inhibit_statistics_update = True
         self.setWindowTitle('Export')
         self.layout = QVBoxLayout(self)
@@ -207,8 +206,8 @@ class ExportDialog(QDialog):
         grid_layout.addWidget(format_widget, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
         # ensure correct enable/disable and background color of the quality
-        current_format = self.settings.value('export_format', type=str)
-        current_quality = self.settings.value('export_quality', type=int)
+        current_format = settings.value('export_format', type=str)
+        current_quality = settings.value('export_quality', type=int)
         self.format_change(current_format, False)
         self.quality_change(current_quality)
 
@@ -350,9 +349,9 @@ class ExportDialog(QDialog):
         if self.inhibit_statistics_update:
             return
 
-        resolution = self.settings.value('export_resolution', type=int)
-        upscaling = self.settings.value('export_upscaling', type=int)
-        bucket_res = self.settings.value('export_bucket_res_size', type=int)
+        resolution = settings.value('export_resolution', type=int)
+        upscaling = settings.value('export_upscaling', type=int)
+        bucket_res = settings.value('export_bucket_res_size', type=int)
 
         # notable aspect ratios
         aspect_ratios = [
@@ -418,13 +417,13 @@ class ExportDialog(QDialog):
         """
         Set the path of the directory to export to.
         """
-        export_directory_path = self.settings.value(
+        export_directory_path = settings.value(
             'export_directory_path',
             defaultValue=DEFAULT_SETTINGS['export_directory_path'], type=str)
         if export_directory_path:
             initial_directory_path = export_directory_path
-        elif self.settings.contains('directory_path'):
-            initial_directory_path = self.settings.value('directory_path')
+        elif settings.contains('directory_path'):
+            initial_directory_path = settings.value('directory_path')
         else:
             initial_directory_path = ''
         export_directory_path = QFileDialog.getExistingDirectory(
@@ -438,9 +437,9 @@ class ExportDialog(QDialog):
         """
         Export all images with the configured settings.
         """
-        directory_path = self.settings.value('directory_path', type=str)
-        export_directory_path = Path(self.settings.value('export_directory_path', type=str))
-        export_keep_dir_structure = self.settings.value('export_keep_dir_structure', type=bool)
+        directory_path = settings.value('directory_path', type=str)
+        export_directory_path = Path(settings.value('export_directory_path', type=str))
+        export_keep_dir_structure = settings.value('export_keep_dir_structure', type=bool)
         no_overwrite = True
         only_missing = True
 
@@ -484,17 +483,17 @@ class ExportDialog(QDialog):
             )
             return
 
-        resolution = self.settings.value('export_resolution', type=int)
-        upscaling = self.settings.value('export_upscaling', type=int)
-        bucket_res = self.settings.value('export_bucket_res_size', type=int)
-        export_format = self.settings.value('export_format', type=str)
-        quality = self.settings.value('export_quality', type=int)
-        color_space = self.settings.value('export_color_space', type=str)
+        resolution = settings.value('export_resolution', type=int)
+        upscaling = settings.value('export_upscaling', type=int)
+        bucket_res = settings.value('export_bucket_res_size', type=int)
+        export_format = settings.value('export_format', type=str)
+        quality = settings.value('export_quality', type=int)
+        color_space = settings.value('export_color_space', type=str)
         save_profile = True
         if color_space == 'sRGB (implicit, without profile)':
             color_space = 'sRGB'
             save_profile = False
-        bucket_strategy = self.settings.value('export_bucket_strategy', type=str)
+        bucket_strategy = settings.value('export_bucket_strategy', type=str)
 
         for image_index, image_entry in enumerate(self.get_image_list()):
             self.progress_bar.setValue(image_index)
@@ -571,7 +570,7 @@ class ExportDialog(QDialog):
 
     def get_image_list(self):
         image_list_view = self.image_list.list_view
-        if self.settings.value('export_filter') == ExportFilter.FILTERED:
+        if settings.value('export_filter') == ExportFilter.FILTERED:
             images = image_list_view.proxy_image_list_model.sourceModel()
             image_list = []
             for row in range(image_list_view.proxy_image_list_model.sourceModel().rowCount()):
@@ -579,7 +578,7 @@ class ExportDialog(QDialog):
                 proxy_index = image_list_view.proxy_image_list_model.mapFromSource(source_index)
                 if proxy_index.isValid():
                     image_list.append(source_index.data(Qt.ItemDataRole.UserRole))
-        elif self.settings.value('export_filter') == ExportFilter.SELECTED:
+        elif settings.value('export_filter') == ExportFilter.SELECTED:
             images = image_list_view.proxy_image_list_model.sourceModel()
             image_list = [image_index.data(Qt.ItemDataRole.UserRole) for image_index in image_list_view.get_selected_image_indices()]
         else: # ExportFilter.NONE
