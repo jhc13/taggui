@@ -16,7 +16,7 @@ https://download.pytorch.org/whl/cu121/torch-2.5.0%2Bcu121-cp310-cp310-win_amd64
 timm==1.0.14
 
 # CogVLM
-einops==0.8.0
+einops==0.8.1
 protobuf==5.29.3
 sentencepiece==0.2.0
 torchvision==0.21.0
