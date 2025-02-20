@@ -163,7 +163,7 @@ class AutoCaptioningModel:
         self.thread_parent.is_model_loaded_in_4_bit = self.load_in_4_bit
 
     def monkey_patch_after_loading(self):
-        pass
+        return
 
     @staticmethod
     def get_captioning_start_datetime_string(

@@ -1,3 +1,4 @@
+import sys
 from contextlib import redirect_stdout
 
 import numpy as np
@@ -43,7 +44,7 @@ class Xcomposer2(AutoCaptioningModel):
         return AutoTokenizer.from_pretrained(self.model_id,
                                              trust_remote_code=True)
 
-    def get_model(self):
+    def load_model(self, model_load_arguments: dict):
         if self.load_in_4_bit:
             with self.model_load_context_manager:
                 model = InternLMXComposer2GPTQ.from_quantized(
@@ -51,8 +52,48 @@ class Xcomposer2(AutoCaptioningModel):
                     device=str(self.device))
             model.eval()
         else:
-            model = super().get_model()
+            model = super().load_model(model_load_arguments)
         return model
+
+    def monkey_patch_after_loading(self):
+        """
+        Monkey patch the model to be compatible with Transformers v4.46.
+        Patching the source code does not work for this model because the
+        remote code is re-downloaded each time the model is loaded.
+        """
+
+        def patched_forward(self_, images):
+            """
+            Identical to the original `forward` method, except for the
+            additional `interpolate_pos_encoding=True` arguments.
+            """
+            if not self_.is_loaded:
+                self_.load_model()
+            if type(images) is list:
+                image_features = []
+                for image in images:
+                    image_forward_out = self_.vision_tower(
+                        image.to(device=self_.device,
+                                 dtype=self_.dtype).unsqueeze(0),
+                        output_hidden_states=True,
+                        interpolate_pos_encoding=True)
+                    image_feature = self_.feature_select(image_forward_out).to(
+                        image.dtype)
+                    image_features.append(image_feature)
+            else:
+                image_forward_outs = self_.vision_tower(
+                    images.to(device=self_.device, dtype=self_.dtype),
+                    output_hidden_states=True, interpolate_pos_encoding=True)
+                image_features = self_.feature_select(image_forward_outs).to(
+                    images.dtype)
+            return image_features
+
+        # There may be multiple modules with the same name, each corresponding
+        # to a different version of the model that was loaded.
+        clip_modules = [module for module_name, module in sys.modules.items()
+                        if 'build_mlp' in module_name]
+        for clip_module in clip_modules:
+            clip_module.CLIPVisionTower.forward = patched_forward
 
     @staticmethod
     def get_default_prompt() -> str:
@@ -145,6 +186,9 @@ def hd_transform(pil_image: PilImage, hd_number: int = 25) -> PilImage:
 
 
 class Xcomposer2_4khd(Xcomposer2):
+    def monkey_patch_after_loading(self):
+        return
+
     def load_image(self, image: Image) -> PilImage:
         pil_image = super().load_image(image)
         pil_image = hd_transform(pil_image)
