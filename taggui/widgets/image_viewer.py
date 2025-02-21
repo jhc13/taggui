@@ -30,6 +30,27 @@ class RectPosition(str, Enum):
     BL = 'bottom left'
     LEFT = 'left'
 
+def flip_rect_position(pos: RectPosition, h_flip: bool, v_flip: bool) -> RectPosition:
+    if pos == RectPosition.TL or pos == RectPosition.TOP or pos == RectPosition.TR:
+        v = 2 if v_flip else 0
+    elif pos == RectPosition.LEFT or pos == RectPosition.RIGHT:
+        v = 1
+    else:
+        v = 0 if v_flip else 2
+
+    if pos == RectPosition.TL or pos == RectPosition.LEFT or pos == RectPosition.BL:
+        h = 2 if h_flip else 0
+    elif pos == RectPosition.TOP or pos == RectPosition.BOTTOM:
+        h = 1
+    else:
+        h = 0 if h_flip else 2
+
+    return {
+         0:  RectPosition.TL,   1:  RectPosition.TOP,    2:  RectPosition.TR,
+        10: RectPosition.LEFT,                          12: RectPosition.RIGHT,
+        20: RectPosition.BL,   21: RectPosition.BOTTOM, 22: RectPosition.BR,
+        }[h+10*v]
+
 class RectItemSignal(QObject):
     change = Signal(QGraphicsRectItem, name='markingChanged')
 
@@ -120,52 +141,21 @@ class CustomRectItem(QGraphicsRectItem):
             pos_quantizised = event.scenePos().toPoint().toPointF()
             if self.handle_selected == RectPosition.TL:
                 rect.setTopLeft(pos_quantizised)
-                if rect.width() < 0 and rect.height() < 0:
-                    self.handle_selected = RectPosition.BR
-                elif rect.width() < 0:
-                    self.handle_selected = RectPosition.TR
-                elif rect.height() < 0:
-                    self.handle_selected = RectPosition.BL
             elif self.handle_selected == RectPosition.TOP:
                 rect.setTop(pos_quantizised.y())
-                if rect.height() < 0:
-                    self.handle_selected = RectPosition.BOTTOM
             elif self.handle_selected == RectPosition.TR:
                 rect.setTopRight(pos_quantizised)
-                if rect.width() < 0 and rect.height() < 0:
-                    self.handle_selected = RectPosition.BL
-                elif rect.width() < 0:
-                    self.handle_selected = RectPosition.TL
-                elif rect.height() < 0:
-                    self.handle_selected = RectPosition.BR
             elif self.handle_selected == RectPosition.RIGHT:
                 rect.setRight(pos_quantizised.x())
-                if rect.width() < 0:
-                    self.handle_selected = RectPosition.LEFT
             elif self.handle_selected == RectPosition.BR:
                 rect.setBottomRight(pos_quantizised)
-                if rect.width() < 0 and rect.height() < 0:
-                    self.handle_selected = RectPosition.TL
-                elif rect.width() < 0:
-                    self.handle_selected = RectPosition.BL
-                elif rect.height() < 0:
-                    self.handle_selected = RectPosition.TR
             elif self.handle_selected == RectPosition.BOTTOM:
                 rect.setBottom(pos_quantizised.y())
-                if rect.height() < 0:
-                    self.handle_selected = RectPosition.TOP
             elif self.handle_selected == RectPosition.BL:
                 rect.setBottomLeft(pos_quantizised)
-                if rect.width() < 0 and rect.height() < 0:
-                    self.handle_selected = RectPosition.TR
-                elif rect.width() < 0:
-                    self.handle_selected = RectPosition.BR
-                elif rect.height() < 0:
-                    self.handle_selected = RectPosition.TL
             elif self.handle_selected == RectPosition.LEFT:
                 rect.setLeft(pos_quantizised.x())
-                if rect.width() < 0:
-                    self.handle_selected = RectPosition.RIGHT
+            self.handle_selected = flip_rect_position(self.handle_selected, rect.width() < 0, rect.height() < 0)
 
             if rect.width() == 0 or rect.height() == 0:
                 self.setRect(rect)
