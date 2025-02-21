@@ -37,6 +37,11 @@ def replace_template_variables(text: str, image: Image) -> str:
 
 class AutoCaptioningModel:
     dtype = torch.float16
+    # When loading a model, if the `use_safetensors` argument is not set and
+    # both a safetensors and a non-safetensors version of the model are
+    # available, both versions get downloaded. This should be set to `None` for
+    # models that do not have a safetensors version.
+    use_safetensors = True
     model_load_context_manager = nullcontext()
     transformers_model_class = AutoModelForVision2Seq
     image_mode = 'RGB'
@@ -90,7 +95,8 @@ class AutoCaptioningModel:
                                              trust_remote_code=True)
 
     def get_model_load_arguments(self) -> dict:
-        arguments = {'device_map': self.device, 'trust_remote_code': True}
+        arguments = {'device_map': self.device, 'trust_remote_code': True,
+                     'use_safetensors': self.use_safetensors}
         if self.load_in_4_bit:
             quantization_config = BitsAndBytesConfig(
                 load_in_4bit=True,
