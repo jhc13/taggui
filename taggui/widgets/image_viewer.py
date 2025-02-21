@@ -1,8 +1,8 @@
 from enum import Enum
 from math import floor
 from pathlib import Path
-from PySide6.QtCore import (QModelIndex, QPoint, QPointF, QRect, QRectF, QSize,
-                            QSizeF, Qt, Signal, Slot, QEvent)
+from PySide6.QtCore import (QEvent, QModelIndex, QObject, QPoint, QPointF,
+                            QRect, QRectF, QSize, QSizeF, Qt, Signal, Slot)
 from PySide6.QtGui import (QCursor, QColor, QPainter, QPainterPath, QPen,
                            QPixmap, QTransform)
 from PySide6.QtWidgets import (QGraphicsItem, QGraphicsPixmapItem,
@@ -30,6 +30,9 @@ class RectPosition(str, Enum):
     BL = 'bottom left'
     LEFT = 'left'
 
+class RectItemSignal(QObject):
+    change = Signal(QGraphicsRectItem, name='markingChanged')
+
 class CustomRectItem(QGraphicsRectItem):
     # the halfed size of the pen in local coordinates to make sure it stays the
     # same during zooming
@@ -45,6 +48,7 @@ class CustomRectItem(QGraphicsRectItem):
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
         self.setAcceptHoverEvents(True)
+        self.signal = RectItemSignal()
         self.rect_type = rect_type
         self.color = {
             ImageMarking.CROP: Qt.blue,
@@ -174,6 +178,7 @@ class CustomRectItem(QGraphicsRectItem):
     def mouseReleaseEvent(self, event):
         if self.handle_selected:
             self.handle_selected = None
+        self.signal.change.emit(self)
         super().mouseReleaseEvent(event)
 
     def paint(self, painter, option, widget=None):
@@ -243,32 +248,34 @@ class ImageViewer(QWidget):
         layout.addWidget(self.view)
         self.setLayout(layout)
 
-        self.image_item: QGraphicsPixmapItem|None = None
+        self.proxy_image_index = None
         self.rect_items: list[CustomRectItem] = []
 
         self.view.wheelEvent = self.wheelEvent
 
     @Slot()
     def load_image(self, proxy_image_index: QModelIndex):
+        self.proxy_image_index = proxy_image_index
         image: Image = self.proxy_image_list_model.data(
             proxy_image_index, Qt.ItemDataRole.UserRole)
 
         pixmap = QPixmap(str(image.path))
-        if self.image_item:
-            self.scene.removeItem(self.image_item)
-        self.image_item = QGraphicsPixmapItem(pixmap)
-        self.scene.addItem(self.image_item)
-        self.scene.setSceneRect(self.image_item.boundingRect()
+        self.scene.clear()
+        image_item = QGraphicsPixmapItem(pixmap)
+        self.scene.addItem(image_item)
+        self.scene.setSceneRect(image_item.boundingRect()
                                 .adjusted(-1, -1, 1, 1)) # space for rect border
-        CustomRectItem.image_size = self.image_item.boundingRect()
+        CustomRectItem.image_size = image_item.boundingRect()
         self.zoom_fit()
 
-        image.crops = {(10,20,70,140): (64,128)}
-        image.hints = [(200,220,100,100), (250,270,100,200)]
-        for rect, target in image.crops.items():
-            self.add_rectangle(QRect(*rect), ImageMarking.CROP, QSize(*target))
+        if image.crop:
+            self.add_rectangle(QRect(*image.crop), ImageMarking.CROP, QSize(*image.target_dimension))
         for rect in image.hints:
             self.add_rectangle(QRect(*rect), ImageMarking.HINT)
+        for rect in image.includes:
+            self.add_rectangle(QRect(*rect), ImageMarking.INCLUDE)
+        for rect in image.excludes:
+            self.add_rectangle(QRect(*rect), ImageMarking.EXCLUDE)
 
     @Slot()
     def setting_change(self, key, value):
@@ -276,6 +283,18 @@ class ImageViewer(QWidget):
             for rect in self.rect_items:
                 rect.size_changed()
             self.scene.invalidate()
+
+    @Slot(QGraphicsRectItem)
+    def marking_change(self, rect: QGraphicsRectItem):
+        assert self.proxy_image_index != None
+        if rect.rect_type == ImageMarking.CROP:
+            image: Image = self.proxy_image_list_model.data(
+                self.proxy_image_index, Qt.ItemDataRole.UserRole)
+            image.thumbnail = None
+            image.crop = rect.rect().getRect()
+            image.target_dimension = rect.target_size.toTuple()
+            self.proxy_image_list_model.dataChanged.emit(self.proxy_image_index,
+                                                         self.proxy_image_index)
 
     @Slot()
     def zoom_in(self, center_pos: QPoint = None):
@@ -331,6 +350,7 @@ class ImageViewer(QWidget):
 
     def add_rectangle(self, rect: QRect, rect_type: ImageMarking, size: QSize = None):
         rect_item = CustomRectItem(rect, rect_type, size)
+        rect_item.signal.change.connect(self.marking_change)
         self.scene.addItem(rect_item)
         self.rect_items.append(rect_item)
 

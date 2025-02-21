@@ -367,9 +367,9 @@ class ExportDialog(QDialog):
         image_list = self.get_image_list()
         image_dimensions = defaultdict(int)
         for this_image in image_list:
-            this_image.target_dimensions = target_dimension.get(
+            this_image.target_dimension = target_dimension.get(
                 this_image.dimensions)
-            image_dimensions[this_image.target_dimensions] += 1
+            image_dimensions[this_image.target_dimension] += 1
         self.image_list.proxy_image_list_model.invalidate()
 
         sorted_dimensions = sorted(
@@ -527,7 +527,7 @@ class ExportDialog(QDialog):
             else:
                 image_file = image_file.convert("RGB")  # Otherwise, convert to RGB
 
-            new_width, new_height = image_entry.target_dimensions
+            new_width, new_height = image_entry.target_dimension
             current_width, current_height = image_file.size
             if bucket_strategy == BucketStrategy.CROP or bucket_strategy == BucketStrategy.CROP_SCALE:
                 if current_height * new_width / current_width < new_height: # too wide
@@ -535,8 +535,8 @@ class ExportDialog(QDialog):
                 else: # too high
                     new_height = floor(current_height * new_width / current_width)
             if bucket_strategy == BucketStrategy.CROP_SCALE:
-                new_width = floor((image_entry.target_dimensions[0] + new_width)/2)
-                new_height = floor((image_entry.target_dimensions[1] + new_height)/2)
+                new_width = floor((image_entry.target_dimension[0] + new_width)/2)
+                new_height = floor((image_entry.target_dimension[1] + new_height)/2)
             if image_file.size[0] != new_width or image_file.size[1] != new_height:
                 # resize with the best method available
                 resized_image = image_file.resize((new_width, new_height), Image.LANCZOS)
@@ -547,8 +547,8 @@ class ExportDialog(QDialog):
 
             # crop to the desired size
             current_width, current_height = sharpend_image.size
-            crop_width = floor((current_width - image_entry.target_dimensions[0]) / 2)
-            crop_height = floor((current_height - image_entry.target_dimensions[1]) / 2)
+            crop_width = floor((current_width - image_entry.target_dimension[0]) / 2)
+            crop_height = floor((current_height - image_entry.target_dimension[1]) / 2)
             cropped_image = sharpend_image.crop((crop_width, crop_height, current_width - crop_width, current_height - crop_height))
             lossless = quality > 99
 

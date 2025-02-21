@@ -8,8 +8,8 @@ from pathlib import Path
 
 import exifread
 import imagesize
-from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
-                            Slot)
+from PySide6.QtCore import (QAbstractListModel, QModelIndex, QRect, QSize, Qt,
+                            Signal, Slot)
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
@@ -82,11 +82,14 @@ class ImageListModel(QAbstractListModel):
             image_reader = QImageReader(str(image.path))
             # Rotate the image based on the orientation tag.
             image_reader.setAutoTransform(True)
+            if image.crop:
+                image_reader.setClipRect(QRect(*image.crop))
             pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
                 self.image_list_image_width,
                 Qt.TransformationMode.SmoothTransformation)
             thumbnail = QIcon(pixmap)
             image.thumbnail = thumbnail
+            self.dataChanged.emit(index, index)
             return thumbnail
         if role == Qt.ItemDataRole.SizeHintRole:
             if image.thumbnail:
@@ -156,6 +159,11 @@ class ImageListModel(QAbstractListModel):
                     tags = [tag.strip() for tag in tags]
                     tags = [tag for tag in tags if tag]
             image = Image(image_path, dimensions, tags)
+            ### TEMP FIXME start
+            image.crop = (10,20,170,240)
+            image.target_dimension = (64,128)
+            image.hints = [(200,220,100,100), (250,270,100,200)]
+            ### TEMP FIXME end
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
