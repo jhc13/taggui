@@ -19,8 +19,8 @@ class Cogvlm2(AutoCaptioningModel):
     def get_additional_error_message(self) -> str | None:
         if not importlib.util.find_spec('triton'):
             return ('This model requires the `triton` package, which is only '
-                    'available on Linux. Therefore, this model cannot be run '
-                    'on this system.')
+                    'available for Linux and Windows. Therefore, this model '
+                    'cannot be run on this system.')
         is_4_bit_model = 'int4' in self.model_id
         if is_4_bit_model:
             if self.device_setting == CaptionDevice.CPU:

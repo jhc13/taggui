@@ -7,11 +7,6 @@ pyparsing==3.2.1
 PySide6==6.8.2.1
 transformers==4.48.3
 
-# PyTorch
-torch==2.6.0; platform_system != "Windows"
-https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp312-cp312-win_amd64.whl; platform_system == "Windows" and python_version == "3.12"
-https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
-
 # CogAgent
 timm==1.0.14
 
@@ -30,7 +25,17 @@ numpy==2.2.3
 huggingface-hub==0.29.1
 onnxruntime==1.20.1
 
+# PyTorch
+torch==2.6.0; platform_system != "Windows"
+https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp312-cp312-win_amd64.whl; platform_system == "Windows" and python_version == "3.12"
+https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
+
 # FlashAttention (Florence-2, Phi-3-Vision)
 flash-attn==2.7.4.post1; platform_system == "Linux"
 https://github.com/kingbri1/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu124torch2.6.0cxx11abiFALSE-cp312-cp312-win_amd64.whl; platform_system == "Windows" and python_version == "3.12"
 https://github.com/kingbri1/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu124torch2.6.0cxx11abiFALSE-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
+
+# Triton (CogVLM2)
+triton==3.2.0; platform_system == "Linux"
+https://github.com/woct0rdho/triton-windows/releases/download/v3.2.0-windows.post10/triton-3.2.0-cp312-cp312-win_amd64.whl; platform_system == "Windows" and python_version == "3.12"
+https://github.com/woct0rdho/triton-windows/releases/download/v3.2.0-windows.post10/triton-3.2.0-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
