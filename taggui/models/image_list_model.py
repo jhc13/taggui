@@ -5,6 +5,7 @@ from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+import json
 
 import exifread
 import imagesize
@@ -59,6 +60,11 @@ class ImageListModel(QAbstractListModel):
         self.redo_stack = []
         self.proxy_image_list_model = None
         self.image_list_selection_model = None
+        self.dataChanged.connect(lambda start, end: [
+            self.write_meta_to_disk(
+                start.sibling(row, start.column())
+                .data(Qt.ItemDataRole.UserRole))
+            for row in range(start.row(), end.row()+1)])
 
     def rowCount(self, parent=None) -> int:
         return len(self.images)
@@ -108,6 +114,7 @@ class ImageListModel(QAbstractListModel):
         self.undo_stack.clear()
         self.redo_stack.clear()
         self.update_undo_and_redo_actions_requested.emit()
+        error_messages: list[str] = []
         file_paths = get_file_paths(directory_path)
         image_suffixes_string = settings.value(
             'image_list_file_formats',
@@ -124,6 +131,8 @@ class ImageListModel(QAbstractListModel):
         # strings.
         text_file_path_strings = {str(path) for path in file_paths
                                   if path.suffix == '.txt'}
+        json_file_path_strings = {str(path) for path in file_paths
+                                  if path.suffix == '.json'}
         for image_path in image_paths:
             try:
                 dimensions = imagesize.get(image_path)
@@ -141,11 +150,11 @@ class ImageListModel(QAbstractListModel):
                                    for value in (5, 6, 7, 8)):
                                 dimensions = (dimensions[1], dimensions[0])
                     except Exception as exception:
-                        print(f'Failed to get Exif tags for {image_path}: '
-                              f'{exception}', file=sys.stderr)
+                        error_messages.append(f'Failed to get Exif tags for '
+                                              f'{image_path}: {exception}')
             except (ValueError, OSError) as exception:
-                print(f'Failed to get dimensions for {image_path}: '
-                      f'{exception}', file=sys.stderr)
+                error_messages.append(f'Failed to get dimensions for '
+                                      f'{image_path}: {exception}')
                 dimensions = None
             tags = []
             text_file_path = image_path.with_suffix('.txt')
@@ -159,14 +168,64 @@ class ImageListModel(QAbstractListModel):
                     tags = [tag.strip() for tag in tags]
                     tags = [tag for tag in tags if tag]
             image = Image(image_path, dimensions, tags)
-            ### TEMP FIXME start
-            image.crop = (10,20,170,240)
-            image.target_dimension = (64,128)
-            image.hints = [(200,220,100,100), (250,270,100,200)]
-            ### TEMP FIXME end
+            json_file_path = image_path.with_suffix('.json')
+            if (str(json_file_path) in json_file_path_strings and
+                json_file_path.stat().st_size > 0):
+                with json_file_path.open(encoding="UTF-8") as source:
+                    try:
+                        meta = json.load(source)
+                    except json.JSONDecodeError as e:
+                        error_messages.append(f'Invalid JSON in '
+                                              f'"{json_file_path}": {e.msg}')
+                        break
+                    except UnicodeDecodeError as e:
+                        error_messages.append(f'Invalid Unicode in JSON in '
+                                              f'"{json_file_path}": {e.reason}')
+                        break
+
+                    if meta.get('version') == 1:
+                        crop = meta.get('crop')
+                        if crop and type(crop) is list and len(crop) == 4:
+                            image.crop = tuple(crop)
+                        target_dimension = meta.get('target_dimension')
+                        if (target_dimension and type(target_dimension) is list
+                            and len(target_dimension) == 2):
+                            image.target_dimension = tuple(target_dimension)
+                        hints = meta.get('hints')
+                        if hints and type(hints) is dict:
+                            image.hints = {}
+                            for key, value in hints.items():
+                                if (value and type(value) is list and
+                                    len(value) == 4):
+                                    image.hints[key] = tuple(value)
+                        includes = meta.get('includes')
+                        if includes and type(includes) is dict:
+                            image.includes = {}
+                            for key, value in includes.items():
+                                if (value and type(value) is list and
+                                    len(value) == 4):
+                                    image.includes[key] = tuple(value)
+                        excludes = meta.get('excludes')
+                        if excludes and type(excludes) is dict:
+                            image.excludes = {}
+                            for key, value in excludes.items():
+                                if (value and type(value) is list and
+                                    len(value) == 4):
+                                    image.excludes[key] = tuple(value)
+                    else:
+                        error_messages.append(f'Invalid version '
+                                              f'"{meta.get('version')}" in '
+                                              f'"{json_file_path}"')
             self.images.append(image)
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
+        if len(error_messages) > 0:
+            print('\n'.join(error_messages), file=sys.stderr)
+            error_message_box = QMessageBox()
+            error_message_box.setWindowTitle('Directory reading error')
+            error_message_box.setIcon(QMessageBox.Icon.Warning)
+            error_message_box.setText('\n'.join(error_messages))
+            error_message_box.exec()
 
     def add_to_undo_stack(self, action_name: str,
                           should_ask_for_confirmation: bool):
@@ -188,6 +247,30 @@ class ImageListModel(QAbstractListModel):
             error_message_box.setIcon(QMessageBox.Icon.Critical)
             error_message_box.setText(f'Failed to save tags for {image.path}.')
             error_message_box.exec()
+
+    def write_meta_to_disk(self, image: Image):
+        does_exist = image.path.with_suffix('.json').exists()
+        meta = {'version': 1}
+        if image.crop:
+            meta['crop'] = image.crop
+        if image.target_dimension:
+            meta['target_dimension'] = image.target_dimension
+        if image.hints:
+            meta['hints'] = image.hints
+        if image.includes:
+            meta['includes'] = image.includes
+        if image.excludes:
+            meta['excludes'] = image.excludes
+        if does_exist or len(meta.keys()) > 1:
+            try:
+                with image.path.with_suffix('.json').open('w', encoding='UTF-8') as meta_file:
+                    json.dump(meta, meta_file)
+            except OSError:
+                error_message_box = QMessageBox()
+                error_message_box.setWindowTitle('Error')
+                error_message_box.setIcon(QMessageBox.Icon.Critical)
+                error_message_box.setText(f'Failed to save JSON for {image.path}.')
+                error_message_box.exec()
 
     def restore_history_tags(self, is_undo: bool):
         if is_undo:

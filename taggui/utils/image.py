@@ -12,7 +12,7 @@ class Image:
     target_dimension: tuple[int, int] | None = None
     # (x, y, width, height)
     crop: tuple[int, int, int, int] | None = None
-    hints: list[tuple[int, int, int, int]] = field(default_factory=list)
-    includes: list[tuple[int, int, int, int]] = field(default_factory=list)
-    excludes: list[tuple[int, int, int, int]] = field(default_factory=list)
+    hints: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
+    includes: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
+    excludes: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
     thumbnail: QIcon | None = None

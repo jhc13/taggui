@@ -294,7 +294,7 @@ class ResizeHintHUD(QGraphicsItem):
 
     def add_hyperbola_limit(self, pos: QPoint, lr: int, td: int):
         target_area = settings.value('export_resolution', type=int)**2
-        res_size = settings.value('export_bucket_res_size', type=int)
+        res_size = max(settings.value('export_bucket_res_size', type=int), 1)
         dx = res_size
         self.path.moveTo(pos.x() + lr * dx, pos.y() + td * target_area / dx)
         while dx * res_size <= target_area:
@@ -368,13 +368,16 @@ class ImageViewer(QWidget):
         self.scene.addItem(self.hud_item)
 
         if image.crop:
-            self.add_rectangle(QRect(*image.crop), ImageMarking.CROP, QSize(*image.target_dimension))
-        for rect in image.hints:
-            self.add_rectangle(QRect(*rect), ImageMarking.HINT)
-        for rect in image.includes:
-            self.add_rectangle(QRect(*rect), ImageMarking.INCLUDE)
-        for rect in image.excludes:
-            self.add_rectangle(QRect(*rect), ImageMarking.EXCLUDE)
+            if not image.target_dimension:
+                image.target_dimension = target_dimension.get(image.crop[2:])
+            self.add_rectangle(QRect(*image.crop), ImageMarking.CROP,
+                               size=QSize(*image.target_dimension))
+        for name, rect in image.hints.items():
+            self.add_rectangle(QRect(*rect), ImageMarking.HINT, name=name)
+        for name, rect in image.includes.items():
+            self.add_rectangle(QRect(*rect), ImageMarking.INCLUDE, name=name)
+        for name, rect in image.excludes.items():
+            self.add_rectangle(QRect(*rect), ImageMarking.EXCLUDE, name=name)
 
     @Slot()
     def setting_change(self, key, value):
@@ -387,13 +390,21 @@ class ImageViewer(QWidget):
     def marking_change(self, rect: QGraphicsRectItem):
         assert self.proxy_image_index != None
         assert self.proxy_image_index.isValid()
+        image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
+
         if rect.rect_type == ImageMarking.CROP:
-            image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
             image.thumbnail = None
-            image.crop = rect.rect().getRect()
+            image.crop = rect.rect().toRect().getRect() # ensure int!
             image.target_dimension = rect.target_size.toTuple()
-            self.proxy_image_list_model.dataChanged.emit(self.proxy_image_index,
-                                                         self.proxy_image_index)
+        elif rect.rect_type == ImageMarking.HINT:
+            image.hints[rect.data(0)] = rect.rect().toRect().getRect()
+        elif rect.rect_type == ImageMarking.INCLUDE:
+            image.includes[rect.data(0)] = rect.rect().toRect().getRect()
+        elif rect.rect_type == ImageMarking.EXCLUDE:
+            image.excludes[rect.data(0)] = rect.rect().toRect().getRect()
+
+        self.proxy_image_list_model.sourceModel().dataChanged.emit(
+            self.proxy_image_index, self.proxy_image_index)
 
     @Slot()
     def zoom_in(self, center_pos: QPoint = None):
@@ -448,8 +459,10 @@ class ImageViewer(QWidget):
         delta = new_pos - old_pos
         self.view.translate(delta.x(), delta.y())
 
-    def add_rectangle(self, rect: QRect, rect_type: ImageMarking, size: QSize = None):
+    def add_rectangle(self, rect: QRect, rect_type: ImageMarking,
+                      size: QSize = None, name: str = ''):
         rect_item = CustomRectItem(rect, rect_type, size)
+        rect_item.setData(0, name)
         if rect_type == ImageMarking.CROP:
             rect_item.signal.move.connect(self.hud_item.setValues)
         rect_item.signal.change.connect(self.marking_change)

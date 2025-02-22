@@ -49,7 +49,7 @@ if __name__ == '__main__':
     try:
         run_gui()
     except Exception as exception:
-        settings.clear()
+        #settings.clear()
         error_message_box = QMessageBox()
         error_message_box.setWindowTitle('Error')
         error_message_box.setIcon(QMessageBox.Icon.Critical)
