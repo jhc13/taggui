@@ -9,6 +9,8 @@ from transformers import (AutoModelForCausalLM, AutoTokenizer,
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from utils.image import Image
 
+MOONDREAM2_REVISION = '2024-08-26'
+
 
 class Moondream(AutoCaptioningModel):
     transformers_model_class = AutoModelForCausalLM
@@ -94,6 +96,11 @@ class Moondream2(Moondream):
     def get_processor(self):
         return AutoTokenizer.from_pretrained(self.model_id,
                                              trust_remote_code=True)
+
+    def get_model_load_arguments(self) -> dict:
+        arguments = super().get_model_load_arguments()
+        arguments['revision'] = MOONDREAM2_REVISION
+        return arguments
 
     def get_model_inputs(self, image_prompt: str, image: Image) -> dict:
         text = self.get_input_text(image_prompt)

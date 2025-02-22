@@ -3,10 +3,12 @@ from PyInstaller.utils.hooks import collect_data_files
 
 datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'),
          ('images/icon.ico', 'images')]
-datas += [('/usr/include/python3.11', 'include/python3.11')]
 datas += collect_data_files('triton')
 datas += collect_data_files('xformers')
-hiddenimports = ['timm.models.layers']
+hiddenimports = [
+    'timm.models.layers',
+    'xformers._C',
+]
 
 block_cipher = None
 
@@ -26,7 +28,6 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
     module_collection_mode={
-        'auto_gptq': 'pyz+py',
         'triton': 'py',
         'xformers': 'pyz+py',
     },

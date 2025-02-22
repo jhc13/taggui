@@ -32,14 +32,14 @@ extract the files if you don't have it on your system.
   manually (see below).
 - Linux users: You may need to install `libxcb-cursor0`.
   (See [this Stack Overflow answer](https://stackoverflow.com/a/75941575).) You
-  may also have to install `python3.11-dev` or `python3.10-dev` (depending on
+  may also have to install `python3.12-dev` or `python3.11-dev` (depending on
   your Python version) if you get an error while trying to use a CogVLM2
   model. (See [this issue](https://github.com/jhc13/taggui/issues/234).)
 
 Alternatively, you can install manually by cloning this repository and
 installing the dependencies in `requirements.txt`.
 Run `taggui/run_gui.py` to start the program.
-Python 3.11 is recommended, but Python 3.10 should also work.
+Python 3.12 is recommended, but Python 3.11 should also work.
 
 ## Usage
 
