@@ -4,14 +4,16 @@ from PySide6.QtWidgets import (QComboBox, QDoubleSpinBox, QLineEdit,
 
 from utils.big_widgets import BigCheckBox
 from utils.focused_scroll_mixin import FocusedScrollMixin
-from utils.settings import get_settings
+from utils.settings import DEFAULT_SETTINGS, get_settings
 
 
 class SettingsBigCheckBox(BigCheckBox):
-    def __init__(self, key: str, default: bool, text: str | None = None):
+    def __init__(self, key: str, default: bool | None = None, text: str | None = None):
         super().__init__(text)
         settings = get_settings()
-        self.setChecked(settings.value(key, default, type=bool))
+        if not settings.contains(key):
+            settings.setValue(key, default or DEFAULT_SETTINGS.get(key))
+        self.setChecked(settings.value(key, type=bool))
         self.stateChanged.connect(
             lambda state: settings.setValue(
                 key, state == Qt.CheckState.Checked.value))
@@ -20,12 +22,13 @@ class SettingsBigCheckBox(BigCheckBox):
 class SettingsComboBox(QComboBox):
     def __init__(self, key: str, default: str | None = None):
         super().__init__()
-        self.key = key
-        self.default = default
         self.settings = get_settings()
+        self.key = key
+        if not self.settings.contains(key):
+            self.settings.setValue(key, default or DEFAULT_SETTINGS.get(key))
 
     def addItems(self, texts: list[str]):
-        setting: str = self.settings.value(self.key, self.default, type=str)
+        setting: str = self.settings.value(self.key, type=str)
         super().addItems(texts)
         self.currentTextChanged.connect(
             lambda text: self.settings.setValue(self.key, text))
@@ -50,11 +53,13 @@ class FocusedScrollSettingsDoubleSpinBox(FocusedScrollMixin, QDoubleSpinBox):
 
 
 class SettingsSpinBox(QSpinBox):
-    def __init__(self, key: str, default: int, minimum: int, maximum: int):
+    def __init__(self, key: str, minimum: int, maximum: int, default: int | None = None):
         super().__init__()
         self.setRange(minimum, maximum)
         settings = get_settings()
-        self.setValue(settings.value(key, default, type=int))
+        if not settings.contains(key):
+            settings.setValue(key, default or DEFAULT_SETTINGS.get(key))
+        self.setValue(settings.value(key, type=int))
         self.valueChanged.connect(lambda value: settings.setValue(key, value))
 
 
@@ -63,17 +68,21 @@ class FocusedScrollSettingsSpinBox(FocusedScrollMixin, SettingsSpinBox):
 
 
 class SettingsLineEdit(QLineEdit):
-    def __init__(self, key: str, default: str = ''):
+    def __init__(self, key: str, default: str | None = None):
         super().__init__()
         settings = get_settings()
-        self.setText(settings.value(key, default, type=str))
+        if not settings.contains(key):
+            settings.setValue(key, default or DEFAULT_SETTINGS.get(key, ''))
+        self.setText(settings.value(key, type=str))
         self.textChanged.connect(lambda text: settings.setValue(key, text))
 
 
 class SettingsPlainTextEdit(QPlainTextEdit):
-    def __init__(self, key: str, default: str = ''):
+    def __init__(self, key: str, default: str | None = None):
         super().__init__()
         settings = get_settings()
-        self.setPlainText(settings.value(key, default, type=str))
+        if not settings.contains(key):
+            settings.setValue(key, default or DEFAULT_SETTINGS.get(key, ''))
+        self.setPlainText(settings.value(key, type=str))
         self.textChanged.connect(lambda: settings.setValue(key,
                                                            self.toPlainText()))

@@ -17,6 +17,7 @@ like Stable Diffusion.
   Tagger, and many more
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
+- Export images ready to be used for training
 
 ## Installation
 
@@ -142,6 +143,9 @@ apply:
 - `path`: Images that contain the filter term in the full file path
     - `path:cat` will match images such as `C:\Users\cats\dog.jpg` or
       `/home/dogs/cat.jpg`.
+- `size`: Images that have the given size, stated in double colon separated
+  numbers.
+    - `size:512:512` will match images of the dimension 512x512 pixels.
 - You can also use a filter term with no prefix to filter for images that
   contain the term in either the caption or the file path.
     - `cat` will match images containing `cat` in the caption or file path.
@@ -164,6 +168,9 @@ comparison.
       caption.
     - `tokens:<=50` will match images that have 50 or fewer tokens in the
       caption.
+- `x` and `y`: will match images with the specified x or y dimension.
+    - `x:>512` will match images where the width is greater than 512 pixels.
+    - `y:=1024` will match images where the height is exactly 1024 pixels.
 
 ### Spaces and quotes
 
@@ -253,3 +260,64 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 
 The `Edit` menu contains additional features for batch tag operations, such as
 `Find and Replace` (`Ctrl`+`R`) and `Batch Reorder Tags` (`Ctrl`+`B`).
+
+## Export
+
+Exporting the images to a directory allows different options. By choosing the
+preset for the target AI model many important settings are automatically set.
+
+`Image selection`:
+Select whether all images, or those with the current filter or only the
+currently selected images should be exported.
+
+`Preset`:
+Choose a given preset or `manual` to set your own values.
+
+`Resolution`:
+The native resolution of the model, like 1024 for SDXL or Flux.
+
+`Image size`:
+A hint showing the megapixels. The exported images will not exceed this
+number.
+
+`Bucket resolution size`:
+The bucket size the training tool is using.
+
+`Preferres sizes`:
+A comma separated list of target sizes that should be preferred for the
+exported images.
+
+`Allow upscaling`:
+Do upscale images when set. This is bad for the quality but might reduce the
+number of buckets that must be used for training.
+
+`Bucket fitting strategy`:
+The method to make sure an image fits into a bucket. It can be a direct crop
+that removes information from the side of an image. Or a scaling that changes
+the aspect ratio of an image and can create slight distortions. Or a
+combination of both that reduces each effect.
+
+`Output format`:
+The file type and quality setting for formats that have a lossy compression.
+Note: for JPEG a number above 95 should be avoided.
+
+`Output color space`:
+Most models will expect the images in sRGB format and don't contain any
+color management. So it is important that the exporter handles this as
+the images used for the training might use a different color space.
+To save 8 kB for each image you might want to select "sRGB implicit" as that
+converts the image to sRGB but doesn't store the ICC information.
+When no color space convertation should happen you can choose "feed through".
+
+The simple "sRGB" is most likely the setting you want to choose here unless
+you are an expert and have special requirements.
+
+`Export directory`:
+The place to export the images to.
+
+`Keep input directory structure`:
+When the source images are organized in subdirectories this structure will
+be used for the exported images as well when selected.
+
+`Statistics`:
+Preview of the generated image sizes from the export funtion.
