@@ -14,7 +14,7 @@ from auto_captioning.models_list import MODELS, get_model_class
 from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
-from utils.enums import CaptionDevice, CaptionPosition
+from utils.enums import CaptionDevice, CaptionPosition, GeneratedTagOrder
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsDoubleSpinBox,
@@ -122,8 +122,16 @@ class CaptionSettingsForm(QVBoxLayout):
             key='wd_tagger_min_probability', default=0.4, minimum=0.01,
             maximum=1)
         self.min_probability_spin_box.setSingleStep(0.01)
+        self.min_char_probability_spin_box = FocusedScrollSettingsDoubleSpinBox(
+                key='wd_tagger_min_character_probability', default=0.51,
+                minimum=0.01, maximum=1.01)
+        self.min_char_probability_spin_box.setSingleStep(0.01)
         self.max_tags_spin_box = FocusedScrollSettingsSpinBox(
             key='wd_tagger_max_tags', default=30, minimum=1, maximum=999)
+        self.generated_tag_order = FocusedScrollSettingsComboBox(
+            key='wd_tagger_generated_tag_order', 
+        )
+        self.generated_tag_order.addItems(list(GeneratedTagOrder))
         tags_to_exclude_form = QFormLayout()
         tags_to_exclude_form.setRowWrapPolicy(
             QFormLayout.RowWrapPolicy.WrapAllRows)
@@ -136,9 +144,13 @@ class CaptionSettingsForm(QVBoxLayout):
         set_text_edit_height(self.tags_to_exclude_text_edit, 4)
         wd_tagger_settings_form.addRow('Show probabilities',
                                        self.show_probabilities_check_box)
-        wd_tagger_settings_form.addRow('Minimum probability',
+        wd_tagger_settings_form.addRow('Minimum tag probability',
                                        self.min_probability_spin_box)
+        wd_tagger_settings_form.addRow('Minimum character tag probability',
+                                       self.min_char_probability_spin_box)
         wd_tagger_settings_form.addRow('Maximum tags', self.max_tags_spin_box)
+        wd_tagger_settings_form.addRow('Generated Tag Order',
+                                       self.generated_tag_order)
         wd_tagger_settings_form.addRow(tags_to_exclude_form)
 
         self.toggle_advanced_settings_form_button = TallPushButton(
@@ -336,9 +348,13 @@ class CaptionSettingsForm(QVBoxLayout):
                 'show_probabilities':
                     self.show_probabilities_check_box.isChecked(),
                 'min_probability': self.min_probability_spin_box.value(),
+                'min_char_probability':
+                    self.min_char_probability_spin_box.value(),
                 'max_tags': self.max_tags_spin_box.value(),
                 'tags_to_exclude':
-                    self.tags_to_exclude_text_edit.toPlainText()
+                    self.tags_to_exclude_text_edit.toPlainText(),
+                'generated_tag_order':
+                    self.generated_tag_order.currentText()
             }
         }
 
