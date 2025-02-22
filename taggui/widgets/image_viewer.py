@@ -128,13 +128,13 @@ class CustomRectItem(QGraphicsRectItem):
         elif handle == RectPosition.LEFT or handle == RectPosition.RIGHT:
             self.setCursor(Qt.SizeHorCursor)
         else:
-            self.setCursor(Qt.OpenHandCursor)
+            self.unsetCursor()
             event.ignore()
         super().hoverMoveEvent(event)
 
     def mousePressEvent(self, event):
         self.handle_selected = self.handleAt(event.pos())
-        if self.handle_selected:
+        if self.handle_selected != RectPosition.NONE:
             self.mouse_press_pos = event.pos()
             self.mouse_press_scene_pos = event.scenePos()
             self.mouse_press_rect = self.rect()
@@ -189,8 +189,8 @@ class CustomRectItem(QGraphicsRectItem):
             path = QPainterPath()
             path.addRect(self.rect())
             to_crop = self.rect().size() - self.target_size
-            path.addRect(QRectF(QPointF(self.rect().x()+to_crop.width()/2,
-                                        self.rect().y()+to_crop.height()/2), self.target_size))
+            path.addRect(QRectF(QPointF(self.rect().x()+floor(to_crop.width()/2),
+                                        self.rect().y()+floor(to_crop.height()/2)), self.target_size))
             painter.drawPath(path)
 
         pen_half_width = self.pen_half_width / self.zoom_factor
@@ -272,10 +272,12 @@ class ResizeHintHUD(QGraphicsItem):
         self.path.lineTo(x + lr * width, self.rect.y() + self.rect.height())
 
         for ar in target_dimension.get_preferred_sizes():
+            f = max(self._boundingRect.width() / ar[0],
+                    self._boundingRect.height() / ar[1], 2)
             self.path.moveTo(x + lr * ar[0]    , self.rect.y()      + ar[1]    )
-            self.path.lineTo(x + lr * ar[0] * 2, self.rect.y()      + ar[1] * 2)
+            self.path.lineTo(x + lr * ar[0] * f, self.rect.y()      + ar[1] * f)
             self.path.moveTo(x + lr * ar[0]    , self.rect.bottom() - ar[1]    )
-            self.path.lineTo(x + lr * ar[0] * 2, self.rect.bottom() - ar[1] * 2)
+            self.path.lineTo(x + lr * ar[0] * f, self.rect.bottom() - ar[1] * f)
 
     def add_line_limit_lr(self, y: int, td: int):
         height = settings.value('export_resolution', type=int)**2 / self.rect.width()
@@ -283,10 +285,12 @@ class ResizeHintHUD(QGraphicsItem):
         self.path.lineTo(self.rect.x() + self.rect.width(), y + td * height)
 
         for ar in target_dimension.get_preferred_sizes():
+            f = max(self._boundingRect.width() / ar[0],
+                    self._boundingRect.height() / ar[1], 2)
             self.path.moveTo(self.rect.x()     + ar[0]    , y + td * ar[1]    )
-            self.path.lineTo(self.rect.x()     + ar[0] * 2, y + td * ar[1] * 2)
+            self.path.lineTo(self.rect.x()     + ar[0] * f, y + td * ar[1] * f)
             self.path.moveTo(self.rect.right() - ar[0]    , y + td * ar[1]    )
-            self.path.lineTo(self.rect.right() - ar[0] * 2, y + td * ar[1] * 2)
+            self.path.lineTo(self.rect.right() - ar[0] * f, y + td * ar[1] * f)
 
     def add_hyperbola_limit(self, pos: QPoint, lr: int, td: int):
         target_area = settings.value('export_resolution', type=int)**2
@@ -298,8 +302,10 @@ class ResizeHintHUD(QGraphicsItem):
             dx = dx + 10
 
         for ar in target_dimension.get_preferred_sizes():
-            self.path.moveTo(pos.x()+lr * ar[0], pos.y()+td * ar[1])
-            self.path.lineTo(pos.x()+lr * 2*ar[0], pos.y()+td * 2*ar[1])
+            f = max(self._boundingRect.width() / ar[0],
+                    self._boundingRect.height() / ar[1], 2)
+            self.path.moveTo(pos.x() + lr * ar[0]    , pos.y() + td * ar[1]    )
+            self.path.lineTo(pos.x() + lr * ar[0] * f, pos.y() + td * ar[1] * f)
 
     def boundingRect(self):
         return self._boundingRect
@@ -308,10 +314,10 @@ class ResizeHintHUD(QGraphicsItem):
         clip_path = QPainterPath()
         clip_path.addRect(self._boundingRect)
         painter.setClipPath(clip_path)
-        pen = QPen(QColor(255, 255, 255, 127), 3/self.zoom_factor)
+        pen = QPen(QColor(255, 255, 255, 127), 3 / self.zoom_factor)
         painter.setPen(pen)
         painter.drawPath(self.path)
-        pen = QPen(QColor(0, 0, 0), 1/self.zoom_factor)
+        pen = QPen(QColor(0, 0, 0), 1 / self.zoom_factor)
         painter.setPen(pen)
         painter.drawPath(self.path)
 
