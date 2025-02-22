@@ -4,8 +4,8 @@ from PySide6.QtCore import QKeyCombination, QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
                            QKeySequence, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
-                               QMessageBox, QStackedWidget, QVBoxLayout,
-                               QWidget)
+                               QMessageBox, QStackedWidget, QToolBar,
+                               QVBoxLayout, QWidget)
 from transformers import AutoTokenizer
 
 from dialogs.batch_reorder_tags_dialog import BatchReorderTagsDialog
@@ -62,7 +62,29 @@ class MainWindow(QMainWindow):
         # everything has the correct font size.
         self.set_font_size()
         self.image_viewer = ImageViewer(self.proxy_image_list_model)
+        self.image_viewer.zoom.connect(self.zoom)
         self.create_central_widget()
+
+        self.toolbar = QToolBar('Main toolbar', self)
+        self.toolbar.setObjectName('Main toolbar')
+        self.toolbar.setFloatable(True)
+        self.addToolBar(self.toolbar)
+        self.zoom_fit_best_action = QAction(QIcon.fromTheme('zoom-fit-best'), 'Zoom to fit', self)
+        self.zoom_fit_best_action.setCheckable(True)
+        #self.zoom_fit_best_action.triggered.connect(self.image_viewer.zoom_fit)
+        self.toolbar.addAction(self.zoom_fit_best_action)
+        self.zoom_in_action = QAction(QIcon.fromTheme('zoom-in'), 'Zoom in', self)
+        #self.zoom_in_action.triggered.connect(self.image_viewer.zoom_in)
+        self.toolbar.addAction(self.zoom_in_action)
+        self.zoom_original_action = QAction(QIcon.fromTheme('zoom-original'), 'Original size', self)
+        self.zoom_original_action.setCheckable(True)
+        #self.zoom_original_action.triggered.connect(self.image_viewer.zoom_original)
+        self.toolbar.addAction(self.zoom_original_action)
+        self.zoom_out_action = QAction(QIcon.fromTheme('zoom-out'), 'Zoom out', self)
+        #self.zoom_out_action.triggered.connect(self.image_viewer.zoom_out)
+        self.toolbar.addAction(self.zoom_out_action)
+        self.toolbar.addSeparator()
+
         self.image_list = ImageList(self.proxy_image_list_model,
                                     tag_separator, image_list_image_width)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
@@ -101,6 +123,7 @@ class MainWindow(QMainWindow):
         self.reload_directory_action.setDisabled(True)
         self.undo_action = QAction('Undo', parent=self)
         self.redo_action = QAction('Redo', parent=self)
+        self.toggle_toolbar_action = QAction('Toolbar', parent=self)
         self.toggle_image_list_action = QAction('Images', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
@@ -113,6 +136,7 @@ class MainWindow(QMainWindow):
                                            .selectionModel())
         self.image_list_model.image_list_selection_model = (
             self.image_list_selection_model)
+        self.connect_toolbar_signals()
         self.connect_image_list_signals()
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()
@@ -205,6 +229,18 @@ class MainWindow(QMainWindow):
         central_widget.addWidget(load_directory_widget)
         central_widget.addWidget(self.image_viewer)
         self.setCentralWidget(central_widget)
+
+    @Slot()
+    def zoom(self, factor):
+        if factor < 0:
+            self.zoom_fit_best_action.setChecked(True)
+            self.zoom_original_action.setChecked(False)
+        elif factor == 1.0:
+            self.zoom_fit_best_action.setChecked(False)
+            self.zoom_original_action.setChecked(True)
+        else:
+            self.zoom_fit_best_action.setChecked(False)
+            self.zoom_original_action.setChecked(False)
 
     def load_directory(self, path: Path, select_index: int = 0,
                        save_path_to_settings: bool = False):
@@ -355,10 +391,13 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(remove_empty_tags_action)
 
         view_menu = menu_bar.addMenu('View')
+        self.toggle_toolbar_action.setCheckable(True)
         self.toggle_image_list_action.setCheckable(True)
         self.toggle_image_tags_editor_action.setCheckable(True)
         self.toggle_all_tags_editor_action.setCheckable(True)
         self.toggle_auto_captioner_action.setCheckable(True)
+        self.toggle_toolbar_action.triggered.connect(
+            lambda is_checked: self.toolbar.setVisible(is_checked))
         self.toggle_image_list_action.triggered.connect(
             lambda is_checked: self.image_list.setVisible(is_checked))
         self.toggle_image_tags_editor_action.triggered.connect(
@@ -367,6 +406,7 @@ class MainWindow(QMainWindow):
             lambda is_checked: self.all_tags_editor.setVisible(is_checked))
         self.toggle_auto_captioner_action.triggered.connect(
             lambda is_checked: self.auto_captioner.setVisible(is_checked))
+        view_menu.addAction(self.toggle_toolbar_action)
         view_menu.addAction(self.toggle_image_list_action)
         view_menu.addAction(self.toggle_image_tags_editor_action)
         view_menu.addAction(self.toggle_all_tags_editor_action)
@@ -424,6 +464,19 @@ class MainWindow(QMainWindow):
                         if self.proxy_image_list_model.filter is None
                         else 'filtered_image_index')
         self.settings.setValue(settings_key, proxy_image_index.row())
+
+    def connect_toolbar_signals(self):
+        self.zoom_fit_best_action.triggered.connect(
+            self.image_viewer.zoom_fit)
+        self.zoom_in_action.triggered.connect(
+            self.image_viewer.zoom_in)
+        self.zoom_original_action.triggered.connect(
+            self.image_viewer.zoom_original)
+        self.zoom_out_action.triggered.connect(
+            self.image_viewer.zoom_out)
+        self.toolbar.visibilityChanged.connect(
+            lambda: self.toggle_toolbar_action.setChecked(
+                self.toolbar.isVisible()))
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(
