@@ -1,8 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os, sys
 from PyInstaller.utils.hooks import collect_data_files
 
 datas = [('clip-vit-base-patch32', 'clip-vit-base-patch32'),
          ('images/icon.ico', 'images')]
+datas += [(os.path.join(sys.base_prefix, 'include'), 'include')]
 datas += collect_data_files('triton')
 datas += collect_data_files('xformers')
 hiddenimports = [
