@@ -4,7 +4,16 @@ import re
 from utils.settings import DEFAULT_SETTINGS, settings
 
 # singleton data store
-_preferred_sizes : list[tuple[int, int]] | None = None
+_preferred_sizes : list[tuple[int, int]] = []
+
+settings.change.connect(lambda: _preferred_sizes.clear())
+
+def get_preferred_sizes():
+    global _preferred_sizes
+    if not _preferred_sizes:
+        prepare()
+    return _preferred_sizes
+
 
 def prepare(aspect_ratios : list[tuple[int, int, int]] | None = None) -> list[tuple[int, int, int]] | None:
     """

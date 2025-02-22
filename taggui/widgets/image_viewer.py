@@ -1,8 +1,9 @@
 from enum import Enum
 from math import floor
 from pathlib import Path
-from PySide6.QtCore import (QEvent, QModelIndex, QObject, QPoint, QPointF,
-                            QRect, QRectF, QSize, QSizeF, Qt, Signal, Slot)
+from PySide6.QtCore import (QEvent, QModelIndex, QObject, QPersistentModelIndex,
+                            QPoint, QPointF, QRect, QRectF, QSize, QSizeF, Qt,
+                            Signal, Slot)
 from PySide6.QtGui import (QCursor, QColor, QPainter, QPainterPath, QPen,
                            QPixmap, QTransform)
 from PySide6.QtWidgets import (QGraphicsItem, QGraphicsPixmapItem,
@@ -29,8 +30,12 @@ class RectPosition(str, Enum):
     BOTTOM = 'bottom'
     BL = 'bottom left'
     LEFT = 'left'
+    NONE = 'none'
 
 def flip_rect_position(pos: RectPosition, h_flip: bool, v_flip: bool) -> RectPosition:
+    if pos == RectPosition.NONE:
+        return RectPosition.NONE
+
     if pos == RectPosition.TL or pos == RectPosition.TOP or pos == RectPosition.TR:
         v = 2 if v_flip else 0
     elif pos == RectPosition.LEFT or pos == RectPosition.RIGHT:
@@ -46,13 +51,14 @@ def flip_rect_position(pos: RectPosition, h_flip: bool, v_flip: bool) -> RectPos
         h = 0 if h_flip else 2
 
     return {
-         0:  RectPosition.TL,   1:  RectPosition.TOP,    2:  RectPosition.TR,
+         0: RectPosition.TL,    1: RectPosition.TOP,     2: RectPosition.TR,
         10: RectPosition.LEFT,                          12: RectPosition.RIGHT,
         20: RectPosition.BL,   21: RectPosition.BOTTOM, 22: RectPosition.BR,
         }[h+10*v]
 
 class RectItemSignal(QObject):
-    change = Signal(QGraphicsRectItem, name='markingChanged')
+    change = Signal(QGraphicsRectItem, name='rectChanged')
+    move = Signal(QRectF, RectPosition, name='rectIsMoving')
 
 class CustomRectItem(QGraphicsRectItem):
     # the halfed size of the pen in local coordinates to make sure it stays the
@@ -64,7 +70,8 @@ class CustomRectItem(QGraphicsRectItem):
     # The size of the image this rect belongs to
     image_size = QRectF(0, 0, 1, 1)
 
-    def __init__(self, rect: QRect, rect_type: ImageMarking, target_size: QSize=None, parent=None):
+    def __init__(self, rect: QRect, rect_type: ImageMarking,
+                 target_size: QSize | None = None, parent = None):
         super().__init__(rect.toRectF(), parent)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
@@ -85,7 +92,7 @@ class CustomRectItem(QGraphicsRectItem):
     def change_pen_half_width(self):
         self.prepareGeometryChange()
 
-    def handleAt(self, point: QPointF) -> RectPosition | None:
+    def handleAt(self, point: QPointF) -> RectPosition:
         handle_space = -min(self.pen_half_width - self.handle_half_size, 0)/self.zoom_factor
         left = point.x() < self.rect().left() + handle_space
         right = point.x() > self.rect().right() - handle_space
@@ -108,7 +115,7 @@ class CustomRectItem(QGraphicsRectItem):
         elif right:
             return RectPosition.RIGHT
 
-        return None
+        return RectPosition.NONE
 
     def hoverMoveEvent(self, event):
         handle = self.handleAt(event.pos())
@@ -131,6 +138,7 @@ class CustomRectItem(QGraphicsRectItem):
             self.mouse_press_pos = event.pos()
             self.mouse_press_scene_pos = event.scenePos()
             self.mouse_press_rect = self.rect()
+            self.signal.move.emit(self.rect(), self.handle_selected)
         else:
             event.ignore()
         super().mousePressEvent(event)
@@ -163,11 +171,14 @@ class CustomRectItem(QGraphicsRectItem):
                 rect = rect.intersected(self.image_size)
                 self.setRect(rect)
                 self.size_changed()
+
+            self.signal.move.emit(self.rect(), self.handle_selected)
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
         if self.handle_selected:
-            self.handle_selected = None
+            self.handle_selected = RectPosition.NONE
+            self.signal.move.emit(self.rect(), self.handle_selected)
         self.signal.change.emit(self)
         super().mouseReleaseEvent(event)
 
@@ -217,6 +228,93 @@ class CustomRectItem(QGraphicsRectItem):
                 if bucket_strategy == BucketStrategy.CROP_SCALE:
                     self.target_size = (self.target_size + current.toSize())/2
 
+class ResizeHintHUD(QGraphicsItem):
+    zoom_factor = 1.0
+
+    def __init__(self, boundingRect: QRectF, parent=None):
+        super().__init__(parent)
+        self._boundingRect = boundingRect
+        self.rect = QRectF(0, 0, 1, 1)
+        self.path = QPainterPath()
+
+    @Slot(QRectF, RectPosition)
+    def setValues(self, rect: QRectF, pos: RectPosition):
+        if self.rect == rect and self.isVisible() == (pos != RectPosition.NONE):
+            return
+
+        self.rect = rect
+        self.setVisible(pos != RectPosition.NONE)
+
+        self.path = QPainterPath()
+
+        if pos == RectPosition.TL:
+            self.add_hyperbola_limit(self.rect.bottomRight(), -1, -1)
+        elif pos == RectPosition.TOP:
+            self.add_line_limit_lr(self.rect.bottom(), -1)
+        elif pos == RectPosition.TR:
+            self.add_hyperbola_limit(self.rect.bottomLeft(), 1, -1)
+        elif pos == RectPosition.RIGHT:
+            self.add_line_limit_td(self.rect.x(), 1)
+        elif pos == RectPosition.BR:
+            self.add_hyperbola_limit(self.rect.topLeft(), 1, 1)
+        elif pos == RectPosition.BOTTOM:
+            self.add_line_limit_lr(self.rect.y(), 1)
+        elif pos == RectPosition.BL:
+            self.add_hyperbola_limit(self.rect.topRight(), -1, 1)
+        elif pos == RectPosition.LEFT:
+            self.add_line_limit_td(self.rect.right(), -1)
+
+        self.update()
+
+    def add_line_limit_td(self, x: int, lr: int):
+        width = settings.value('export_resolution', type=int)**2 / self.rect.height()
+        self.path.moveTo(x + lr * width, self.rect.y()                     )
+        self.path.lineTo(x + lr * width, self.rect.y() + self.rect.height())
+
+        for ar in target_dimension.get_preferred_sizes():
+            self.path.moveTo(x + lr * ar[0]    , self.rect.y()      + ar[1]    )
+            self.path.lineTo(x + lr * ar[0] * 2, self.rect.y()      + ar[1] * 2)
+            self.path.moveTo(x + lr * ar[0]    , self.rect.bottom() - ar[1]    )
+            self.path.lineTo(x + lr * ar[0] * 2, self.rect.bottom() - ar[1] * 2)
+
+    def add_line_limit_lr(self, y: int, td: int):
+        height = settings.value('export_resolution', type=int)**2 / self.rect.width()
+        self.path.moveTo(self.rect.x(),                     y + td * height)
+        self.path.lineTo(self.rect.x() + self.rect.width(), y + td * height)
+
+        for ar in target_dimension.get_preferred_sizes():
+            self.path.moveTo(self.rect.x()     + ar[0]    , y + td * ar[1]    )
+            self.path.lineTo(self.rect.x()     + ar[0] * 2, y + td * ar[1] * 2)
+            self.path.moveTo(self.rect.right() - ar[0]    , y + td * ar[1]    )
+            self.path.lineTo(self.rect.right() - ar[0] * 2, y + td * ar[1] * 2)
+
+    def add_hyperbola_limit(self, pos: QPoint, lr: int, td: int):
+        target_area = settings.value('export_resolution', type=int)**2
+        res_size = settings.value('export_bucket_res_size', type=int)
+        dx = res_size
+        self.path.moveTo(pos.x() + lr * dx, pos.y() + td * target_area / dx)
+        while dx * res_size <= target_area:
+            self.path.lineTo(pos.x() + lr * dx, pos.y() + td * target_area / dx)
+            dx = dx + 10
+
+        for ar in target_dimension.get_preferred_sizes():
+            self.path.moveTo(pos.x()+lr * ar[0], pos.y()+td * ar[1])
+            self.path.lineTo(pos.x()+lr * 2*ar[0], pos.y()+td * 2*ar[1])
+
+    def boundingRect(self):
+        return self._boundingRect
+
+    def paint(self, painter, option, widget=None):
+        clip_path = QPainterPath()
+        clip_path.addRect(self._boundingRect)
+        painter.setClipPath(clip_path)
+        pen = QPen(QColor(255, 255, 255, 127), 3/self.zoom_factor)
+        painter.setPen(pen)
+        painter.drawPath(self.path)
+        pen = QPen(QColor(0, 0, 0), 1/self.zoom_factor)
+        painter.setPen(pen)
+        painter.drawPath(self.path)
+
 class ImageViewer(QWidget):
     zoom = Signal(float, name='zoomChanged')
 
@@ -238,25 +336,30 @@ class ImageViewer(QWidget):
         layout.addWidget(self.view)
         self.setLayout(layout)
 
-        self.proxy_image_index = None
+        self.proxy_image_index: QPersistentModelIndex = None
         self.rect_items: list[CustomRectItem] = []
 
         self.view.wheelEvent = self.wheelEvent
 
     @Slot()
     def load_image(self, proxy_image_index: QModelIndex):
-        self.proxy_image_index = proxy_image_index
-        image: Image = self.proxy_image_list_model.data(
-            proxy_image_index, Qt.ItemDataRole.UserRole)
+        self.proxy_image_index = QPersistentModelIndex(proxy_image_index)
 
-        pixmap = QPixmap(str(image.path))
         self.scene.clear()
+        if not self.proxy_image_index.isValid():
+            return
+
+        image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
+        pixmap = QPixmap(str(image.path))
         image_item = QGraphicsPixmapItem(pixmap)
         self.scene.addItem(image_item)
         self.scene.setSceneRect(image_item.boundingRect()
                                 .adjusted(-1, -1, 1, 1)) # space for rect border
         CustomRectItem.image_size = image_item.boundingRect()
         self.zoom_fit()
+
+        self.hud_item = ResizeHintHUD(CustomRectItem.image_size)
+        self.scene.addItem(self.hud_item)
 
         if image.crop:
             self.add_rectangle(QRect(*image.crop), ImageMarking.CROP, QSize(*image.target_dimension))
@@ -277,9 +380,9 @@ class ImageViewer(QWidget):
     @Slot(QGraphicsRectItem)
     def marking_change(self, rect: QGraphicsRectItem):
         assert self.proxy_image_index != None
+        assert self.proxy_image_index.isValid()
         if rect.rect_type == ImageMarking.CROP:
-            image: Image = self.proxy_image_list_model.data(
-                self.proxy_image_index, Qt.ItemDataRole.UserRole)
+            image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
             image.thumbnail = None
             image.crop = rect.rect().getRect()
             image.target_dimension = rect.target_size.toTuple()
@@ -316,6 +419,7 @@ class ImageViewer(QWidget):
         self.zoom_emit()
 
     def zoom_emit(self):
+        ResizeHintHUD.zoom_factor = CustomRectItem.zoom_factor
         transform = self.view.transform()
         self.view.setTransform(QTransform(
             CustomRectItem.zoom_factor, transform.m12(), transform.m13(),
@@ -340,6 +444,8 @@ class ImageViewer(QWidget):
 
     def add_rectangle(self, rect: QRect, rect_type: ImageMarking, size: QSize = None):
         rect_item = CustomRectItem(rect, rect_type, size)
+        if rect_type == ImageMarking.CROP:
+            rect_item.signal.move.connect(self.hud_item.setValues)
         rect_item.signal.change.connect(self.marking_change)
         self.scene.addItem(rect_item)
         self.rect_items.append(rect_item)
