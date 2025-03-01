@@ -9,8 +9,8 @@ import json
 
 import exifread
 import imagesize
-from PySide6.QtCore import (QAbstractListModel, QModelIndex, QRect, QSize, Qt,
-                            Signal, Slot)
+from PySide6.QtCore import (QAbstractListModel, QModelIndex, QPoint, QRect,
+                            QSize, Qt, Signal, Slot)
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
@@ -89,7 +89,14 @@ class ImageListModel(QAbstractListModel):
             # Rotate the image based on the orientation tag.
             image_reader.setAutoTransform(True)
             if image.crop:
-                image_reader.setClipRect(QRect(*image.crop))
+                crop = QRect(*image.crop)
+            else:
+                crop = QRect(QPoint(0, 0), image_reader.size())
+            if crop.height() > crop.width()*3:
+                # keep it sane, higher than 3x the width doesn't make sense
+                crop.setTop((crop.height() - crop.width()*3)/2) # center crop
+                crop.setHeight(crop.width()*3)
+            image_reader.setClipRect(crop)
             pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
                 self.image_list_image_width,
                 Qt.TransformationMode.SmoothTransformation)

@@ -1,11 +1,14 @@
 from pathlib import Path
 
-from PySide6.QtCore import QKeyCombination, QModelIndex, QUrl, Qt, Slot
-from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
-                           QKeySequence, QPixmap, QShortcut)
+from PySide6.QtCore import (QKeyCombination, QModelIndex, QPoint, QRect, QUrl,
+                            Qt, Slot)
+from PySide6.QtGui import (QAction, QActionGroup, QColor, QCloseEvent,
+                           QDesktopServices, QIcon, QKeySequence, QPainter,
+                           QPainterPath, QPen, QPixmap, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QMessageBox, QStackedWidget, QToolBar,
                                QVBoxLayout, QWidget)
+
 from transformers import AutoTokenizer
 
 from dialogs.batch_reorder_tags_dialog import BatchReorderTagsDialog
@@ -26,7 +29,7 @@ from widgets.all_tags_editor import AllTagsEditor
 from widgets.auto_captioner import AutoCaptioner
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
-from widgets.image_viewer import ImageViewer
+from widgets.image_viewer import ImageViewer, ImageMarking
 
 ICON_PATH = Path('images/icon.ico')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
@@ -69,17 +72,55 @@ class MainWindow(QMainWindow):
         self.toolbar.setObjectName('Main toolbar')
         self.toolbar.setFloatable(True)
         self.addToolBar(self.toolbar)
-        self.zoom_fit_best_action = QAction(QIcon.fromTheme('zoom-fit-best'), 'Zoom to fit', self)
+        self.zoom_fit_best_action = QAction(QIcon.fromTheme('zoom-fit-best'),
+                                            'Zoom to fit', self)
         self.zoom_fit_best_action.setCheckable(True)
         self.toolbar.addAction(self.zoom_fit_best_action)
-        self.zoom_in_action = QAction(QIcon.fromTheme('zoom-in'), 'Zoom in', self)
+        self.zoom_in_action = QAction(QIcon.fromTheme('zoom-in'),
+                                      'Zoom in', self)
         self.toolbar.addAction(self.zoom_in_action)
-        self.zoom_original_action = QAction(QIcon.fromTheme('zoom-original'), 'Original size', self)
+        self.zoom_original_action = QAction(QIcon.fromTheme('zoom-original'),
+                                            'Original size', self)
         self.zoom_original_action.setCheckable(True)
         self.toolbar.addAction(self.zoom_original_action)
-        self.zoom_out_action = QAction(QIcon.fromTheme('zoom-out'), 'Zoom out', self)
+        self.zoom_out_action = QAction(QIcon.fromTheme('zoom-out'),
+                                       'Zoom out', self)
         self.toolbar.addAction(self.zoom_out_action)
         self.toolbar.addSeparator()
+        self.add_action_group = QActionGroup(self)
+        self.add_action_group.setExclusionPolicy(QActionGroup.ExclusiveOptional)
+        self.add_crop_action = QAction(create_add_box_icon(Qt.blue),
+                                       'Add crop', self.add_action_group)
+        self.add_crop_action.setCheckable(True)
+        self.toolbar.addAction(self.add_crop_action)
+        self.add_hint_action = QAction(create_add_box_icon(Qt.gray),
+                                       'Add hint', self.add_action_group)
+        self.add_hint_action.setCheckable(True)
+        self.toolbar.addAction(self.add_hint_action)
+        self.add_include_action = QAction(create_add_box_icon(Qt.green),
+                                          'Add include mask', self.add_action_group)
+        self.add_include_action.setCheckable(True)
+        self.toolbar.addAction(self.add_include_action)
+        self.add_exclude_action = QAction(create_add_box_icon(Qt.red),
+                                          'Add exclude mask', self.add_action_group)
+        self.add_exclude_action.setCheckable(True)
+        self.toolbar.addAction(self.add_exclude_action)
+        self.image_viewer.marking.connect(lambda marking:
+            self.add_crop_action.setChecked(True) if marking == ImageMarking.CROP else
+            self.add_hint_action.setChecked(True) if marking == ImageMarking.HINT else
+            self.add_include_action.setChecked(True) if marking == ImageMarking.INCLUDE else
+            self.add_exclude_action.setChecked(True) if marking == ImageMarking.EXCLUDE else
+            self.add_action_group.checkedAction() and
+                self.add_action_group.checkedAction().setChecked(False))
+        self.image_viewer.accept_crop_addition.connect(self.add_crop_action.setEnabled)
+        self.delete_marking_action = QAction(QIcon.fromTheme('edit-delete'),
+                                            'Delete marking', self)
+        self.delete_marking_action.setEnabled(False)
+        self.toolbar.addAction(self.delete_marking_action)
+        self.image_viewer.scene.selectionChanged.connect(lambda:
+            self.delete_marking_action.setEnabled(
+                len(self.image_viewer.scene.selectedItems())>0))
+
 
         self.image_list = ImageList(self.proxy_image_list_model,
                                     tag_separator, image_list_image_width)
@@ -482,6 +523,14 @@ class MainWindow(QMainWindow):
         self.toolbar.visibilityChanged.connect(
             lambda: self.toggle_toolbar_action.setChecked(
                 self.toolbar.isVisible()))
+        self.add_action_group.triggered.connect(
+            lambda action: self.image_viewer.add_marking(
+                ImageMarking.NONE if not action.isChecked() else
+                ImageMarking.CROP if action == self.add_crop_action else
+                ImageMarking.HINT if action == self.add_hint_action else
+                ImageMarking.INCLUDE if action == self.add_include_action else
+                ImageMarking.EXCLUDE))
+        self.delete_marking_action.triggered.connect(self.image_viewer.delete_selected)
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(
@@ -631,3 +680,28 @@ class MainWindow(QMainWindow):
                                                       type=str))
             if directory_path.is_dir():
                 self.load_directory(directory_path, select_index=image_index)
+
+def create_add_box_icon(color: QColor) -> QPixmap:
+    """Create a QPixmap for an icon"""
+    pixmap = QPixmap(32, 32)
+    pixmap.fill(QColor('transparent'))
+
+    # Create a painter to draw on the pixmap
+    painter = QPainter(pixmap)
+
+    # Draw a bordered rectangle in the specified color
+    rect = QRect(2, 2, 28, 28)
+    painter.setPen(QPen(color, 2))
+    painter.drawRect(rect)
+
+    # Draw a plus sign in the middle
+    painter.setPen(QPen(Qt.black, 1))
+    path = QPainterPath()
+    path.moveTo(16, 10)
+    path.lineTo(16, 22)
+    path.moveTo(10, 16)
+    path.lineTo(22, 16)
+    painter.drawPath(path)
+    painter.end()
+
+    return pixmap

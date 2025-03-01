@@ -226,7 +226,8 @@ class ImageTagsEditor(QDockWidget):
         Reload the tags for the current image if its index is in the range of
         changed indices.
         """
-        if (first_changed_index.row() <= self.image_index.row()
+        if (self.image_index and
+            first_changed_index.row() <= self.image_index.row()
                 <= last_changed_index.row()):
             proxy_image_index = self.proxy_image_list_model.mapFromSource(
                 self.image_index)

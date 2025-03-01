@@ -6,7 +6,7 @@ from PySide6.QtCore import (QEvent, QModelIndex, QObject, QPersistentModelIndex,
                             Signal, Slot)
 from PySide6.QtGui import (QCursor, QColor, QPainter, QPainterPath, QPen,
                            QPixmap, QTransform)
-from PySide6.QtWidgets import (QGraphicsItem, QGraphicsPixmapItem,
+from PySide6.QtWidgets import (QGraphicsItem, QGraphicsLineItem, QGraphicsPixmapItem,
                                QGraphicsRectItem, QGraphicsScene, QGraphicsView,
                                QVBoxLayout, QWidget)
 from utils.settings import settings
@@ -15,11 +15,18 @@ from utils.image import Image
 import utils.target_dimension as target_dimension
 from dialogs.export_dialog import BucketStrategy
 
+# Alignment base for a grid
+base_point: QPoint = QPoint(0, 0)
+
+# stepsize of the grid
+grid: int = 8
+
 class ImageMarking(str, Enum):
     CROP = 'crop'
     HINT = 'hint'
     INCLUDE = 'include in mask'
     EXCLUDE = 'exclude from mask'
+    NONE = 'no marking'
 
 class RectPosition(str, Enum):
     TL = 'top left'
@@ -56,6 +63,63 @@ def flip_rect_position(pos: RectPosition, h_flip: bool, v_flip: bool) -> RectPos
         20: RectPosition.BL,   21: RectPosition.BOTTOM, 22: RectPosition.BR,
         }[h+10*v]
 
+def change_rect(rect: QRect, rect_pos: RectPosition, pos: QPoint) -> QRect:
+    if rect_pos == RectPosition.TL:
+        rect.setTopLeft(pos)
+    elif rect_pos == RectPosition.TOP:
+        rect.setTop(pos.y())
+    elif rect_pos == RectPosition.TR:
+        rect.setTopRight(pos)
+    elif rect_pos == RectPosition.RIGHT:
+        rect.setRight(pos.x())
+    elif rect_pos == RectPosition.BR:
+        rect.setBottomRight(pos)
+    elif rect_pos == RectPosition.BOTTOM:
+        rect.setBottom(pos.y())
+    elif rect_pos == RectPosition.BL:
+        rect.setBottomLeft(pos)
+    elif rect_pos == RectPosition.LEFT:
+        rect.setLeft(pos.x())
+    return rect
+
+def change_rect_to_match_size(rect: QRect, rect_pos: RectPosition, size: QSize) -> QRect:
+    """Change the `rect` at place `rect_pos` so that the size matches `size`.
+
+    Moving a side will ignore the value in the size for the perpendicular side.
+    """
+    rect_new = QRect(rect)
+    if rect_pos == RectPosition.TL:
+        rect_new.setSize(size)
+        rect_new.moveBottomRight(rect.bottomRight())
+    elif rect_pos == RectPosition.TOP:
+        rect_new.setHeight(size.height())
+        rect_new.moveBottom(rect.bottom())
+    elif rect_pos == RectPosition.TR:
+        rect_new.setSize(size)
+        rect_new.moveBottomLeft(rect.bottomLeft())
+    elif rect_pos == RectPosition.RIGHT:
+        rect_new.setWidth(size.width())
+        rect_new.moveLeft(rect.left())
+    elif rect_pos == RectPosition.BR:
+        rect_new.setSize(size)
+        rect_new.moveTopLeft(rect.topLeft())
+    elif rect_pos == RectPosition.BOTTOM:
+        rect_new.setHeight(size.height())
+        rect_new.moveTop(rect.top())
+    elif rect_pos == RectPosition.BL:
+        rect_new.setSize(size)
+        rect_new.moveTopRight(rect.topRight())
+    elif rect_pos == RectPosition.LEFT:
+        rect_new.setWidth(size.width())
+        rect_new.moveRight(rect.right())
+    return rect_new
+
+def map_to_grid(point: QPoint) -> QPoint:
+    """Align the point to the closest position on the grid aligned at
+    `base_point` and with a step width of `grid`.
+    """
+    return (QPointF(point - base_point) / grid).toPoint() * grid + base_point
+
 class RectItemSignal(QObject):
     change = Signal(QGraphicsRectItem, name='rectChanged')
     move = Signal(QRectF, RectPosition, name='rectIsMoving')
@@ -68,7 +132,11 @@ class CustomRectItem(QGraphicsRectItem):
     handle_half_size = 5
     zoom_factor = 1.0
     # The size of the image this rect belongs to
-    image_size = QRectF(0, 0, 1, 1)
+    image_size = QRect(0, 0, 1, 1)
+    # the last (quantisized position of the mouse
+    #last_pos = None
+    # Static link to the single ImageGraphicsView in this application
+    image_view = None
 
     def __init__(self, rect: QRect, rect_type: ImageMarking,
                  target_size: QSize | None = None, parent = None):
@@ -84,7 +152,10 @@ class CustomRectItem(QGraphicsRectItem):
             ImageMarking.INCLUDE: Qt.green,
             ImageMarking.EXCLUDE: Qt.red,
             }[rect_type]
-        self.target_size = target_size
+        if rect_type == ImageMarking.CROP and target_size == None:
+            self.size_changed() # this method sets self.target_size
+        else:
+            self.target_size = target_size
         self.handle_selected = None
         self.mouse_press_pos = None
         self.mouse_press_rect = None
@@ -93,7 +164,8 @@ class CustomRectItem(QGraphicsRectItem):
         self.prepareGeometryChange()
 
     def handleAt(self, point: QPointF) -> RectPosition:
-        handle_space = -min(self.pen_half_width - self.handle_half_size, 0)/self.zoom_factor
+        handle_space = -min(self.pen_half_width - self.handle_half_size,
+                            0)/self.zoom_factor
         left = point.x() < self.rect().left() + handle_space
         right = point.x() > self.rect().right() - handle_space
         top = point.y() < self.rect().top() + handle_space
@@ -139,31 +211,69 @@ class CustomRectItem(QGraphicsRectItem):
             self.mouse_press_scene_pos = event.scenePos()
             self.mouse_press_rect = self.rect()
             self.signal.move.emit(self.rect(), self.handle_selected)
+            if self.rect_type == ImageMarking.CROP:
+                global base_point
+                if (self.handle_selected == RectPosition.TL or
+                    self.handle_selected == RectPosition.TOP):
+                    base_point = self.rect().bottomRight().toPoint()
+                elif (self.handle_selected == RectPosition.TR or
+                      self.handle_selected == RectPosition.RIGHT):
+                    base_point = self.rect().bottomLeft().toPoint()
+                elif (self.handle_selected == RectPosition.BR or
+                      self.handle_selected == RectPosition.BOTTOM):
+                    base_point = self.rect().topLeft().toPoint()
+                elif (self.handle_selected == RectPosition.BL or
+                      self.handle_selected == RectPosition.LEFT):
+                    base_point = self.rect().topRight().toPoint()
         else:
             event.ignore()
-        super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
         if self.handle_selected:
-            rect = self.rect()
-            pos_quantizised = event.scenePos().toPoint().toPointF()
-            if self.handle_selected == RectPosition.TL:
-                rect.setTopLeft(pos_quantizised)
-            elif self.handle_selected == RectPosition.TOP:
-                rect.setTop(pos_quantizised.y())
-            elif self.handle_selected == RectPosition.TR:
-                rect.setTopRight(pos_quantizised)
-            elif self.handle_selected == RectPosition.RIGHT:
-                rect.setRight(pos_quantizised.x())
-            elif self.handle_selected == RectPosition.BR:
-                rect.setBottomRight(pos_quantizised)
-            elif self.handle_selected == RectPosition.BOTTOM:
-                rect.setBottom(pos_quantizised.y())
-            elif self.handle_selected == RectPosition.BL:
-                rect.setBottomLeft(pos_quantizised)
-            elif self.handle_selected == RectPosition.LEFT:
-                rect.setLeft(pos_quantizised.x())
-            self.handle_selected = flip_rect_position(self.handle_selected, rect.width() < 0, rect.height() < 0)
+            if ((event.modifiers() & Qt.KeyboardModifier.ShiftModifier) ==
+                Qt.KeyboardModifier.ShiftModifier):
+                if self.rect_type == ImageMarking.CROP:
+                    pos_quantizised = event.pos().toPoint()
+                    pos_quantizised_pre = pos_quantizised
+                    rect_pre = change_rect(self.rect().toRect(),
+                                           self.handle_selected,
+                                           pos_quantizised)
+                    target_width, target_height = target_dimension.get(rect_pre.size().toTuple())
+                    if rect_pre.height() * target_width / rect_pre.width() < target_height: # too wide
+                        scale = rect_pre.height() / target_height
+                        target_size0 = QSize(floor(target_width*scale),
+                                             rect_pre.height())
+                        target_size1 = QSize(floor(target_width*scale)+1,
+                                             rect_pre.height())
+                    else: # too high
+                        scale = rect_pre.width() / target_width
+                        target_size0 = QSize(rect_pre.width(),
+                                             floor(target_height*scale))
+                        target_size1 = QSize(rect_pre.width(),
+                                             floor(target_height*scale)+1)
+                    tw0, th0 = target_dimension.get(target_size0.toTuple())
+                    tw1, th1 = target_dimension.get(target_size1.toTuple())
+                    if tw0 == target_width and th0 == target_height:
+                        target_size = target_size0
+                    else:
+                        target_size = target_size1
+                    rect = change_rect_to_match_size(self.rect().toRect(),
+                                                     self.handle_selected,
+                                                     target_size)
+                else:
+                    pos_quantizised = map_to_grid(event.pos().toPoint())
+                    rect = change_rect(self.rect().toRect(),
+                                       self.handle_selected,
+                                       pos_quantizised)
+            else:
+                pos_quantizised = event.pos().toPoint()
+                rect = change_rect(self.rect().toRect(),
+                                   self.handle_selected,
+                                   pos_quantizised)
+
+            self.handle_selected = flip_rect_position(self.handle_selected,
+                                                      rect.width() < 0,
+                                                      rect.height() < 0)
 
             if rect.width() == 0 or rect.height() == 0:
                 self.setRect(rect)
@@ -188,17 +298,27 @@ class CustomRectItem(QGraphicsRectItem):
             painter.setBrush(QColor(255, 0, 0, 127))
             path = QPainterPath()
             path.addRect(self.rect())
-            to_crop = self.rect().size() - self.target_size
-            path.addRect(QRectF(QPointF(self.rect().x()+floor(to_crop.width()/2),
-                                        self.rect().y()+floor(to_crop.height()/2)), self.target_size))
+            if self.target_size:
+                to_crop = self.rect().size() - self.target_size
+                path.addRect(QRectF(QPointF(self.rect().x()+floor(to_crop.width()/2),
+                                            self.rect().y()+floor(to_crop.height()/2)),
+                                    self.target_size))
             painter.drawPath(path)
 
         pen_half_width = self.pen_half_width / self.zoom_factor
-        pen = QPen(self.color, 2*pen_half_width, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        pen = QPen(self.color, 2*pen_half_width, Qt.SolidLine, Qt.RoundCap,
+                   Qt.RoundJoin)
         painter.setPen(pen)
         painter.setBrush(Qt.NoBrush)
         painter.drawRect(self.rect().adjusted(-pen_half_width, -pen_half_width,
                                               pen_half_width, pen_half_width))
+        if self.isSelected():
+            s_rect = self.rect().adjusted(-2*pen_half_width, -2*pen_half_width,
+                                           2*pen_half_width,  2*pen_half_width)
+            painter.setPen(QPen(Qt.white, 1.5 / self.zoom_factor, Qt.SolidLine))
+            painter.drawRect(s_rect)
+            painter.setPen(QPen(Qt.black, 1.5 / self.zoom_factor, Qt.DotLine))
+            painter.drawRect(s_rect)
 
     def shape(self):
         path = super().shape()
@@ -215,7 +335,7 @@ class CustomRectItem(QGraphicsRectItem):
     def size_changed(self):
         if self.rect_type == ImageMarking.CROP:
             bucket_strategy = settings.value('export_bucket_strategy', type=str)
-            current = self.rect().size()
+            current = self.rect().size().expandedTo(QSize(1, 1))
             if bucket_strategy == BucketStrategy.SCALE:
                 self.target_size = current
             else: # CROP or CROP_SCALE
@@ -224,14 +344,14 @@ class CustomRectItem(QGraphicsRectItem):
                     scale = current.height() / target_height
                 else: # too high
                     scale = current.width() / target_width
-                self.target_size = QSize(target_width*scale, target_height*scale)
+                self.target_size = QSize(round(target_width*scale), round(target_height*scale))
                 if bucket_strategy == BucketStrategy.CROP_SCALE:
                     self.target_size = (self.target_size + current.toSize())/2
 
 class ResizeHintHUD(QGraphicsItem):
     zoom_factor = 1.0
 
-    def __init__(self, boundingRect: QRectF, parent=None):
+    def __init__(self, boundingRect: QRect, parent=None):
         super().__init__(parent)
         self._boundingRect = boundingRect
         self.rect = QRectF(0, 0, 1, 1)
@@ -321,8 +441,103 @@ class ResizeHintHUD(QGraphicsItem):
         painter.setPen(pen)
         painter.drawPath(self.path)
 
+class ImageGraphicsView(QGraphicsView):
+    def __init__(self, scene, image_viewer):
+        super().__init__(scene)
+        self.setRenderHint(QPainter.Antialiasing)
+        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.image_viewer = image_viewer
+        CustomRectItem.image_view = self
+        self.last_pos = None
+        self.clear_scene()
+
+    def clear_scene(self):
+        """Use this and not scene.clear() due to resource management."""
+        global grid, base_point
+        self.insertion_mode = False
+        self.horizontal_line = None
+        self.vertical_line = None
+        grid = 8
+        base_point = QPoint(0, 0)
+        self.scene().clear()
+
+    def set_insertion_mode(self, mode):
+        self.insertion_mode = mode
+        if mode:
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+            self.horizontal_line = QGraphicsLineItem()
+            self.vertical_line = QGraphicsLineItem()
+            self.scene().addItem(self.horizontal_line)
+            self.scene().addItem(self.vertical_line)
+            self.update_lines_pos()
+        else:
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+            self.unsetCursor()
+            self.scene().removeItem(self.horizontal_line)
+            self.scene().removeItem(self.vertical_line)
+
+    def update_lines_pos(self):
+        """Show the hint lines at the position self.last_pos.
+
+        Note: do not use a position parameter as then the key event couldn't
+        immediately show them as the mouse position would be missing then.
+        """
+        if self.last_pos:
+            view_rect = self.mapToScene(self.viewport().rect()).boundingRect()
+            self.horizontal_line.setLine(view_rect.left(), self.last_pos.y(),
+                                         view_rect.right(), self.last_pos.y())
+            self.vertical_line.setLine(self.last_pos.x(), view_rect.top(),
+                                       self.last_pos.x(), view_rect.bottom())
+
+
+    def mousePressEvent(self, event):
+        if self.insertion_mode and event.button() == Qt.MouseButton.LeftButton:
+            rect_type = self.image_viewer.marking_to_add
+            if rect_type == ImageMarking.NONE:
+                if ((event.modifiers() & Qt.KeyboardModifier.AltModifier) ==
+                    Qt.KeyboardModifier.AltModifier):
+                    rect_type = ImageMarking.EXCLUDE
+                else:
+                    rect_type = ImageMarking.HINT
+
+            self.image_viewer.add_rectangle(QRect(self.last_pos, QSize(0, 0)),
+                                            rect_type)
+            self.set_insertion_mode(False)
+            super().mousePressEvent(event)
+        else:
+            super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        last_pos_raw = self.mapToScene(event.position().toPoint())
+        if ((event.modifiers() & Qt.KeyboardModifier.ShiftModifier) ==
+            Qt.KeyboardModifier.ShiftModifier):
+            self.last_pos = map_to_grid(last_pos_raw.toPoint())
+        else:
+            self.last_pos = last_pos_raw.toPoint()
+            pos = last_pos_raw
+
+        if self.insertion_mode:
+            self.update_lines_pos()
+        else:
+            super().mouseMoveEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Control:
+            self.set_insertion_mode(True)
+        elif event.key() == Qt.Key.Key_Delete:
+            self.image_viewer.delete_selected()
+
+    def keyReleaseEvent(self, event):
+        if event.key() == Qt.Key.Key_Control:
+            self.set_insertion_mode(False)
+
 class ImageViewer(QWidget):
     zoom = Signal(float, name='zoomChanged')
+    marking = Signal(ImageMarking, name='markingToAdd')
+    accept_crop_addition = Signal(bool, name='allowAdditionOfCrop')
 
     def __init__(self, proxy_image_list_model: ProxyImageListModel):
         super().__init__()
@@ -330,12 +545,9 @@ class ImageViewer(QWidget):
         CustomRectItem.pen_half_width = round(self.devicePixelRatio())
         CustomRectItem.zoom_factor = 1.0
         self.is_zoom_to_fit = True
+        self.marking_to_add = ImageMarking.NONE
         self.scene = QGraphicsScene()
-        self.view = QGraphicsView(self.scene)
-        self.view.setRenderHint(QPainter.Antialiasing)
-        self.view.setDragMode(QGraphicsView.ScrollHandDrag)
-        self.view.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        self.view.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
+        self.view = ImageGraphicsView(self.scene, self)
         settings.change.connect(self.setting_change)
 
         layout = QVBoxLayout()
@@ -351,7 +563,7 @@ class ImageViewer(QWidget):
     def load_image(self, proxy_image_index: QModelIndex):
         self.proxy_image_index = QPersistentModelIndex(proxy_image_index)
 
-        self.scene.clear()
+        self.view.clear_scene()
         if not self.proxy_image_index.isValid():
             return
 
@@ -361,12 +573,15 @@ class ImageViewer(QWidget):
         self.scene.addItem(image_item)
         self.scene.setSceneRect(image_item.boundingRect()
                                 .adjusted(-1, -1, 1, 1)) # space for rect border
-        CustomRectItem.image_size = image_item.boundingRect()
+        CustomRectItem.image_size = image_item.boundingRect().toRect()
         self.zoom_fit()
 
         self.hud_item = ResizeHintHUD(CustomRectItem.image_size)
         self.scene.addItem(self.hud_item)
 
+        self.marking_to_add = ImageMarking.NONE
+        self.marking.emit(ImageMarking.NONE)
+        self.accept_crop_addition.emit(not image.crop)
         if image.crop:
             if not image.target_dimension:
                 image.target_dimension = target_dimension.get(image.crop[2:])
@@ -388,6 +603,7 @@ class ImageViewer(QWidget):
 
     @Slot(QGraphicsRectItem)
     def marking_change(self, rect: QGraphicsRectItem):
+        global grid, base_point
         assert self.proxy_image_index != None
         assert self.proxy_image_index.isValid()
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
@@ -396,6 +612,10 @@ class ImageViewer(QWidget):
             image.thumbnail = None
             image.crop = rect.rect().toRect().getRect() # ensure int!
             image.target_dimension = rect.target_size.toTuple()
+            scale = min(image.crop[2]/image.target_dimension[0],
+                        image.crop[3]/image.target_dimension[1])
+            base_point = QPoint(image.crop[0]+floor((image.crop[2]-scale*image.target_dimension[0])/2),
+                                image.crop[1]+floor((image.crop[3]-scale*image.target_dimension[1])/2))
         elif rect.rect_type == ImageMarking.HINT:
             image.hints[rect.data(0)] = rect.rect().toRect().getRect()
         elif rect.rect_type == ImageMarking.INCLUDE:
@@ -447,6 +667,12 @@ class ImageViewer(QWidget):
         else:
             self.zoom.emit(CustomRectItem.zoom_factor)
 
+    @Slot(ImageMarking)
+    def add_marking(self, marking: ImageMarking):
+        self.marking_to_add = marking
+        self.view.set_insertion_mode(marking != ImageMarking.NONE)
+        grid = 1 if marking == ImageMarking.CROP else 8
+
     def wheelEvent(self, event):
         old_pos = self.view.mapToScene(event.position().toPoint())
 
@@ -462,12 +688,52 @@ class ImageViewer(QWidget):
     def add_rectangle(self, rect: QRect, rect_type: ImageMarking,
                       size: QSize = None, name: str = ''):
         rect_item = CustomRectItem(rect, rect_type, size)
-        rect_item.setData(0, name)
         if rect_type == ImageMarking.CROP:
             rect_item.signal.move.connect(self.hud_item.setValues)
+        elif name == '' and rect_type != ImageMarking.NONE:
+            image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
+            if rect_type == ImageMarking.HINT:
+                keys = image.hints.keys()
+                pre = 'hint'
+            elif rect_type == ImageMarking.INCLUDE:
+                keys = image.includes.keys()
+                pre = 'include'
+            elif rect_type == ImageMarking.EXCLUDE:
+                keys = image.excludes.keys()
+                pre = 'exclude'
+            count = 1
+            while f'{pre}{count}' in keys:
+                count += 1
+            name = f'{pre}{count}'
+        rect_item.setData(0, name)
         rect_item.signal.change.connect(self.marking_change)
         self.scene.addItem(rect_item)
         self.rect_items.append(rect_item)
+        self.marking.emit(ImageMarking.NONE)
+        if rect_type == ImageMarking.CROP:
+            self.accept_crop_addition.emit(False)
+            self.marking_change(rect_item)
+
+    @Slot()
+    def delete_selected(self):
+        image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
+        for item in self.scene.selectedItems():
+            if item.rect_type == ImageMarking.CROP:
+                global base_point
+                image.thumbnail = None
+                image.crop = None
+                image.target_dimension = None
+                base_point = QPoint(0, 0)
+                self.accept_crop_addition.emit(True)
+            elif item.rect_type == ImageMarking.HINT:
+                del image.hints[item.data(0)]
+            elif item.rect_type == ImageMarking.INCLUDE:
+                del image.includes[item.data(0)]
+            elif item.rect_type == ImageMarking.EXCLUDE:
+                del image.excludes[item.data(0)]
+            self.scene.removeItem(item)
+        self.proxy_image_list_model.sourceModel().dataChanged.emit(
+            self.proxy_image_index, self.proxy_image_index)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

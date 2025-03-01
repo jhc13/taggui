@@ -1,4 +1,4 @@
-from math import sqrt
+from math import floor, sqrt
 import re
 
 from utils.settings import DEFAULT_SETTINGS, settings
@@ -93,54 +93,32 @@ def get(dimensions: tuple[int, int]):
     preferred_sizes_bonus = 0.4 # reduce the loss by this factor
 
     max_pixels = resolution * resolution
-    opt_width = resolution * sqrt(width/height)
-    opt_height = resolution * sqrt(height/width)
-    if not upscaling:
-        opt_width = min(width, opt_width)
-        opt_height = min(height, opt_height)
+    opt_width = floor(resolution * sqrt(width/height))
+    opt_height = floor(resolution * sqrt(height/width))
 
-    # test 1, guaranteed to find a solution: shrink and crop
-    # 1.1: exact width
-    candidate_width = max(opt_width // bucket_res, 1) * bucket_res
-    candidate_height = max((height * candidate_width / width) // bucket_res, 1) * bucket_res
-    loss = ((height * candidate_width / width) - candidate_height) * candidate_width
-    if (candidate_width, candidate_height) in _preferred_sizes:
-        loss *= preferred_sizes_bonus
-    # 1.2: exact height
-    test_height = max(opt_height // bucket_res, 1) * bucket_res
-    test_width = max((width * test_height / height) // bucket_res, 1) * bucket_res
-    test_loss = ((width * test_height / height) - test_width) * test_height
-    if (test_height, test_width) in _preferred_sizes:
-        test_loss *= preferred_sizes_bonus
-    if test_loss < loss:
-        candidate_width = test_width
-        candidate_height = test_height
-        loss = test_loss
+    loss = 1e10
+    for dx, dy in [(0,0), (0,1), (1,0), (1,1)]:
+        opt_width += dx
+        opt_height += dy
 
-    # test 2, going bigger might still fit in the size budget due to cropping
-    # 2.1: exact width
-    for delta in range(1, 10):
-        test_width = max(opt_width // bucket_res + delta, 1) * bucket_res
+        if not upscaling:
+            opt_width = min(width, opt_width)
+            opt_height = min(height, opt_height)
+
+        # test 1, guaranteed to find a solution: shrink and crop
+        # 1.1: exact width
+        test_width = max(opt_width // bucket_res, 1) * bucket_res
         test_height = max((height * test_width / width) // bucket_res, 1) * bucket_res
-        if test_width * test_height > max_pixels:
-            break
-        if (test_width > width or test_height > height) and not upscaling:
-            break
         test_loss = ((height * test_width / width) - test_height) * test_width
-        if (test_height, test_width) in _preferred_sizes:
+        if (test_width, test_height) in _preferred_sizes:
             test_loss *= preferred_sizes_bonus
-            if test_loss < loss:
-                candidate_width = test_width
-                candidate_height = test_height
-                loss = test_loss
-    # 2.2: exact height
-    for delta in range(1, 10):
-        test_height = max(opt_height // bucket_res + delta, 1) * bucket_res
+        if test_loss < loss:
+            candidate_width = test_width
+            candidate_height = test_height
+            loss = test_loss
+        # 1.2: exact height
+        test_height = max(opt_height // bucket_res, 1) * bucket_res
         test_width = max((width * test_height / height) // bucket_res, 1) * bucket_res
-        if test_width * test_height > max_pixels:
-            break
-        if (test_width > width or test_height > height) and not upscaling:
-            break
         test_loss = ((width * test_height / height) - test_width) * test_height
         if (test_height, test_width) in _preferred_sizes:
             test_loss *= preferred_sizes_bonus
@@ -149,4 +127,36 @@ def get(dimensions: tuple[int, int]):
             candidate_height = test_height
             loss = test_loss
 
-    return int(candidate_width), int(candidate_height)
+        # test 2, going bigger might still fit in the size budget due to cropping
+        # 2.1: exact width
+        for delta in range(1, 10):
+            test_width = max(opt_width // bucket_res + delta, 1) * bucket_res
+            test_height = max((height * test_width / width) // bucket_res, 1) * bucket_res
+            if test_width * test_height > max_pixels:
+                break
+            if (test_width > width or test_height > height) and not upscaling:
+                break
+            test_loss = ((height * test_width / width) - test_height) * test_width
+            if (test_height, test_width) in _preferred_sizes:
+                test_loss *= preferred_sizes_bonus
+                if test_loss < loss:
+                    candidate_width = test_width
+                    candidate_height = test_height
+                    loss = test_loss
+        # 2.2: exact height
+        for delta in range(1, 10):
+            test_height = max(opt_height // bucket_res + delta, 1) * bucket_res
+            test_width = max((width * test_height / height) // bucket_res, 1) * bucket_res
+            if test_width * test_height > max_pixels:
+                break
+            if (test_width > width or test_height > height) and not upscaling:
+                break
+            test_loss = ((width * test_height / height) - test_width) * test_height
+            if (test_height, test_width) in _preferred_sizes:
+                test_loss *= preferred_sizes_bonus
+            if test_loss < loss:
+                candidate_width = test_width
+                candidate_height = test_height
+                loss = test_loss
+
+        return int(candidate_width), int(candidate_height)
