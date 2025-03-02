@@ -358,7 +358,7 @@ class MarkingItem(QGraphicsRectItem):
 
 
 class MarkingLabel(QGraphicsTextItem):
-    editingFinished = Signal(str)
+    editingFinished = Signal()
 
     def __init__(self, text, parent):
         super().__init__(text, parent)
@@ -367,14 +367,15 @@ class MarkingLabel(QGraphicsTextItem):
 
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
-        self.editingFinished.emit(self.toPlainText())
+        self.editingFinished.emit()
 
     def keyPressEvent(self, event):
-        super().keyPressEvent(event)
-        self.parentItem().setRect(self.sceneBoundingRect())
         if event.key() in (Qt.Key_Enter, Qt.Key_Return):
             self.clearFocus()
-            self.editingFinished.emit(self.toPlainText())
+            self.editingFinished.emit()
+        else:
+            super().keyPressEvent(event)
+            self.parentItem().setRect(self.sceneBoundingRect())
 
     def insertFromMimeData(self, source):
         if source.hasText():
@@ -520,8 +521,11 @@ class ImageGraphicsView(QGraphicsView):
         else:
             self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
             self.unsetCursor()
-            self.scene().removeItem(self.horizontal_line)
-            self.scene().removeItem(self.vertical_line)
+            if self.horizontal_line:
+                self.scene().removeItem(self.horizontal_line)
+                self.horizontal_line = None
+                self.scene().removeItem(self.vertical_line)
+                self.vertical_line = None
 
     def update_lines_pos(self):
         """Show the hint lines at the position self.last_pos.
@@ -580,6 +584,7 @@ class ImageGraphicsView(QGraphicsView):
             self.set_insertion_mode(False)
         super().keyReleaseEvent(event)
 
+
 class ImageViewer(QWidget):
     zoom = Signal(float, name='zoomChanged')
     marking = Signal(ImageMarking, name='markingToAdd')
@@ -609,6 +614,7 @@ class ImageViewer(QWidget):
     def load_image(self, proxy_image_index: QModelIndex):
         self.proxy_image_index = QPersistentModelIndex(proxy_image_index)
 
+        self.marking_items.clear()
         self.view.clear_scene()
         if not self.proxy_image_index.isValid():
             return
@@ -706,30 +712,23 @@ class ImageViewer(QWidget):
 
     def add_rectangle(self, rect: QRect, rect_type: ImageMarking,
                       size: QSize = None, name: str = ''):
+        self.marking_to_add = ImageMarking.NONE
         marking_item = MarkingItem(rect, rect_type, size)
         if rect_type == ImageMarking.CROP:
             marking_item.signal.move.connect(self.hud_item.setValues)
         elif name == '' and rect_type != ImageMarking.NONE:
             image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
-            if rect_type == ImageMarking.HINT:
-                keys = image.hints.keys()
-                pre = 'hint'
-            elif rect_type == ImageMarking.INCLUDE:
-                keys = image.includes.keys()
-                pre = 'include'
-            elif rect_type == ImageMarking.EXCLUDE:
-                keys = image.excludes.keys()
-                pre = 'exclude'
-            count = 1
-            while f'{pre}{count}' in keys:
-                count += 1
-            name = f'{pre}{count}'
+            name = {ImageMarking.HINT: 'hint',
+                    ImageMarking.INCLUDE: 'include',
+                    ImageMarking.EXCLUDE: 'exclude'}[rect_type]
+            image.markings.append(Marking(name, rect_type, rect))
         marking_item.setData(0, name)
         if rect_type != ImageMarking.CROP and rect_type != ImageMarking.NONE:
             label_background = QGraphicsRectItem(marking_item)
             label_background.setBrush(marking_item.color)
             label_background.setPen(Qt.NoPen)
             marking_item.label = MarkingLabel(name, label_background)
+            marking_item.label.editingFinished.connect(self.label_changed)
             marking_item.adjust_layout()
         marking_item.signal.change.connect(self.marking_changed)
         self.scene.addItem(marking_item)
@@ -738,6 +737,20 @@ class ImageViewer(QWidget):
         if rect_type == ImageMarking.CROP:
             self.accept_crop_addition.emit(False)
             self.marking_changed(marking_item)
+
+    @Slot()
+    def label_changed(self, do_emit = True):
+        image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
+        image.markings.clear()
+        for marking in self.marking_items:
+            if marking.rect_type != ImageMarking.CROP:
+                marking.label.parentItem().parentItem().setData(0, marking.label.toPlainText())
+                image.markings.append(Marking(marking.data(0),
+                                      marking.rect_type,
+                                      marking.rect().toRect()))
+        if do_emit:
+            self.proxy_image_list_model.sourceModel().dataChanged.emit(
+                self.proxy_image_index, self.proxy_image_index)
 
     @Slot(QGraphicsRectItem)
     def marking_changed(self, marking: QGraphicsRectItem):
@@ -773,12 +786,9 @@ class ImageViewer(QWidget):
                 image.target_dimension = None
                 base_point = QPoint(0, 0)
                 self.accept_crop_addition.emit(True)
-            elif item.rect_type == ImageMarking.HINT:
-                del image.hints[item.data(0)]
-            elif item.rect_type == ImageMarking.INCLUDE:
-                del image.includes[item.data(0)]
-            elif item.rect_type == ImageMarking.EXCLUDE:
-                del image.excludes[item.data(0)]
+            else:
+                self.marking_items.remove(item)
+                self.label_changed(False)
             self.scene.removeItem(item)
         self.proxy_image_list_model.sourceModel().dataChanged.emit(
             self.proxy_image_index, self.proxy_image_index)
