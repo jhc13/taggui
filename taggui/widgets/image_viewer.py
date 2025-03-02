@@ -6,8 +6,9 @@ from PySide6.QtCore import (QEvent, QModelIndex, QObject, QPersistentModelIndex,
                             Signal, Slot)
 from PySide6.QtGui import (QCursor, QColor, QPainter, QPainterPath, QPen,
                            QPixmap, QTransform)
-from PySide6.QtWidgets import (QGraphicsItem, QGraphicsLineItem, QGraphicsPixmapItem,
-                               QGraphicsRectItem, QGraphicsScene, QGraphicsView,
+from PySide6.QtWidgets import (QGraphicsItem, QGraphicsLineItem,
+                               QGraphicsPixmapItem, QGraphicsRectItem,
+                               QGraphicsTextItem, QGraphicsScene, QGraphicsView,
                                QVBoxLayout, QWidget)
 from utils.settings import settings
 from models.proxy_image_list_model import ProxyImageListModel
@@ -124,7 +125,7 @@ class RectItemSignal(QObject):
     change = Signal(QGraphicsRectItem, name='rectChanged')
     move = Signal(QRectF, RectPosition, name='rectIsMoving')
 
-class CustomRectItem(QGraphicsRectItem):
+class MarkingItem(QGraphicsRectItem):
     # the halfed size of the pen in local coordinates to make sure it stays the
     # same during zooming
     pen_half_width = 1.0
@@ -146,6 +147,7 @@ class CustomRectItem(QGraphicsRectItem):
         self.setAcceptHoverEvents(True)
         self.signal = RectItemSignal()
         self.rect_type = rect_type
+        self.label: MarkingLabel | None = None
         self.color = {
             ImageMarking.CROP: Qt.blue,
             ImageMarking.HINT: Qt.gray,
@@ -159,9 +161,6 @@ class CustomRectItem(QGraphicsRectItem):
         self.handle_selected = None
         self.mouse_press_pos = None
         self.mouse_press_rect = None
-
-    def change_pen_half_width(self):
-        self.prepareGeometryChange()
 
     def handleAt(self, point: QPointF) -> RectPosition:
         handle_space = -min(self.pen_half_width - self.handle_half_size,
@@ -312,6 +311,7 @@ class CustomRectItem(QGraphicsRectItem):
         painter.setBrush(Qt.NoBrush)
         painter.drawRect(self.rect().adjusted(-pen_half_width, -pen_half_width,
                                               pen_half_width, pen_half_width))
+
         if self.isSelected():
             s_rect = self.rect().adjusted(-2*pen_half_width, -2*pen_half_width,
                                            2*pen_half_width,  2*pen_half_width)
@@ -347,6 +347,58 @@ class CustomRectItem(QGraphicsRectItem):
                 self.target_size = QSize(round(target_width*scale), round(target_height*scale))
                 if bucket_strategy == BucketStrategy.CROP_SCALE:
                     self.target_size = (self.target_size + current.toSize())/2
+        self.adjust_layout()
+
+    def adjust_layout(self):
+        if self.label != None:
+            self.label.changeZoom(self.zoom_factor)
+            pen_half_width = self.pen_half_width / self.zoom_factor
+            if self.rect().y() > self.label.boundingRect().height():
+                self.label.setPos(self.rect().adjusted(
+                    -2 * pen_half_width,
+                    -pen_half_width - self.label.boundingRect().height(),
+                    0, 0).topLeft())
+                self.label.parentItem().setRect(self.label.sceneBoundingRect())
+            else:
+                self.label.setPos(self.rect().adjusted(
+                    -pen_half_width, -pen_half_width, 0, 0).topLeft())
+                self.label.parentItem().setRect(self.label.sceneBoundingRect())
+
+
+class MarkingLabel(QGraphicsTextItem):
+    editingFinished = Signal(str)
+
+    def __init__(self, text, parent):
+        super().__init__(text, parent)
+        self.setDefaultTextColor(Qt.black)
+        self.setTextInteractionFlags(Qt.TextEditorInteraction)
+
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        self.editingFinished.emit(self.toPlainText())
+
+    def keyPressEvent(self, event):
+        super().keyPressEvent(event)
+        self.parentItem().setRect(self.sceneBoundingRect())
+        if event.key() in (Qt.Key_Enter, Qt.Key_Return):
+            self.clearFocus()
+            self.editingFinished.emit(self.toPlainText())
+
+    def insertFromMimeData(self, source):
+        if source.hasText():
+            # Insert only the plain text
+            cursor = self.textCursor()
+            cursor.insertText(source.text())
+        else:
+            super().insertFromMimeData(source)
+        self.parentItem().setRect(self.sceneBoundingRect())
+
+    def changeZoom(self, zoom_factor):
+        font = self.font()
+        font.setPointSizeF(10 / zoom_factor)
+        self.setFont(font)
+        self.parentItem().setRect(self.sceneBoundingRect())
+
 
 class ResizeHintHUD(QGraphicsItem):
     zoom_factor = 1.0
@@ -449,7 +501,7 @@ class ImageGraphicsView(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.image_viewer = image_viewer
-        CustomRectItem.image_view = self
+        MarkingItem.image_view = self
         self.last_pos = None
         self.clear_scene()
 
@@ -529,10 +581,12 @@ class ImageGraphicsView(QGraphicsView):
             self.set_insertion_mode(True)
         elif event.key() == Qt.Key.Key_Delete:
             self.image_viewer.delete_selected()
+        super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key.Key_Control:
             self.set_insertion_mode(False)
+        super().keyReleaseEvent(event)
 
 class ImageViewer(QWidget):
     zoom = Signal(float, name='zoomChanged')
@@ -542,8 +596,8 @@ class ImageViewer(QWidget):
     def __init__(self, proxy_image_list_model: ProxyImageListModel):
         super().__init__()
         self.proxy_image_list_model = proxy_image_list_model
-        CustomRectItem.pen_half_width = round(self.devicePixelRatio())
-        CustomRectItem.zoom_factor = 1.0
+        MarkingItem.pen_half_width = round(self.devicePixelRatio())
+        MarkingItem.zoom_factor = 1.0
         self.is_zoom_to_fit = True
         self.marking_to_add = ImageMarking.NONE
         self.scene = QGraphicsScene()
@@ -555,7 +609,7 @@ class ImageViewer(QWidget):
         self.setLayout(layout)
 
         self.proxy_image_index: QPersistentModelIndex = None
-        self.rect_items: list[CustomRectItem] = []
+        self.marking_items: list[MarkingItem] = []
 
         self.view.wheelEvent = self.wheelEvent
 
@@ -573,10 +627,10 @@ class ImageViewer(QWidget):
         self.scene.addItem(image_item)
         self.scene.setSceneRect(image_item.boundingRect()
                                 .adjusted(-1, -1, 1, 1)) # space for rect border
-        CustomRectItem.image_size = image_item.boundingRect().toRect()
+        MarkingItem.image_size = image_item.boundingRect().toRect()
         self.zoom_fit()
 
-        self.hud_item = ResizeHintHUD(CustomRectItem.image_size)
+        self.hud_item = ResizeHintHUD(MarkingItem.image_size)
         self.scene.addItem(self.hud_item)
 
         self.marking_to_add = ImageMarking.NONE
@@ -597,38 +651,38 @@ class ImageViewer(QWidget):
     @Slot()
     def setting_change(self, key, value):
         if key == 'export_bucket_strategy':
-            for rect in self.rect_items:
-                rect.size_changed()
+            for marking in self.marking_items:
+                marking.size_changed()
             self.scene.invalidate()
 
     @Slot(QGraphicsRectItem)
-    def marking_change(self, rect: QGraphicsRectItem):
+    def marking_change(self, marking: QGraphicsRectItem):
         global grid, base_point
         assert self.proxy_image_index != None
         assert self.proxy_image_index.isValid()
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
 
-        if rect.rect_type == ImageMarking.CROP:
+        if marking.rect_type == ImageMarking.CROP:
             image.thumbnail = None
-            image.crop = rect.rect().toRect().getRect() # ensure int!
-            image.target_dimension = rect.target_size.toTuple()
+            image.crop = marking.rect().toRect().getRect() # ensure int!
+            image.target_dimension = marking.target_size.toTuple()
             scale = min(image.crop[2]/image.target_dimension[0],
                         image.crop[3]/image.target_dimension[1])
             base_point = QPoint(image.crop[0]+floor((image.crop[2]-scale*image.target_dimension[0])/2),
                                 image.crop[1]+floor((image.crop[3]-scale*image.target_dimension[1])/2))
-        elif rect.rect_type == ImageMarking.HINT:
-            image.hints[rect.data(0)] = rect.rect().toRect().getRect()
-        elif rect.rect_type == ImageMarking.INCLUDE:
-            image.includes[rect.data(0)] = rect.rect().toRect().getRect()
-        elif rect.rect_type == ImageMarking.EXCLUDE:
-            image.excludes[rect.data(0)] = rect.rect().toRect().getRect()
+        elif marking.rect_type == ImageMarking.HINT:
+            image.hints[marking.data(0)] = marking.rect().toRect().getRect()
+        elif marking.rect_type == ImageMarking.INCLUDE:
+            image.includes[marking.data(0)] = marking.rect().toRect().getRect()
+        elif marking.rect_type == ImageMarking.EXCLUDE:
+            image.excludes[marking.data(0)] = marking.rect().toRect().getRect()
 
         self.proxy_image_list_model.sourceModel().dataChanged.emit(
             self.proxy_image_index, self.proxy_image_index)
 
     @Slot()
     def zoom_in(self, center_pos: QPoint = None):
-        CustomRectItem.zoom_factor = min(CustomRectItem.zoom_factor * 1.25, 16)
+        MarkingItem.zoom_factor = min(MarkingItem.zoom_factor * 1.25, 16)
         self.is_zoom_to_fit = False
         self.zoom_emit()
 
@@ -636,7 +690,7 @@ class ImageViewer(QWidget):
     def zoom_out(self, center_pos: QPoint = None):
         view = self.view.viewport().size()
         scene = self.scene.sceneRect()
-        CustomRectItem.zoom_factor = max(CustomRectItem.zoom_factor / 1.25,
+        MarkingItem.zoom_factor = max(MarkingItem.zoom_factor / 1.25,
                                          min(view.width()/scene.width(),
                                              view.height()/scene.height()))
         self.is_zoom_to_fit = False
@@ -644,28 +698,30 @@ class ImageViewer(QWidget):
 
     @Slot()
     def zoom_original(self):
-        CustomRectItem.zoom_factor = 1.0
+        MarkingItem.zoom_factor = 1.0
         self.is_zoom_to_fit = False
         self.zoom_emit()
 
     @Slot()
     def zoom_fit(self):
         self.view.fitInView(self.scene.sceneRect(), Qt.KeepAspectRatio)
-        CustomRectItem.zoom_factor = self.view.transform().m11()
+        MarkingItem.zoom_factor = self.view.transform().m11()
         self.is_zoom_to_fit = True
         self.zoom_emit()
 
     def zoom_emit(self):
-        ResizeHintHUD.zoom_factor = CustomRectItem.zoom_factor
+        ResizeHintHUD.zoom_factor = MarkingItem.zoom_factor
         transform = self.view.transform()
         self.view.setTransform(QTransform(
-            CustomRectItem.zoom_factor, transform.m12(), transform.m13(),
-            transform.m21(), CustomRectItem.zoom_factor, transform.m23(),
+            MarkingItem.zoom_factor, transform.m12(), transform.m13(),
+            transform.m21(), MarkingItem.zoom_factor, transform.m23(),
             transform.m31(), transform.m32(), transform.m33()))
+        for marking in self.marking_items:
+            marking.adjust_layout()
         if self.is_zoom_to_fit:
             self.zoom.emit(-1)
         else:
-            self.zoom.emit(CustomRectItem.zoom_factor)
+            self.zoom.emit(MarkingItem.zoom_factor)
 
     @Slot(ImageMarking)
     def add_marking(self, marking: ImageMarking):
@@ -687,9 +743,9 @@ class ImageViewer(QWidget):
 
     def add_rectangle(self, rect: QRect, rect_type: ImageMarking,
                       size: QSize = None, name: str = ''):
-        rect_item = CustomRectItem(rect, rect_type, size)
+        marking_item = MarkingItem(rect, rect_type, size)
         if rect_type == ImageMarking.CROP:
-            rect_item.signal.move.connect(self.hud_item.setValues)
+            marking_item.signal.move.connect(self.hud_item.setValues)
         elif name == '' and rect_type != ImageMarking.NONE:
             image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
             if rect_type == ImageMarking.HINT:
@@ -705,14 +761,20 @@ class ImageViewer(QWidget):
             while f'{pre}{count}' in keys:
                 count += 1
             name = f'{pre}{count}'
-        rect_item.setData(0, name)
-        rect_item.signal.change.connect(self.marking_change)
-        self.scene.addItem(rect_item)
-        self.rect_items.append(rect_item)
+        marking_item.setData(0, name)
+        if rect_type != ImageMarking.CROP and rect_type != ImageMarking.NONE:
+            label_background = QGraphicsRectItem(marking_item)
+            label_background.setBrush(marking_item.color)
+            label_background.setPen(Qt.NoPen)
+            marking_item.label = MarkingLabel(name, label_background)
+            marking_item.adjust_layout()
+        marking_item.signal.change.connect(self.marking_change)
+        self.scene.addItem(marking_item)
+        self.marking_items.append(marking_item)
         self.marking.emit(ImageMarking.NONE)
         if rect_type == ImageMarking.CROP:
             self.accept_crop_addition.emit(False)
-            self.marking_change(rect_item)
+            self.marking_change(marking_item)
 
     @Slot()
     def delete_selected(self):

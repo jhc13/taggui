@@ -118,7 +118,7 @@ class MainWindow(QMainWindow):
         self.delete_marking_action.setEnabled(False)
         self.toolbar.addAction(self.delete_marking_action)
         self.image_viewer.scene.selectionChanged.connect(lambda:
-            self.delete_marking_action.setEnabled(
+            self.image_viewer.scene and self.delete_marking_action.setEnabled(
                 len(self.image_viewer.scene.selectedItems())>0))
 
 
