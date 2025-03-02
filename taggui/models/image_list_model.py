@@ -14,7 +14,7 @@ from PySide6.QtCore import (QAbstractListModel, QModelIndex, QPoint, QRect,
 from PySide6.QtGui import QIcon, QImageReader, QPixmap
 from PySide6.QtWidgets import QMessageBox
 
-from utils.image import Image
+from utils.image import Image, ImageMarking, Marking
 from utils.settings import DEFAULT_SETTINGS, settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
@@ -89,7 +89,7 @@ class ImageListModel(QAbstractListModel):
             # Rotate the image based on the orientation tag.
             image_reader.setAutoTransform(True)
             if image.crop:
-                crop = QRect(*image.crop)
+                crop = image.crop
             else:
                 crop = QRect(QPoint(0, 0), image_reader.size())
             if crop.height() > crop.width()*3:
@@ -193,32 +193,16 @@ class ImageListModel(QAbstractListModel):
                     if meta.get('version') == 1:
                         crop = meta.get('crop')
                         if crop and type(crop) is list and len(crop) == 4:
-                            image.crop = tuple(crop)
+                            image.crop = QRect(*crop)
                         target_dimension = meta.get('target_dimension')
                         if (target_dimension and type(target_dimension) is list
                             and len(target_dimension) == 2):
-                            image.target_dimension = tuple(target_dimension)
-                        hints = meta.get('hints')
-                        if hints and type(hints) is dict:
-                            image.hints = {}
-                            for key, value in hints.items():
-                                if (value and type(value) is list and
-                                    len(value) == 4):
-                                    image.hints[key] = tuple(value)
-                        includes = meta.get('includes')
-                        if includes and type(includes) is dict:
-                            image.includes = {}
-                            for key, value in includes.items():
-                                if (value and type(value) is list and
-                                    len(value) == 4):
-                                    image.includes[key] = tuple(value)
-                        excludes = meta.get('excludes')
-                        if excludes and type(excludes) is dict:
-                            image.excludes = {}
-                            for key, value in excludes.items():
-                                if (value and type(value) is list and
-                                    len(value) == 4):
-                                    image.excludes[key] = tuple(value)
+                            image.target_dimension = QSize(*target_dimension)
+                        markings = meta.get('markings')
+                        if markings and type(markings) is list:
+                            for marking in markings:
+                                marking = Marking(marking.get('label'), ImageMarking[marking.get('type')], QRect(*marking.get('rect')))
+                                image.markings.append(marking)
                     else:
                         error_messages.append(f'Invalid version '
                                               f'"{meta.get('version')}" in '
@@ -259,15 +243,15 @@ class ImageListModel(QAbstractListModel):
         does_exist = image.path.with_suffix('.json').exists()
         meta = {'version': 1}
         if image.crop:
-            meta['crop'] = image.crop
+            meta['crop'] = image.crop.getRect()
         if image.target_dimension:
-            meta['target_dimension'] = image.target_dimension
-        if image.hints:
-            meta['hints'] = image.hints
-        if image.includes:
-            meta['includes'] = image.includes
-        if image.excludes:
-            meta['excludes'] = image.excludes
+            meta['target_dimension'] = image.target_dimension.toTuple()
+        markings: list[dict[str, any]] = []
+        for marking in image.markings:
+            markings.append({'label': marking.label,
+                             'type': marking.type.name,
+                             'rect': marking.rect.getRect()})
+        meta['markings'] = markings
         if does_exist or len(meta.keys()) > 1:
             try:
                 with image.path.with_suffix('.json').open('w', encoding='UTF-8') as meta_file:

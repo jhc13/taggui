@@ -1,7 +1,24 @@
+from enum import Enum
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from PySide6.QtCore import QRect, QSize
 from PySide6.QtGui import QIcon
+
+
+class ImageMarking(str, Enum):
+    CROP = 'crop'
+    HINT = 'hint'
+    INCLUDE = 'include in mask'
+    EXCLUDE = 'exclude from mask'
+    NONE = 'no marking'
+
+
+@dataclass
+class Marking:
+    label: str
+    type: ImageMarking
+    rect: QRect
 
 
 @dataclass
@@ -9,10 +26,7 @@ class Image:
     path: Path
     dimensions: tuple[int, int] | None
     tags: list[str] = field(default_factory=list)
-    target_dimension: tuple[int, int] | None = None
-    # (x, y, width, height)
-    crop: tuple[int, int, int, int] | None = None
-    hints: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
-    includes: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
-    excludes: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
+    target_dimension: QSize | None = None
+    crop: QRect | None = None
+    markings: list[Marking] = field(default_factory=list)
     thumbnail: QIcon | None = None

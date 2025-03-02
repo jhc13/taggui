@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QGraphicsItem, QGraphicsLineItem,
                                QVBoxLayout, QWidget)
 from utils.settings import settings
 from models.proxy_image_list_model import ProxyImageListModel
-from utils.image import Image
+from utils.image import Image, ImageMarking, Marking
 import utils.target_dimension as target_dimension
 from dialogs.export_dialog import BucketStrategy
 
@@ -21,13 +21,6 @@ base_point: QPoint = QPoint(0, 0)
 
 # stepsize of the grid
 grid: int = 8
-
-class ImageMarking(str, Enum):
-    CROP = 'crop'
-    HINT = 'hint'
-    INCLUDE = 'include in mask'
-    EXCLUDE = 'exclude from mask'
-    NONE = 'no marking'
 
 class RectPosition(str, Enum):
     TL = 'top left'
@@ -237,22 +230,21 @@ class MarkingItem(QGraphicsRectItem):
                     rect_pre = change_rect(self.rect().toRect(),
                                            self.handle_selected,
                                            pos_quantizised)
-                    target_width, target_height = target_dimension.get(rect_pre.size().toTuple())
-                    if rect_pre.height() * target_width / rect_pre.width() < target_height: # too wide
-                        scale = rect_pre.height() / target_height
-                        target_size0 = QSize(floor(target_width*scale),
+                    target = target_dimension.get(rect_pre.size())
+                    if rect_pre.height() * target.width() / rect_pre.width() < target.height(): # too wide
+                        scale = rect_pre.height() / target.height()
+                        target_size0 = QSize(floor(target.width()*scale),
                                              rect_pre.height())
-                        target_size1 = QSize(floor(target_width*scale)+1,
+                        target_size1 = QSize(floor(target.width()*scale)+1,
                                              rect_pre.height())
                     else: # too high
-                        scale = rect_pre.width() / target_width
+                        scale = rect_pre.width() / target.width()
                         target_size0 = QSize(rect_pre.width(),
-                                             floor(target_height*scale))
+                                             floor(target.height()*scale))
                         target_size1 = QSize(rect_pre.width(),
-                                             floor(target_height*scale)+1)
-                    tw0, th0 = target_dimension.get(target_size0.toTuple())
-                    tw1, th1 = target_dimension.get(target_size1.toTuple())
-                    if tw0 == target_width and th0 == target_height:
+                                             floor(target.height()*scale)+1)
+                    t0 = target_dimension.get(target_size0)
+                    if t0 == target:
                         target_size = target_size0
                     else:
                         target_size = target_size1
@@ -339,12 +331,12 @@ class MarkingItem(QGraphicsRectItem):
             if bucket_strategy == BucketStrategy.SCALE:
                 self.target_size = current
             else: # CROP or CROP_SCALE
-                target_width, target_height = target_dimension.get(current.toTuple())
-                if current.height() * target_width / current.width() < target_height: # too wide
-                    scale = current.height() / target_height
+                target = target_dimension.get(current)
+                if current.height() * target.width() / current.width() < target.height(): # too wide
+                    scale = current.height() / target.height()
                 else: # too high
-                    scale = current.width() / target_width
-                self.target_size = QSize(round(target_width*scale), round(target_height*scale))
+                    scale = current.width() / target.width()
+                self.target_size = QSize(round(target.width()*scale), round(target.height()*scale))
                 if bucket_strategy == BucketStrategy.CROP_SCALE:
                     self.target_size = (self.target_size + current.toSize())/2
         self.adjust_layout()
@@ -638,15 +630,11 @@ class ImageViewer(QWidget):
         self.accept_crop_addition.emit(not image.crop)
         if image.crop:
             if not image.target_dimension:
-                image.target_dimension = target_dimension.get(image.crop[2:])
-            self.add_rectangle(QRect(*image.crop), ImageMarking.CROP,
-                               size=QSize(*image.target_dimension))
-        for name, rect in image.hints.items():
-            self.add_rectangle(QRect(*rect), ImageMarking.HINT, name=name)
-        for name, rect in image.includes.items():
-            self.add_rectangle(QRect(*rect), ImageMarking.INCLUDE, name=name)
-        for name, rect in image.excludes.items():
-            self.add_rectangle(QRect(*rect), ImageMarking.EXCLUDE, name=name)
+                image.target_dimension = target_dimension.get(image.crop.size())
+            self.add_rectangle(image.crop, ImageMarking.CROP,
+                               size=image.target_dimension)
+        for marking in image.markings:
+            self.add_rectangle(marking.rect, marking.type, name=marking.label)
 
     @Slot()
     def setting_change(self, key, value):
@@ -654,31 +642,6 @@ class ImageViewer(QWidget):
             for marking in self.marking_items:
                 marking.size_changed()
             self.scene.invalidate()
-
-    @Slot(QGraphicsRectItem)
-    def marking_change(self, marking: QGraphicsRectItem):
-        global grid, base_point
-        assert self.proxy_image_index != None
-        assert self.proxy_image_index.isValid()
-        image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
-
-        if marking.rect_type == ImageMarking.CROP:
-            image.thumbnail = None
-            image.crop = marking.rect().toRect().getRect() # ensure int!
-            image.target_dimension = marking.target_size.toTuple()
-            scale = min(image.crop[2]/image.target_dimension[0],
-                        image.crop[3]/image.target_dimension[1])
-            base_point = QPoint(image.crop[0]+floor((image.crop[2]-scale*image.target_dimension[0])/2),
-                                image.crop[1]+floor((image.crop[3]-scale*image.target_dimension[1])/2))
-        elif marking.rect_type == ImageMarking.HINT:
-            image.hints[marking.data(0)] = marking.rect().toRect().getRect()
-        elif marking.rect_type == ImageMarking.INCLUDE:
-            image.includes[marking.data(0)] = marking.rect().toRect().getRect()
-        elif marking.rect_type == ImageMarking.EXCLUDE:
-            image.excludes[marking.data(0)] = marking.rect().toRect().getRect()
-
-        self.proxy_image_list_model.sourceModel().dataChanged.emit(
-            self.proxy_image_index, self.proxy_image_index)
 
     @Slot()
     def zoom_in(self, center_pos: QPoint = None):
@@ -768,13 +731,36 @@ class ImageViewer(QWidget):
             label_background.setPen(Qt.NoPen)
             marking_item.label = MarkingLabel(name, label_background)
             marking_item.adjust_layout()
-        marking_item.signal.change.connect(self.marking_change)
+        marking_item.signal.change.connect(self.marking_changed)
         self.scene.addItem(marking_item)
         self.marking_items.append(marking_item)
         self.marking.emit(ImageMarking.NONE)
         if rect_type == ImageMarking.CROP:
             self.accept_crop_addition.emit(False)
-            self.marking_change(marking_item)
+            self.marking_changed(marking_item)
+
+    @Slot(QGraphicsRectItem)
+    def marking_changed(self, marking: QGraphicsRectItem):
+        global grid, base_point
+        assert self.proxy_image_index != None
+        assert self.proxy_image_index.isValid()
+        image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
+
+        if marking.rect_type == ImageMarking.CROP:
+            image.thumbnail = None
+            image.crop = marking.rect().toRect() # ensure int!
+            image.target_dimension = marking.target_size
+            scale = min(image.crop.width()/image.target_dimension.width(),
+                        image.crop.height()/image.target_dimension.height())
+            base_point = QPoint(image.crop.x()+floor((image.crop.width()-scale*image.target_dimension.width())/2),
+                                image.crop.y()+floor((image.crop.height()-scale*image.target_dimension.height())/2))
+        else:
+            image.markings = [Marking(marking.data(0),
+                                      marking.rect_type,
+                                      marking.rect().toRect())
+                                    for marking in self.marking_items if marking.rect_type != ImageMarking.CROP]
+        self.proxy_image_list_model.sourceModel().dataChanged.emit(
+            self.proxy_image_index, self.proxy_image_index)
 
     @Slot()
     def delete_selected(self):

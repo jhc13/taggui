@@ -1,10 +1,12 @@
 from math import floor, sqrt
 import re
 
+from PySide6.QtCore import QSize
+
 from utils.settings import DEFAULT_SETTINGS, settings
 
 # singleton data store
-_preferred_sizes : list[tuple[int, int]] = []
+_preferred_sizes : list[QSize] = []
 
 settings.change.connect(lambda: _preferred_sizes.clear())
 
@@ -15,7 +17,7 @@ def get_preferred_sizes():
     return _preferred_sizes
 
 
-def prepare(aspect_ratios : list[tuple[int, int, int]] | None = None) -> list[tuple[int, int, int]] | None:
+def prepare(aspect_ratios : list[tuple[int, int, float]] | None = None) -> list[tuple[int, int, float]] | None:
     """
     Prepare by parsing the user supplied preferred sizes.
 
@@ -56,7 +58,7 @@ def prepare(aspect_ratios : list[tuple[int, int, int]] | None = None) -> list[tu
             continue # Skip to the next resolution if there's an error
     return aspect_ratios
 
-def get(dimensions: tuple[int, int]):
+def get(dimensions: QSize) -> QSize:
     """
     Determine the dimensions of an image it should have when it is exported.
 
@@ -65,11 +67,11 @@ def get(dimensions: tuple[int, int]):
 
     Parameters
     ----------
-    dimensions : tuple[int, int]
+    dimensions: QSize
         The width and height of the image
     """
     global _preferred_sizes
-    width, height = dimensions
+    width, height = dimensions.toTuple()
     # The target resolution of the AI model. The target image pixels
     # will not exceed the square of this number
     resolution = settings.value('export_resolution', defaultValue=DEFAULT_SETTINGS['export_resolution'], type=int)
@@ -83,7 +85,7 @@ def get(dimensions: tuple[int, int]):
 
     if resolution == 0:
         # no rescale in this case, only cropping
-        return ((width // bucket_res)*bucket_res, (height // bucket_res)*bucket_res)
+        return QSize((width // bucket_res)*bucket_res, (height // bucket_res)*bucket_res)
 
     if width < bucket_res or height < bucket_res:
         # it doesn't make sense to use such a small image. But we shouldn't
@@ -159,4 +161,4 @@ def get(dimensions: tuple[int, int]):
                 candidate_height = test_height
                 loss = test_loss
 
-        return int(candidate_width), int(candidate_height)
+        return QSize(candidate_width, candidate_height)
