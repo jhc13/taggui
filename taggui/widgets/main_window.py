@@ -32,6 +32,9 @@ from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer, ImageMarking
 
 ICON_PATH = Path('images/icon.ico')
+TOGGLE_MARKING_ICON_PATH = Path('images/toggle_marking.png')
+SHOW_MARKINGS_ICON_PATH = Path('images/show_marking.png')
+SHOW_LABELS_ICON_PATH = Path('images/show_label.png')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
 TOKENIZER_DIRECTORY_PATH = Path('clip-vit-base-patch32')
 
@@ -43,6 +46,8 @@ class MainWindow(QMainWindow):
         # The path of the currently loaded directory. This is set later when a
         # directory is loaded.
         self.directory_path = None
+        self.is_running = True
+        app.aboutToQuit.connect(lambda: setattr(self, 'is_running', False))
         image_list_image_width = settings.value(
             'image_list_image_width',
             defaultValue=DEFAULT_SETTINGS['image_list_image_width'], type=int)
@@ -65,7 +70,6 @@ class MainWindow(QMainWindow):
         # everything has the correct font size.
         self.set_font_size()
         self.image_viewer = ImageViewer(self.proxy_image_list_model)
-        self.image_viewer.zoom.connect(self.zoom)
         self.create_central_widget()
 
         self.toolbar = QToolBar('Main toolbar', self)
@@ -97,30 +101,35 @@ class MainWindow(QMainWindow):
                                        'Add hint', self.add_action_group)
         self.add_hint_action.setCheckable(True)
         self.toolbar.addAction(self.add_hint_action)
-        self.add_include_action = QAction(create_add_box_icon(Qt.green),
-                                          'Add include mask', self.add_action_group)
-        self.add_include_action.setCheckable(True)
-        self.toolbar.addAction(self.add_include_action)
         self.add_exclude_action = QAction(create_add_box_icon(Qt.red),
                                           'Add exclude mask', self.add_action_group)
         self.add_exclude_action.setCheckable(True)
         self.toolbar.addAction(self.add_exclude_action)
-        self.image_viewer.marking.connect(lambda marking:
-            self.add_crop_action.setChecked(True) if marking == ImageMarking.CROP else
-            self.add_hint_action.setChecked(True) if marking == ImageMarking.HINT else
-            self.add_include_action.setChecked(True) if marking == ImageMarking.INCLUDE else
-            self.add_exclude_action.setChecked(True) if marking == ImageMarking.EXCLUDE else
-            self.add_action_group.checkedAction() and
-                self.add_action_group.checkedAction().setChecked(False))
-        self.image_viewer.accept_crop_addition.connect(self.add_crop_action.setEnabled)
+        self.add_include_action = QAction(create_add_box_icon(Qt.green),
+                                          'Add include mask', self.add_action_group)
+        self.add_include_action.setCheckable(True)
+        self.toolbar.addAction(self.add_include_action)
         self.delete_marking_action = QAction(QIcon.fromTheme('edit-delete'),
                                             'Delete marking', self)
         self.delete_marking_action.setEnabled(False)
         self.toolbar.addAction(self.delete_marking_action)
-        self.image_viewer.scene.selectionChanged.connect(lambda:
-            self.image_viewer.scene and self.delete_marking_action.setEnabled(
-                len(self.image_viewer.scene.selectedItems())>0))
-
+        self.add_toggle_marking_action = QAction(
+            QIcon(QPixmap(get_resource_path(TOGGLE_MARKING_ICON_PATH))),
+            'Change marking type', self)
+        self.add_toggle_marking_action.setEnabled(False)
+        self.toolbar.addAction(self.add_toggle_marking_action)
+        self.add_show_marking_action = QAction(
+            QIcon(QPixmap(get_resource_path(SHOW_MARKINGS_ICON_PATH))),
+            'Show markings', self)
+        self.add_show_marking_action.setCheckable(True)
+        self.add_show_marking_action.setChecked(True)
+        self.toolbar.addAction(self.add_show_marking_action)
+        self.add_show_labels_action = QAction(
+            QIcon(QPixmap(get_resource_path(SHOW_LABELS_ICON_PATH))),
+            'Show labels', self)
+        self.add_show_labels_action.setCheckable(True)
+        self.add_show_labels_action.setChecked(True)
+        self.toolbar.addAction(self.add_show_labels_action)
 
         self.image_list = ImageList(self.proxy_image_list_model,
                                     tag_separator, image_list_image_width)
@@ -512,6 +521,10 @@ class MainWindow(QMainWindow):
         settings.setValue(settings_key, proxy_image_index.row())
 
     def connect_toolbar_signals(self):
+        self.toolbar.visibilityChanged.connect(
+            lambda: self.toggle_toolbar_action.setChecked(
+                self.toolbar.isVisible()))
+        self.image_viewer.zoom.connect(self.zoom)
         self.zoom_fit_best_action.triggered.connect(
             self.image_viewer.zoom_fit)
         self.zoom_in_action.triggered.connect(
@@ -520,17 +533,35 @@ class MainWindow(QMainWindow):
             self.image_viewer.zoom_original)
         self.zoom_out_action.triggered.connect(
             self.image_viewer.zoom_out)
-        self.toolbar.visibilityChanged.connect(
-            lambda: self.toggle_toolbar_action.setChecked(
-                self.toolbar.isVisible()))
         self.add_action_group.triggered.connect(
             lambda action: self.image_viewer.add_marking(
                 ImageMarking.NONE if not action.isChecked() else
                 ImageMarking.CROP if action == self.add_crop_action else
                 ImageMarking.HINT if action == self.add_hint_action else
-                ImageMarking.INCLUDE if action == self.add_include_action else
-                ImageMarking.EXCLUDE))
+                ImageMarking.EXCLUDE if action == self.add_exclude_action else
+                ImageMarking.INCLUDE))
+        self.image_viewer.marking.connect(lambda marking:
+            self.add_crop_action.setChecked(True) if marking == ImageMarking.CROP else
+            self.add_hint_action.setChecked(True) if marking == ImageMarking.HINT else
+            self.add_exclude_action.setChecked(True) if marking == ImageMarking.EXCLUDE else
+            self.add_include_action.setChecked(True) if marking == ImageMarking.INCLUDE else
+            self.add_action_group.checkedAction() and
+                self.add_action_group.checkedAction().setChecked(False))
+        self.image_viewer.scene.selectionChanged.connect(lambda:
+            self.is_running and self.add_toggle_marking_action.setEnabled(
+                self.image_viewer.get_selected_type() not in [ImageMarking.NONE,
+                                                              ImageMarking.CROP]))
+        self.image_viewer.accept_crop_addition.connect(self.add_crop_action.setEnabled)
+        self.image_viewer.scene.selectionChanged.connect(lambda:
+            self.is_running and self.delete_marking_action.setEnabled(
+                self.image_viewer.get_selected_type() != ImageMarking.NONE))
         self.delete_marking_action.triggered.connect(self.image_viewer.delete_selected)
+        self.add_show_marking_action.toggled.connect(self.image_viewer.show_marking)
+        self.add_show_marking_action.toggled.connect(self.add_action_group.setEnabled)
+        self.add_show_marking_action.toggled.connect(self.add_toggle_marking_action.setEnabled)
+        self.add_show_marking_action.toggled.connect(self.add_show_labels_action.setEnabled)
+        self.add_toggle_marking_action.triggered.connect(self.image_viewer.toggle_marking)
+        self.add_show_labels_action.toggled.connect(self.image_viewer.show_label)
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(

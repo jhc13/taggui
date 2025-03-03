@@ -22,6 +22,13 @@ base_point: QPoint = QPoint(0, 0)
 # stepsize of the grid
 grid: int = 8
 
+marking_colors = {
+    ImageMarking.CROP: Qt.blue,
+    ImageMarking.HINT: Qt.gray,
+    ImageMarking.INCLUDE: Qt.green,
+    ImageMarking.EXCLUDE: Qt.red,
+}
+
 class RectPosition(str, Enum):
     TL = 'top left'
     TOP = 'top'
@@ -141,12 +148,7 @@ class MarkingItem(QGraphicsRectItem):
         self.signal = RectItemSignal()
         self.rect_type = rect_type
         self.label: MarkingLabel | None = None
-        self.color = {
-            ImageMarking.CROP: Qt.blue,
-            ImageMarking.HINT: Qt.gray,
-            ImageMarking.INCLUDE: Qt.green,
-            ImageMarking.EXCLUDE: Qt.red,
-            }[rect_type]
+        self.color = marking_colors[rect_type]
         if rect_type == ImageMarking.CROP and target_size == None:
             self.size_changed() # this method sets self.target_size
         else:
@@ -596,6 +598,8 @@ class ImageViewer(QWidget):
         MarkingItem.pen_half_width = round(self.devicePixelRatio())
         MarkingItem.zoom_factor = 1.0
         self.is_zoom_to_fit = True
+        self.show_marking_state = True
+        self.show_label_state = True
         self.marking_to_add = ImageMarking.NONE
         self.scene = QGraphicsScene()
         self.view = ImageGraphicsView(self.scene, self)
@@ -698,6 +702,32 @@ class ImageViewer(QWidget):
         self.view.set_insertion_mode(marking != ImageMarking.NONE)
         grid = 1 if marking == ImageMarking.CROP else 8
 
+    @Slot()
+    def toggle_marking(self):
+        for selected in self.scene.selectedItems():
+            selected.rect_type = {ImageMarking.HINT: ImageMarking.EXCLUDE,
+                                  ImageMarking.INCLUDE: ImageMarking.HINT,
+                                  ImageMarking.EXCLUDE: ImageMarking.INCLUDE
+                                 }[selected.rect_type]
+            selected.color = marking_colors[selected.rect_type]
+            selected.label.parentItem().setBrush(selected.color)
+            self.marking_changed(selected)
+            selected.update()
+
+    @Slot(bool)
+    def show_marking(self, checked: bool):
+        self.show_marking_state = checked
+        for marking in self.marking_items:
+            marking.setVisible(checked)
+
+    @Slot(bool)
+    def show_label(self, checked: bool):
+        self.show_label_state = checked
+        for marking in self.marking_items:
+            if marking.label:
+                marking.label.setVisible(checked)
+                marking.label.parentItem().setVisible(checked)
+
     def wheelEvent(self, event):
         old_pos = self.view.mapToScene(event.position().toPoint())
 
@@ -714,6 +744,7 @@ class ImageViewer(QWidget):
                       size: QSize = None, name: str = ''):
         self.marking_to_add = ImageMarking.NONE
         marking_item = MarkingItem(rect, rect_type, size)
+        marking_item.setVisible(self.show_marking_state)
         if rect_type == ImageMarking.CROP:
             marking_item.signal.move.connect(self.hud_item.setValues)
         elif name == '' and rect_type != ImageMarking.NONE:
@@ -727,7 +758,9 @@ class ImageViewer(QWidget):
             label_background = QGraphicsRectItem(marking_item)
             label_background.setBrush(marking_item.color)
             label_background.setPen(Qt.NoPen)
+            label_background.setVisible(self.show_label_state)
             marking_item.label = MarkingLabel(name, label_background)
+            marking_item.label.setVisible(self.show_label_state)
             marking_item.label.editingFinished.connect(self.label_changed)
             marking_item.adjust_layout()
         marking_item.signal.change.connect(self.marking_changed)
@@ -774,6 +807,11 @@ class ImageViewer(QWidget):
                                     for marking in self.marking_items if marking.rect_type != ImageMarking.CROP]
         self.proxy_image_list_model.sourceModel().dataChanged.emit(
             self.proxy_image_index, self.proxy_image_index)
+
+    def get_selected_type(self) -> ImageMarking:
+        if len(self.scene.selectedItems()) > 0:
+            return self.scene.selectedItems()[0].rect_type
+        return ImageMarking.NONE
 
     @Slot()
     def delete_selected(self):
