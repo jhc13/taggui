@@ -138,6 +138,8 @@ apply:
     - `caption:cat` will match images that have `cat` anywhere in the
       caption. For example, images with the tag `orange cat` or the
       tag `catastrophe`.
+- `marking`: Images that contain at least one marking with this label. It
+  doesn't matther whether it is a hint, include or exclude marking.
 - `name`: Images that contain the filter term in the file name
     - `name:cat` will match images such as `cat-1.jpg` or `large_cat.png`.
 - `path`: Images that contain the filter term in the full file path

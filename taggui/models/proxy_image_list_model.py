@@ -33,6 +33,8 @@ class ProxyImageListModel(QSortFilterProxyModel):
             if filter_[0] == 'caption':
                 caption = self.tag_separator.join(image.tags)
                 return fnmatchcase(caption, f'*{filter_[1]}*')
+            if filter_[0] == 'marking':
+                return any(fnmatchcase(markings.label, filter_[1]) for markings in image.markings)
             if filter_[0] == 'name':
                 return fnmatchcase(image.path.name, f'*{filter_[1]}*')
             if filter_[0] == 'path':
