@@ -555,12 +555,12 @@ class MainWindow(QMainWindow):
         self.image_viewer.scene.selectionChanged.connect(lambda:
             self.is_running and self.delete_marking_action.setEnabled(
                 self.image_viewer.get_selected_type() != ImageMarking.NONE))
-        self.delete_marking_action.triggered.connect(self.image_viewer.delete_selected)
+        self.delete_marking_action.triggered.connect(lambda: self.image_viewer.delete_markings())
         self.add_show_marking_action.toggled.connect(self.image_viewer.show_marking)
         self.add_show_marking_action.toggled.connect(self.add_action_group.setEnabled)
         self.add_show_marking_action.toggled.connect(self.add_toggle_marking_action.setEnabled)
         self.add_show_marking_action.toggled.connect(self.add_show_labels_action.setEnabled)
-        self.add_toggle_marking_action.triggered.connect(self.image_viewer.toggle_marking)
+        self.add_toggle_marking_action.triggered.connect(self.image_viewer.change_marking)
         self.add_show_labels_action.toggled.connect(self.image_viewer.show_label)
 
     def connect_image_list_signals(self):

@@ -4,12 +4,12 @@ from pathlib import Path
 from PySide6.QtCore import (QEvent, QModelIndex, QObject, QPersistentModelIndex,
                             QPoint, QPointF, QRect, QRectF, QSize, QSizeF, Qt,
                             Signal, Slot)
-from PySide6.QtGui import (QCursor, QColor, QPainter, QPainterPath, QPen,
-                           QPixmap, QTransform)
+from PySide6.QtGui import (QAction, QActionGroup, QCursor, QColor, QIcon,
+                           QPainter, QPainterPath, QPen, QPixmap, QTransform)
 from PySide6.QtWidgets import (QGraphicsItem, QGraphicsLineItem,
                                QGraphicsPixmapItem, QGraphicsRectItem,
                                QGraphicsTextItem, QGraphicsScene, QGraphicsView,
-                               QVBoxLayout, QWidget)
+                               QMenu, QVBoxLayout, QWidget)
 from utils.settings import settings
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image, ImageMarking, Marking
@@ -200,7 +200,8 @@ class MarkingItem(QGraphicsRectItem):
 
     def mousePressEvent(self, event):
         self.handle_selected = self.handleAt(event.pos())
-        if self.handle_selected != RectPosition.NONE:
+        if (event.button() == Qt.MouseButton.LeftButton and
+            self.handle_selected != RectPosition.NONE):
             self.mouse_press_pos = event.pos()
             self.mouse_press_scene_pos = event.scenePos()
             self.mouse_press_rect = self.rect()
@@ -491,6 +492,8 @@ class ResizeHintHUD(QGraphicsItem):
 class ImageGraphicsView(QGraphicsView):
     def __init__(self, scene, image_viewer):
         super().__init__(scene)
+        self.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.showContextMenu)
         self.setRenderHint(QPainter.Antialiasing)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
@@ -499,6 +502,43 @@ class ImageGraphicsView(QGraphicsView):
         MarkingItem.image_view = self
         self.last_pos = None
         self.clear_scene()
+
+    def showContextMenu(self, pos):
+        scene_pos = self.mapToScene(pos)
+        item = self.scene().itemAt(scene_pos, self.transform())
+        if item is not None and item.handle_selected != RectPosition.NONE:
+            menu = QMenu()
+            if isinstance(item, MarkingLabel):
+                item = item.parentItem().parentItem()
+            if isinstance(item, MarkingItem):
+                if item.rect_type != ImageMarking.NONE:
+                    if item.rect_type != ImageMarking.CROP:
+                        marking_group = QActionGroup(menu)
+                        change_to_hint_action = QAction('Hint', marking_group)
+                        change_to_hint_action.setCheckable(True)
+                        change_to_hint_action.setChecked(item.rect_type == ImageMarking.HINT)
+                        change_to_hint_action.triggered.connect(
+                            lambda: self.image_viewer.change_marking([item], ImageMarking.HINT))
+                        menu.addAction(change_to_hint_action)
+                        change_to_exclude_action = QAction('Exclude', marking_group)
+                        change_to_exclude_action.setCheckable(True)
+                        change_to_exclude_action.setChecked(item.rect_type == ImageMarking.EXCLUDE)
+                        change_to_exclude_action.triggered.connect(
+                            lambda: self.image_viewer.change_marking([item], ImageMarking.EXCLUDE))
+                        menu.addAction(change_to_exclude_action)
+                        change_to_include_action = QAction('Include', marking_group)
+                        change_to_include_action.setCheckable(True)
+                        change_to_include_action.setChecked(item.rect_type == ImageMarking.INCLUDE)
+                        change_to_include_action.triggered.connect(
+                            lambda: self.image_viewer.change_marking([item], ImageMarking.INCLUDE))
+                        menu.addAction(change_to_include_action)
+                        menu.addSeparator()
+                    delete_marking_action = QAction(
+                        QIcon.fromTheme('edit-delete'), 'Delete', self)
+                    delete_marking_action.triggered.connect(
+                        lambda: self.image_viewer.delete_markings([item]))
+                    menu.addAction(delete_marking_action)
+            menu.exec(self.mapToGlobal(pos))
 
     def clear_scene(self):
         """Use this and not scene.clear() due to resource management."""
@@ -578,7 +618,11 @@ class ImageGraphicsView(QGraphicsView):
         if event.key() == Qt.Key.Key_Control:
             self.set_insertion_mode(True)
         elif event.key() == Qt.Key.Key_Delete:
-            self.image_viewer.delete_selected()
+            edited_item = self.scene().focusItem()
+            if not (isinstance(edited_item, MarkingLabel) and
+                edited_item.textInteractionFlags() == Qt.TextEditorInteraction):
+                # Delete marking only when not editing the label
+                self.image_viewer.delete_markings()
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
@@ -703,16 +747,23 @@ class ImageViewer(QWidget):
         grid = 1 if marking == ImageMarking.CROP else 8
 
     @Slot()
-    def toggle_marking(self):
-        for selected in self.scene.selectedItems():
-            selected.rect_type = {ImageMarking.HINT: ImageMarking.EXCLUDE,
+    def change_marking(self, items: list[MarkingItem] | None = None,
+                       new_marking: ImageMarking = ImageMarking.NONE):
+        if items == None:
+            items = self.scene.selectedItems()
+        for item in items:
+            if new_marking == ImageMarking.NONE:
+                # default: toggle between all types
+                item.rect_type = {ImageMarking.HINT: ImageMarking.EXCLUDE,
                                   ImageMarking.INCLUDE: ImageMarking.HINT,
                                   ImageMarking.EXCLUDE: ImageMarking.INCLUDE
-                                 }[selected.rect_type]
-            selected.color = marking_colors[selected.rect_type]
-            selected.label.parentItem().setBrush(selected.color)
-            self.marking_changed(selected)
-            selected.update()
+                                 }[item.rect_type]
+            else:
+                item.rect_type = new_marking
+            item.color = marking_colors[item.rect_type]
+            item.label.parentItem().setBrush(item.color)
+            self.marking_changed(item)
+            item.update()
 
     @Slot(bool)
     def show_marking(self, checked: bool):
@@ -814,9 +865,11 @@ class ImageViewer(QWidget):
         return ImageMarking.NONE
 
     @Slot()
-    def delete_selected(self):
+    def delete_markings(self, items: list[MarkingItem] | None = None):
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
-        for item in self.scene.selectedItems():
+        if items == None:
+            items = self.scene.selectedItems()
+        for item in items:
             if item.rect_type == ImageMarking.CROP:
                 global base_point
                 image.thumbnail = None
