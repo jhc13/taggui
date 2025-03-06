@@ -692,7 +692,8 @@ class ImageViewer(QWidget):
 
     @Slot()
     def setting_change(self, key, value):
-        if key == 'export_bucket_strategy':
+        if key in ['export_resolution', 'export_bucket_res_size',
+                   'export_upscaling', 'export_bucket_strategy']:
             for marking in self.marking_items:
                 marking.size_changed()
             self.scene.invalidate()

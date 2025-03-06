@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout,
 from PIL import Image, ImageFilter, ImageCms
 
 from utils.settings import DEFAULT_SETTINGS, settings
+from utils.image import ImageMarking
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox, SettingsComboBox)
 import utils.target_dimension as target_dimension
@@ -112,8 +113,8 @@ class ExportDialog(QDialog):
             '0: disable rescaling\n'
             '512: SD1.5\n'
             '1024: SDXL, SD3, Flux')
-        self.resolution_spin_box.textChanged.connect(self.show_megapixels)
-        self.resolution_spin_box.textChanged.connect(self.show_statistics)
+        self.resolution_spin_box.valueChanged.connect(self.show_megapixels)
+        self.resolution_spin_box.valueChanged.connect(self.show_statistics)
         grid_layout.addWidget(self.resolution_spin_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
@@ -134,7 +135,7 @@ class ExportDialog(QDialog):
             'Ensure that the exported image size is divisable by that number.\n'
             'It should match the setting on the training tool.\n'
             'It might cause minor cropping.')
-        self.bucket_res_size_spin_box.textChanged.connect(self.show_statistics)
+        self.bucket_res_size_spin_box.valueChanged.connect(self.show_statistics)
         grid_layout.addWidget(self.bucket_res_size_spin_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
@@ -199,7 +200,7 @@ class ExportDialog(QDialog):
             'Only for JPEG and WebP.\n'
             '0 is worst and 100 is best.\n'
             'For JPEG numbers above 95 should be avoided')
-        self.quality_spin_box.textChanged.connect(self.quality_change)
+        self.quality_spin_box.valueChanged.connect(self.quality_change)
         format_layout.addWidget(self.quality_spin_box,
                               Qt.AlignmentFlag.AlignLeft)
         format_widget.setLayout(format_layout)
@@ -264,6 +265,15 @@ class ExportDialog(QDialog):
         self.statistics_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.statistics_table.itemDoubleClicked.connect(self.set_filter)
         grid_layout.addWidget(self.statistics_table, grid_row, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
+        grid_layout.addWidget(QLabel('Fiter hashtag (#) tags'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        self.filter_hastag_check_box = SettingsBigCheckBox(key='export_filter_hashtag')
+        self.filter_hastag_check_box.setToolTip(
+            'Do not export tags that start with a hashtag (#)')
+        grid_layout.addWidget(self.filter_hastag_check_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         self.layout.addLayout(grid_layout)
@@ -350,7 +360,6 @@ class ExportDialog(QDialog):
             return
 
         resolution = settings.value('export_resolution', type=int)
-        upscaling = settings.value('export_upscaling', type=int)
         bucket_res = settings.value('export_bucket_res_size', type=int)
 
         # notable aspect ratios
@@ -367,8 +376,12 @@ class ExportDialog(QDialog):
         image_list = self.get_image_list()
         image_dimensions = defaultdict(int)
         for this_image in image_list:
-            this_image.target_dimension = target_dimension.get(
-                QSize(*this_image.dimensions))
+            if this_image.crop != None:
+                this_image.target_dimension = target_dimension.get(
+                    this_image.crop.size())
+            else:
+                this_image.target_dimension = target_dimension.get(
+                    QSize(*this_image.dimensions))
             image_dimensions[this_image.target_dimension.toTuple()] += 1
         self.image_list.proxy_image_list_model.invalidate()
 
@@ -442,6 +455,7 @@ class ExportDialog(QDialog):
         export_keep_dir_structure = settings.value('export_keep_dir_structure', type=bool)
         no_overwrite = True
         only_missing = True
+        refresh_tags = False
 
         image_list = self.get_image_list()
         self.progress_bar = QProgressBar(self)
@@ -462,14 +476,22 @@ class ExportDialog(QDialog):
                 msgBox.setIcon(QMessageBox.Warning)
                 msgBox.setWindowTitle('Path warning')
                 msgBox.setText('The export directory path is not empty')
+                refresh_button = msgBox.addButton('Refresh', QMessageBox.ApplyRole)
+                refresh_button.setToolTip('Export only missing images, but update all captions')
                 overwrite_button = msgBox.addButton('Overwrite', QMessageBox.DestructiveRole)
+                refresh_button.setToolTip('Overwrite all existing files')
                 rename_button = msgBox.addButton('Rename', QMessageBox.YesRole)
+                refresh_button.setToolTip('Export with a new name')
                 only_missing_button = msgBox.addButton('Only missing', QMessageBox.AcceptRole)
+                refresh_button.setToolTip('Export only missing images')
                 msgBox.addButton(QMessageBox.Cancel)
-                msgBox.setDefaultButton(QMessageBox.Cancel)
+                msgBox.setDefaultButton(refresh_button)
                 button = msgBox.exec_()
                 if button == QMessageBox.Cancel:
                     return
+                if msgBox.clickedButton() == refresh_button:
+                    no_overwrite = False
+                    refresh_tags = True
                 if msgBox.clickedButton() == overwrite_button:
                     no_overwrite = False
                     only_missing = False
@@ -483,8 +505,9 @@ class ExportDialog(QDialog):
             )
             return
 
+        tag_separator = settings.value('tag_separator', type=str)
+        filter_hashtag = settings.value('export_filter_hashtag', type=bool)
         resolution = settings.value('export_resolution', type=int)
-        upscaling = settings.value('export_upscaling', type=int)
         bucket_res = settings.value('export_bucket_res_size', type=int)
         export_format = settings.value('export_format', type=str)
         quality = settings.value('export_quality', type=int)
@@ -505,55 +528,115 @@ class ExportDialog(QDialog):
                 export_path = export_directory_path / image_entry.path.name
             export_path = export_path.with_suffix(export_format.split(' ', 1)[0])
 
-            if export_path.exists() and only_missing:
+            image_exists = export_path.exists()
+            if image_exists and only_missing and not refresh_tags:
                 continue
 
             if no_overwrite:
                 stem = export_path.stem
                 counter = 0
-                while export_path.exists():
+                while image_exists:
                     export_path = export_path.parent / f"{stem}_{counter}{export_path.suffix}"
+                    image_exists = export_path.exists()
                     counter += 1
 
-            # copy the tag file first
-            if image_entry.path.with_suffix('.txt').exists():
-                shutil.copyfile(str(image_entry.path.with_suffix('.txt')), str(export_path.with_suffix('.txt')))
+            # write the tag file first
+            if filter_hashtag:
+                tags = [tag for tag in image_entry.tags if tag[0] != '#']
+            else:
+                tags = image_entry.tags
+
+            try:
+                export_path.with_suffix('.txt').write_text(
+                    tag_separator.join(tags), encoding='utf-8',
+                    errors='replace')
+            except OSError:
+                error_message_box = QMessageBox()
+                error_message_box.setWindowTitle('Error')
+                error_message_box.setIcon(QMessageBox.Icon.Critical)
+                error_message_box.setText(f'Failed to save tags for {image_entry.path}.')
+                error_message_box.exec()
+
+            if image_exists and only_missing:
+                # tags were refreshed, export_path was changed when we should
+                # rename and not overwrite, so we can skip the image writing
+                continue
 
             # then handle the image
             image_file = Image.open(image_entry.path)
+            export_can_alpha = export_format != ExportFormat.JPG
             # Preserve alpha if present:
-            if image_file.mode in ("RGBA", "LA", "PA") and not export_format == ExportFormat.JPG:  # Check for alpha channels
+            if image_file.mode in ("RGBA", "LA", "PA") and export_can_alpha:  # Check for alpha channels
                 image_file = image_file.convert("RGBA")
             else:
                 image_file = image_file.convert("RGB")  # Otherwise, convert to RGB
+            current_width, current_height = image_file.size
+
+            # 1. pass: add includes
+            for marking in image_entry.markings:
+                if marking.type == ImageMarking.INCLUDE and export_can_alpha:
+                    if image_file.mode == 'RGB':
+                        image_file = image_file.convert("RGBA")
+                        alpha = image_file.getchannel('A')
+                        # completely transparent
+                        alpha.paste(0, (0, 0, current_width, current_height))
+                    else:
+                        alpha = image_file.getchannel('A')
+                    alpha.paste(255, marking.rect.adjusted(0,0,1,1).getCoords())
+                    image_file.putalpha(alpha)
+
+            # 2. pass: remove excludes
+            for marking in image_entry.markings:
+                if marking.type == ImageMarking.EXCLUDE and export_can_alpha:
+                    if image_file.mode == 'RGB':
+                        image_file = image_file.convert("RGBA")
+                        alpha = image_file.getchannel('A')
+                        # completely opaque
+                        alpha.paste(255, (0, 0, current_width, current_height))
+                    else:
+                        alpha = image_file.getchannel('A')
+                    alpha.paste(0, marking.rect.adjusted(0,0,1,1).getCoords())
+                    image_file.putalpha(alpha)
 
             new_width, new_height = image_entry.target_dimension.toTuple()
-            current_width, current_height = image_file.size
-            if bucket_strategy == BucketStrategy.CROP or bucket_strategy == BucketStrategy.CROP_SCALE:
-                if current_height * new_width / current_width < new_height: # too wide
-                    new_width = floor(current_width * new_height / current_height)
+            crop_width, crop_height = image_entry.crop.size().toTuple()
+            if (bucket_strategy == BucketStrategy.CROP or
+                bucket_strategy == BucketStrategy.CROP_SCALE):
+                if crop_height * new_width / crop_width < new_height: # too wide
+                    new_width = floor(crop_width * new_height / crop_height)
                 else: # too high
-                    new_height = floor(current_height * new_width / current_width)
+                    new_height = floor(crop_height * new_width / crop_width)
             if bucket_strategy == BucketStrategy.CROP_SCALE:
                 new_width = floor((image_entry.target_dimension.width() + new_width)/2)
                 new_height = floor((image_entry.target_dimension.height() + new_height)/2)
-            if image_file.size[0] != new_width or image_file.size[1] != new_height:
-                # resize with the best method available
-                resized_image = image_file.resize((new_width, new_height), Image.LANCZOS)
-                # followed by a slight sharpening as it should be done
-                sharpend_image = resized_image.filter(ImageFilter.UnsharpMask(radius = 0.5, percent = 50, threshold = 0))
+
+            if image_entry.crop == None:
+                cropped_image = image_file
             else:
-                sharpend_image = image_file
+                cropped_image = image_file.crop(image_entry.crop.adjusted(0,0,1,1).getCoords())
+
+            if cropped_image.size[0] != new_width or cropped_image.size[1] != new_height:
+                # resize with the best method available
+                resized_image = cropped_image.resize((new_width, new_height), Image.LANCZOS)
+                # followed by a slight sharpening as it should be done
+                sharpend_image = resized_image.filter(
+                    ImageFilter.UnsharpMask(radius = 0.5, percent = 50, threshold = 0))
+            else:
+                sharpend_image = cropped_image
 
             # crop to the desired size
             current_width, current_height = sharpend_image.size
             crop_width = floor((current_width - image_entry.target_dimension.width()) / 2)
             crop_height = floor((current_height - image_entry.target_dimension.height()) / 2)
-            cropped_image = sharpend_image.crop((crop_width, crop_height, current_width - crop_width, current_height - crop_height))
+            cropped_image = sharpend_image.crop((crop_width, crop_height,
+                                                 crop_width + image_entry.target_dimension.width(),
+                                                 crop_height + image_entry.target_dimension.height()))
             lossless = quality > 99
 
             if color_space == "feed through (don't touch)":
-                cropped_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=cropped_image.info.get('icc_profile'), lossless=lossless)
+                cropped_image.save(export_path, format=ExportFormatDict[export_format],
+                                   quality=quality, lossless=lossless,
+                                   icc_profile=cropped_image.info.get('icc_profile') )
             else:
                 source_profile_raw = image_file.info.get('icc_profile')
                 if source_profile_raw is None: # assume sRGB
@@ -563,9 +646,13 @@ class ExportDialog(QDialog):
                 target_profile = ImageCms.ImageCmsProfile(io.BytesIO(target_profile_raw))
                 final_image = ImageCms.profileToProfile(cropped_image, source_profile, target_profile)
                 if save_profile:
-                    final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=target_profile.tobytes(), lossless=lossless)
+                    final_image.save(export_path, format=ExportFormatDict[export_format],
+                                     quality=quality, lossless=lossless,
+                                     icc_profile=target_profile.tobytes())
                 else:
-                    final_image.save(export_path, format=ExportFormatDict[export_format], quality=quality, icc_profile=None, lossless=lossless)
+                    final_image.save(export_path, format=ExportFormatDict[export_format],
+                                     quality=quality, lossless=lossless,
+                                     icc_profile=None)
         self.close()
 
     def get_image_list(self):
@@ -580,9 +667,11 @@ class ExportDialog(QDialog):
                     image_list.append(source_index.data(Qt.ItemDataRole.UserRole))
         elif settings.value('export_filter') == ExportFilter.SELECTED:
             images = image_list_view.proxy_image_list_model.sourceModel()
-            image_list = [image_index.data(Qt.ItemDataRole.UserRole) for image_index in image_list_view.get_selected_image_indices()]
+            image_list = [image_index.data(Qt.ItemDataRole.UserRole)
+                          for image_index in image_list_view.get_selected_image_indices()]
         else: # ExportFilter.NONE
             images = image_list_view.proxy_image_list_model.sourceModel()
-            image_list = [images.index(image_index).data(Qt.ItemDataRole.UserRole) for image_index in range(images.rowCount())]
+            image_list = [images.index(image_index).data(Qt.ItemDataRole.UserRole)
+                          for image_index in range(images.rowCount())]
 
         return image_list

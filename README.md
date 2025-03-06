@@ -323,3 +323,11 @@ be used for the exported images as well when selected.
 
 `Statistics`:
 Preview of the generated image sizes from the export funtion.
+
+`Fiter hashtag (#) tags`:
+When set all tags that start with a hashtag (i.e. the "#" character) are not
+included in the exported captions.
+
+This allows you to use tags for internal image organization like marking
+images that you don't want to export or adding notes about an image into the
+tag list.

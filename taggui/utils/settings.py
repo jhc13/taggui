@@ -21,7 +21,8 @@ DEFAULT_SETTINGS = {
     'export_quality': 75,
     'export_color_space': 'sRGB',
     'export_directory_path': '',
-    'export_keep_dir_structure': False
+    'export_keep_dir_structure': False,
+    'export_filter_hashtag': True
 }
 
 
