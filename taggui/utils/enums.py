@@ -37,6 +37,15 @@ Presets = {
     'SDXL, SD3, Flux': (1024, 64, 8, '1024:1024, 1408:704, 1216:832, 1152:896, 1344:768, 1536:640')
 }
 
+class MaskedContent(str, Enum):
+    ORIGINAL = 'original'
+    BLUR = 'blur'
+    BLUR_NOISE = 'blur + noise'
+    GREY = 'grey'
+    GREY_NOISE = 'grey + noise'
+    BLACK = 'black'
+    WHITE = 'white'
+
 class ExportFormat(str, Enum):
     JPG = '.jpg - JPEG'
     JPGXL = '.jxl - JPEG XL'

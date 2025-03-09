@@ -5,6 +5,7 @@ import io
 from math import ceil, floor
 from pathlib import Path
 import shutil
+import numpy as np
 
 from PySide6.QtCore import QRect, QSize, Qt, Slot
 from PySide6.QtGui import QColorSpace
@@ -28,8 +29,8 @@ try:
 except ModuleNotFoundError:
     pass
 
-from utils.enums import (ExportFilter, Presets, ExportFormat, ExportFormatDict,
-                         IccProfileList, BucketStrategy)
+from utils.enums import (ExportFilter, Presets, MaskedContent, ExportFormat,
+                         ExportFormatDict, IccProfileList, BucketStrategy)
 
 class ExportDialog(QDialog):
     def __init__(self, parent, image_list: ImageList):
@@ -124,6 +125,12 @@ class ExportDialog(QDialog):
             'latent space pixels.\n'
             'Only available when the output format supports an alpha channel.')
         latent_layout.addWidget(self.quantisize_alpha_check_box,
+                              Qt.AlignmentFlag.AlignLeft)
+        latent_layout.addWidget(QLabel('Masked content'),
+                                Qt.AlignmentFlag.AlignRight)
+        self.masked_content_combo_box = SettingsComboBox(key='export_masked_content')
+        self.masked_content_combo_box.addItems(list(MaskedContent))
+        latent_layout.addWidget(self.masked_content_combo_box,
                               Qt.AlignmentFlag.AlignLeft)
         latent_widget.setLayout(latent_layout)
         grid_layout.addWidget(latent_widget, grid_row, 1,
@@ -332,18 +339,22 @@ class ExportDialog(QDialog):
             self.quality_spin_box.setValue(75) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
             self.quantisize_alpha_check_box.setEnabled(False)
+            self.masked_content_combo_box.setEnabled(False)
         if export_format == ExportFormat.JPGXL:
             self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
             self.quantisize_alpha_check_box.setEnabled(True)
+            self.masked_content_combo_box.setEnabled(True)
         elif export_format == ExportFormat.PNG:
             self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(False)
             self.quantisize_alpha_check_box.setEnabled(True)
+            self.masked_content_combo_box.setEnabled(True)
         elif export_format == ExportFormat.WEBP:
             self.quality_spin_box.setValue(80) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
             self.quantisize_alpha_check_box.setEnabled(True)
+            self.masked_content_combo_box.setEnabled(True)
 
     @Slot()
     def quality_change(self, quality: str):
@@ -523,6 +534,7 @@ class ExportDialog(QDialog):
         bucket_res = settings.value('export_bucket_res_size', type=int)
         latent_size = settings.value('export_latent_size', type=int)
         quantisize_alpha = settings.value('export_quantisize_alpha', type=bool)
+        masked_content = settings.value('export_masked_content', type=str)
         export_format = settings.value('export_format', type=str)
         quality = settings.value('export_quality', type=int)
         color_space = settings.value('export_color_space', type=str)
@@ -636,22 +648,48 @@ class ExportDialog(QDialog):
                                                  crop_width + image_entry.target_dimension.width(),
                                                  crop_height + image_entry.target_dimension.height()))
 
-            if quantisize_alpha and export_can_alpha:
+            if export_can_alpha:
                 alpha = cropped_image.getchannel('A')
-                if image_entry.crop == None:
-                    crop = QRect(0, 0, *image_entry.dimensions)
-                else:
-                    crop = image_entry.crop
-                for marking in image_entry.markings:
-                    if marking.type == ImageMarking.INCLUDE:
-                        rect = QRect(grid.map(marking.rect.topLeft(), ceil),
-                                     grid.map(marking.rect.bottomRight(), floor))
-                        alpha.paste(255, rect.getCoords())
-                for marking in image_entry.markings:
-                    if marking.type == ImageMarking.EXCLUDE:
-                        rect = QRect(grid.map(marking.rect.topLeft(), floor),
-                                     grid.map(marking.rect.bottomRight(), ceil))
-                        alpha.paste(0, rect.getCoords())
+                if quantisize_alpha:
+                    if image_entry.crop == None:
+                        crop = QRect(0, 0, *image_entry.dimensions)
+                    else:
+                        crop = image_entry.crop
+                    for marking in image_entry.markings:
+                        if marking.type == ImageMarking.INCLUDE:
+                            rect = QRect(grid.map(marking.rect.topLeft(), ceil),
+                                        grid.map(marking.rect.bottomRight(), floor))
+                            alpha.paste(255, rect.getCoords())
+                    for marking in image_entry.markings:
+                        if marking.type == ImageMarking.EXCLUDE:
+                            rect = QRect(grid.map(marking.rect.topLeft(), floor),
+                                        grid.map(marking.rect.bottomRight(), ceil))
+                            alpha.paste(0, rect.getCoords())
+
+                replacement = None
+                if masked_content in [MaskedContent.BLUR, MaskedContent.BLUR_NOISE]:
+                    replacement = cropped_image.filter(ImageFilter.GaussianBlur(10))
+                elif masked_content in [MaskedContent.GREY, MaskedContent.GREY_NOISE]:
+                    # 126 is an 18% grey, i.e. the neutral grey, for sRGB
+                    # as it's masked there's no need to go into detail about
+                    # different color spaces.
+                    replacement = Image.new('RGB', cropped_image.size, (126, 126, 126))
+                elif masked_content == MaskedContent.BLACK:
+                    replacement = Image.new('RGB', cropped_image.size, (0, 0, 0))
+                elif masked_content == MaskedContent.WHITE:
+                    replacement = Image.new('RGB', cropped_image.size, (255, 255, 255))
+
+                if masked_content in [MaskedContent.BLUR_NOISE, MaskedContent.GREY_NOISE]:
+                    np_image = np.array(replacement)
+                    # Add random noise with a minimal blur
+                    noise = np.random.normal(0, 40, np_image.shape).astype(np.uint8)
+                    noisy_image = np_image + noise
+                    noisy_image = np.clip(noisy_image, 0, 255)
+                    replacement = Image.fromarray(noisy_image).filter(ImageFilter.GaussianBlur(1))
+
+                if replacement:
+                    cropped_image = Image.composite(cropped_image, replacement, alpha)
+
                 cropped_image.putalpha(alpha)
 
             lossless = quality > 99

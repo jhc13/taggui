@@ -285,6 +285,26 @@ number.
 `Bucket resolution size`:
 The bucket size the training tool is using.
 
+`Latent size`:
+The size of one latent space pixel in image pixels.
+
+`Quantisize alpha channel`:
+When exporting with include or exclude markings in an image fortmat that
+supports alpha masks (all, but not the classic JPEG) you can make sure that
+the masks are aligned to the latent pixels that the trainer is using for
+masked training.
+
+`Masked content`:
+When exporting with include or exclude markings in an image fortmat that
+supports alpha masks (all, but not the classic JPEG) you can change the
+content that is invisible due to the mask.
+It is known that some masked content can slightly bleed through during the
+masked training, so it can be beneficial when this (supposed to be invisible)
+content is replaced. In simple cases (e.g. masking the face for cloth LoRA
+training) the default "blur + noise" is a good choice. In hard cases to really
+hide the original data "grey + noise" can be a good choice. "original" doesn't
+modify the data behind the mask.
+
 `Preferres sizes`:
 A comma separated list of target sizes that should be preferred for the
 exported images.
