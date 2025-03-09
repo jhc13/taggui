@@ -1,5 +1,5 @@
 from enum import Enum
-from math import floor
+from math import ceil, floor
 from pathlib import Path
 from PySide6.QtCore import (QEvent, QModelIndex, QObject, QPersistentModelIndex,
                             QPoint, QPointF, QRect, QRectF, QSize, QSizeF, Qt,
@@ -14,13 +14,11 @@ from utils.settings import settings
 from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image, ImageMarking, Marking
 import utils.target_dimension as target_dimension
+from utils.grid import Grid
 from dialogs.export_dialog import BucketStrategy
 
-# Alignment base for a grid
-base_point: QPoint = QPoint(0, 0)
-
-# stepsize of the grid
-grid: int = 8
+# Grid for alignment to latent space
+grid = Grid(QRect(0, 0, 1, 1))
 
 marking_colors = {
     ImageMarking.CROP: Qt.blue,
@@ -115,11 +113,9 @@ def change_rect_to_match_size(rect: QRect, rect_pos: RectPosition, size: QSize) 
         rect_new.moveRight(rect.right())
     return rect_new
 
-def map_to_grid(point: QPoint) -> QPoint:
-    """Align the point to the closest position on the grid aligned at
-    `base_point` and with a step width of `grid`.
-    """
-    return (QPointF(point - base_point) / grid).toPoint() * grid + base_point
+def calculate_grid(content: QRect):
+    global grid
+    grid = Grid(content)
 
 class RectItemSignal(QObject):
     change = Signal(QGraphicsRectItem, name='rectChanged')
@@ -134,13 +130,12 @@ class MarkingItem(QGraphicsRectItem):
     zoom_factor = 1.0
     # The size of the image this rect belongs to
     image_size = QRect(0, 0, 1, 1)
-    # the last (quantisized position of the mouse
-    #last_pos = None
     # Static link to the single ImageGraphicsView in this application
     image_view = None
+    show_marking_latent = True
 
     def __init__(self, rect: QRect, rect_type: ImageMarking,
-                 target_size: QSize | None = None, parent = None):
+                 parent = None):
         super().__init__(rect.toRectF(), parent)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
@@ -149,10 +144,6 @@ class MarkingItem(QGraphicsRectItem):
         self.rect_type = rect_type
         self.label: MarkingLabel | None = None
         self.color = marking_colors[rect_type]
-        if rect_type == ImageMarking.CROP and target_size == None:
-            self.size_changed() # this method sets self.target_size
-        else:
-            self.target_size = target_size
         self.handle_selected = None
         self.mouse_press_pos = None
         self.mouse_press_rect = None
@@ -206,20 +197,6 @@ class MarkingItem(QGraphicsRectItem):
             self.mouse_press_scene_pos = event.scenePos()
             self.mouse_press_rect = self.rect()
             self.signal.move.emit(self.rect(), self.handle_selected)
-            if self.rect_type == ImageMarking.CROP:
-                global base_point
-                if (self.handle_selected == RectPosition.TL or
-                    self.handle_selected == RectPosition.TOP):
-                    base_point = self.rect().bottomRight().toPoint()
-                elif (self.handle_selected == RectPosition.TR or
-                      self.handle_selected == RectPosition.RIGHT):
-                    base_point = self.rect().bottomLeft().toPoint()
-                elif (self.handle_selected == RectPosition.BR or
-                      self.handle_selected == RectPosition.BOTTOM):
-                    base_point = self.rect().topLeft().toPoint()
-                elif (self.handle_selected == RectPosition.BL or
-                      self.handle_selected == RectPosition.LEFT):
-                    base_point = self.rect().topRight().toPoint()
         else:
             event.ignore()
 
@@ -255,7 +232,7 @@ class MarkingItem(QGraphicsRectItem):
                                                      self.handle_selected,
                                                      target_size)
                 else:
-                    pos_quantizised = map_to_grid(event.pos().toPoint())
+                    pos_quantizised = grid.snap(event.pos().toPoint()).toPoint()
                     rect = change_rect(self.rect().toRect(),
                                        self.handle_selected,
                                        pos_quantizised)
@@ -287,17 +264,24 @@ class MarkingItem(QGraphicsRectItem):
         super().mouseReleaseEvent(event)
 
     def paint(self, painter, option, widget=None):
+        bucket_strategy = settings.value('export_bucket_strategy', type=str)
         if self.rect_type == ImageMarking.CROP:
             painter.setPen(Qt.NoPen)
             painter.setBrush(QColor(255, 0, 0, 127))
             path = QPainterPath()
             path.addRect(self.rect())
-            if self.target_size:
-                to_crop = self.rect().size() - self.target_size
-                path.addRect(QRectF(QPointF(self.rect().x()+floor(to_crop.width()/2),
-                                            self.rect().y()+floor(to_crop.height()/2)),
-                                    self.target_size))
+            path.addRect(grid.visible)
             painter.drawPath(path)
+        elif self.rect_type == ImageMarking.INCLUDE and self.show_marking_latent:
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(0, 255, 0, 127))
+            painter.drawRect(QRectF(grid.snap(self.rect().toRect().topLeft(), ceil),
+                                    grid.snap(self.rect().toRect().bottomRight(), floor)))
+        elif self.rect_type == ImageMarking.EXCLUDE and self.show_marking_latent:
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QColor(255, 0, 0, 127))
+            painter.drawRect(QRectF(grid.snap(self.rect().toRect().topLeft(), floor),
+                                    grid.snap(self.rect().toRect().bottomRight(), ceil)))
 
         pen_half_width = self.pen_half_width / self.zoom_factor
         pen = QPen(self.color, 2*pen_half_width, Qt.SolidLine, Qt.RoundCap,
@@ -325,23 +309,18 @@ class MarkingItem(QGraphicsRectItem):
     def boundingRect(self):
         adjust = (self.pen_half_width + max(self.pen_half_width,
                                             self.handle_half_size))/self.zoom_factor
-        return self.rect().adjusted(-adjust, -adjust, adjust, adjust)
+        bbox = self.rect().adjusted(-adjust, -adjust, adjust, adjust)
+        if self.rect_type == ImageMarking.EXCLUDE:
+            bbox = bbox.united(QRectF(grid.snap(self.rect().toRect().topLeft(), floor),
+                                      grid.snap(self.rect().toRect().bottomRight(), ceil)))
+        return bbox
 
     def size_changed(self):
         if self.rect_type == ImageMarking.CROP:
-            bucket_strategy = settings.value('export_bucket_strategy', type=str)
-            current = self.rect().size().expandedTo(QSize(1, 1))
-            if bucket_strategy == BucketStrategy.SCALE:
-                self.target_size = current
-            else: # CROP or CROP_SCALE
-                target = target_dimension.get(current)
-                if current.height() * target.width() / current.width() < target.height(): # too wide
-                    scale = current.height() / target.height()
-                else: # too high
-                    scale = current.width() / target.width()
-                self.target_size = QSize(round(target.width()*scale), round(target.height()*scale))
-                if bucket_strategy == BucketStrategy.CROP_SCALE:
-                    self.target_size = (self.target_size + current.toSize())/2
+            old_grid = grid
+            calculate_grid(self.rect().toRect())
+            if old_grid != grid:
+                self.image_view.image_viewer.recalculate_markings(self)
         self.adjust_layout()
 
     def adjust_layout(self):
@@ -542,12 +521,9 @@ class ImageGraphicsView(QGraphicsView):
 
     def clear_scene(self):
         """Use this and not scene.clear() due to resource management."""
-        global grid, base_point
         self.insertion_mode = False
         self.horizontal_line = None
         self.vertical_line = None
-        grid = 8
-        base_point = QPoint(0, 0)
         self.scene().clear()
 
     def set_insertion_mode(self, mode):
@@ -582,7 +558,6 @@ class ImageGraphicsView(QGraphicsView):
             self.vertical_line.setLine(self.last_pos.x(), view_rect.top(),
                                        self.last_pos.x(), view_rect.bottom())
 
-
     def mousePressEvent(self, event):
         if self.insertion_mode and event.button() == Qt.MouseButton.LeftButton:
             rect_type = self.image_viewer.marking_to_add
@@ -604,7 +579,7 @@ class ImageGraphicsView(QGraphicsView):
         last_pos_raw = self.mapToScene(event.position().toPoint())
         if ((event.modifiers() & Qt.KeyboardModifier.ShiftModifier) ==
             Qt.KeyboardModifier.ShiftModifier):
-            self.last_pos = map_to_grid(last_pos_raw.toPoint())
+            self.last_pos = grid.snap(last_pos_raw.toPoint()).toPoint()
         else:
             self.last_pos = last_pos_raw.toPoint()
             pos = last_pos_raw
@@ -644,9 +619,11 @@ class ImageViewer(QWidget):
         self.is_zoom_to_fit = True
         self.show_marking_state = True
         self.show_label_state = True
+        self.show_marking_latent_state = True
         self.marking_to_add = ImageMarking.NONE
         self.scene = QGraphicsScene()
         self.view = ImageGraphicsView(self.scene, self)
+        self.crop_marking: ImageMarking | None = None
         settings.change.connect(self.setting_change)
 
         layout = QVBoxLayout()
@@ -681,22 +658,30 @@ class ImageViewer(QWidget):
 
         self.marking_to_add = ImageMarking.NONE
         self.marking.emit(ImageMarking.NONE)
-        self.accept_crop_addition.emit(not image.crop)
-        if image.crop:
-            if not image.target_dimension:
-                image.target_dimension = target_dimension.get(image.crop.size())
-            self.add_rectangle(image.crop, ImageMarking.CROP,
-                               size=image.target_dimension)
+        self.accept_crop_addition.emit(image.crop == None)
+        if image.crop != None:
+            self.add_rectangle(image.crop, ImageMarking.CROP)
+        else:
+            calculate_grid(MarkingItem.image_size)
         for marking in image.markings:
             self.add_rectangle(marking.rect, marking.type, name=marking.label)
 
     @Slot()
     def setting_change(self, key, value):
         if key in ['export_resolution', 'export_bucket_res_size',
-                   'export_upscaling', 'export_bucket_strategy']:
-            for marking in self.marking_items:
+                   'export_latent_size', 'export_upscaling',
+                   'export_bucket_strategy']:
+            self.recalculate_markings()
+
+    def recalculate_markings(self, ignore: MarkingItem | None = None):
+        if self.crop_marking:
+            calculate_grid(self.crop_marking.rect().toRect())
+        else:
+            calculate_grid(MarkingItem.image_size)
+        for marking in self.marking_items:
+            if marking != ignore:
                 marking.size_changed()
-            self.scene.invalidate()
+        self.scene.invalidate()
 
     @Slot()
     def zoom_in(self, center_pos: QPoint = None):
@@ -745,7 +730,6 @@ class ImageViewer(QWidget):
     def add_marking(self, marking: ImageMarking):
         self.marking_to_add = marking
         self.view.set_insertion_mode(marking != ImageMarking.NONE)
-        grid = 1 if marking == ImageMarking.CROP else 8
 
     @Slot()
     def change_marking(self, items: list[MarkingItem] | None = None,
@@ -780,6 +764,13 @@ class ImageViewer(QWidget):
                 marking.label.setVisible(checked)
                 marking.label.parentItem().setVisible(checked)
 
+    @Slot(bool)
+    def show_marking_latent(self, checked: bool):
+        MarkingItem.show_marking_latent = checked
+        for marking in self.marking_items:
+            if marking.rect_type in [ImageMarking.INCLUDE, ImageMarking.EXCLUDE]:
+                marking.update()
+
     def wheelEvent(self, event):
         old_pos = self.view.mapToScene(event.position().toPoint())
 
@@ -799,6 +790,8 @@ class ImageViewer(QWidget):
         marking_item.setVisible(self.show_marking_state)
         if rect_type == ImageMarking.CROP:
             marking_item.signal.move.connect(self.hud_item.setValues)
+            self.crop_marking = marking_item
+            marking_item.size_changed() # call after self.crop_marking was set!
         elif name == '' and rect_type != ImageMarking.NONE:
             image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
             name = {ImageMarking.HINT: 'hint',
@@ -821,10 +814,11 @@ class ImageViewer(QWidget):
         self.marking.emit(ImageMarking.NONE)
         if rect_type == ImageMarking.CROP:
             self.accept_crop_addition.emit(False)
-            self.marking_changed(marking_item)
 
     @Slot()
     def label_changed(self, do_emit = True):
+        """Slot to call when a marking label was changed to sync the information
+        in the image."""
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
         image.markings.clear()
         for marking in self.marking_items:
@@ -839,7 +833,8 @@ class ImageViewer(QWidget):
 
     @Slot(QGraphicsRectItem)
     def marking_changed(self, marking: QGraphicsRectItem):
-        global grid, base_point
+        """Slot to call when a marking was changed to sync the information
+        in the image."""
         assert self.proxy_image_index != None
         assert self.proxy_image_index.isValid()
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
@@ -847,11 +842,7 @@ class ImageViewer(QWidget):
         if marking.rect_type == ImageMarking.CROP:
             image.thumbnail = None
             image.crop = marking.rect().toRect() # ensure int!
-            image.target_dimension = marking.target_size
-            scale = min(image.crop.width()/image.target_dimension.width(),
-                        image.crop.height()/image.target_dimension.height())
-            base_point = QPoint(image.crop.x()+floor((image.crop.width()-scale*image.target_dimension.width())/2),
-                                image.crop.y()+floor((image.crop.height()-scale*image.target_dimension.height())/2))
+            image.target_dimension = grid.target
         else:
             image.markings = [Marking(marking.data(0),
                                       marking.rect_type,
@@ -867,17 +858,19 @@ class ImageViewer(QWidget):
 
     @Slot()
     def delete_markings(self, items: list[MarkingItem] | None = None):
+        """Slot to delete the list of items or when items = None all currently
+        selected marking items."""
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
         if items == None:
             items = self.scene.selectedItems()
         for item in items:
             if item.rect_type == ImageMarking.CROP:
-                global base_point
+                self.crop_marking = None
                 image.thumbnail = None
                 image.crop = None
                 image.target_dimension = None
-                base_point = QPoint(0, 0)
                 self.accept_crop_addition.emit(True)
+                calculate_grid(MarkingItem.image_size)
             else:
                 self.marking_items.remove(item)
                 self.label_changed(False)

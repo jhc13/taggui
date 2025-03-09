@@ -35,6 +35,7 @@ ICON_PATH = Path('images/icon.ico')
 TOGGLE_MARKING_ICON_PATH = Path('images/toggle_marking.png')
 SHOW_MARKINGS_ICON_PATH = Path('images/show_marking.png')
 SHOW_LABELS_ICON_PATH = Path('images/show_label.png')
+SHOW_MARKING_LATENT_ICON_PATH = Path('images/show_marking_latent.png')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
 TOKENIZER_DIRECTORY_PATH = Path('clip-vit-base-patch32')
 
@@ -130,6 +131,12 @@ class MainWindow(QMainWindow):
         self.add_show_labels_action.setCheckable(True)
         self.add_show_labels_action.setChecked(True)
         self.toolbar.addAction(self.add_show_labels_action)
+        self.add_show_marking_latent_action = QAction(
+            QIcon(QPixmap(get_resource_path(SHOW_MARKING_LATENT_ICON_PATH))),
+            'Show marking in latent space', self)
+        self.add_show_marking_latent_action.setCheckable(True)
+        self.add_show_marking_latent_action.setChecked(True)
+        self.toolbar.addAction(self.add_show_marking_latent_action)
 
         self.image_list = ImageList(self.proxy_image_list_model,
                                     tag_separator, image_list_image_width)
@@ -558,10 +565,14 @@ class MainWindow(QMainWindow):
         self.delete_marking_action.triggered.connect(lambda: self.image_viewer.delete_markings())
         self.add_show_marking_action.toggled.connect(self.image_viewer.show_marking)
         self.add_show_marking_action.toggled.connect(self.add_action_group.setEnabled)
-        self.add_show_marking_action.toggled.connect(self.add_toggle_marking_action.setEnabled)
+        self.add_show_marking_action.toggled.connect(lambda toggled:
+                self.add_toggle_marking_action.setEnabled(toggled and
+                    self.image_viewer.get_selected_type() != ImageMarking.NONE))
         self.add_show_marking_action.toggled.connect(self.add_show_labels_action.setEnabled)
-        self.add_toggle_marking_action.triggered.connect(self.image_viewer.change_marking)
+        self.add_show_marking_action.toggled.connect(self.add_show_marking_latent_action.setEnabled)
+        self.add_toggle_marking_action.triggered.connect(lambda: self.image_viewer.change_marking())
         self.add_show_labels_action.toggled.connect(self.image_viewer.show_label)
+        self.add_show_marking_latent_action.toggled.connect(self.image_viewer.show_marking_latent)
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(

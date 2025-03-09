@@ -2,11 +2,11 @@ from enum import Enum
 from collections import defaultdict
 import os
 import io
-from math import floor
+from math import ceil, floor
 from pathlib import Path
 import shutil
 
-from PySide6.QtCore import QSize, Qt, Slot
+from PySide6.QtCore import QRect, QSize, Qt, Slot
 from PySide6.QtGui import QColorSpace
 from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout,
                                QLabel, QLineEdit, QPushButton, QTableWidget,
@@ -20,6 +20,7 @@ from utils.image import ImageMarking
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox, SettingsComboBox)
 import utils.target_dimension as target_dimension
+from utils.grid import Grid
 from widgets.image_list import ImageList
 
 try:
@@ -27,45 +28,8 @@ try:
 except ModuleNotFoundError:
     pass
 
-class ExportFilter(str, Enum):
-    NONE = 'All images'
-    FILTERED = 'Filtered images'
-    SELECTED = 'Selected images'
-
-Presets = {
-    'manual': (0, 0, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
-    'Direct feed through': (0, 1, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
-    'SD1': (512, 64, '512:512, 640:320, 576:384, 512:384, 640:384, 768:320'),
-    'SDXL, SD3, Flux': (1024, 64, '1024:1024, 1408:704, 1216:832, 1152:896, 1344:768, 1536:640')
-}
-
-class ExportFormat(str, Enum):
-    JPG = '.jpg - JPEG'
-    JPGXL = '.jxl - JPEG XL'
-    PNG = '.png - PNG'
-    WEBP = '.webp - WEBP'
-
-ExportFormatDict = {
-    ExportFormat.JPG: 'jpeg',
-    ExportFormat.JPGXL: 'jxl',
-    ExportFormat.PNG: 'png',
-    ExportFormat.WEBP: 'webp'
-}
-
-class IccProfileList(str, Enum):
-    SRgb = 'sRGB'
-    SRgbLinear = 'sRGB (linear gamma)'
-    AdobeRgb = 'AdobeRGB'
-    DisplayP3 = 'DisplayP3'
-    ProPhotoRgb = 'ProPhotoRGB'
-    Bt2020 = 'BT.2020'
-    Bt2100Pq = 'BT.2100(PQ)'
-    Bt2100Hlg = 'BT.2100 (HLG)'
-
-class BucketStrategy(str, Enum):
-    CROP = 'crop'
-    SCALE = 'scale'
-    CROP_SCALE = 'crop and scale'
+from utils.enums import (ExportFilter, Presets, ExportFormat, ExportFormatDict,
+                         IccProfileList, BucketStrategy)
 
 class ExportDialog(QDialog):
     def __init__(self, parent, image_list: ImageList):
@@ -137,6 +101,32 @@ class ExportDialog(QDialog):
             'It might cause minor cropping.')
         self.bucket_res_size_spin_box.valueChanged.connect(self.show_statistics)
         grid_layout.addWidget(self.bucket_res_size_spin_box, grid_row, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
+        grid_layout.addWidget(QLabel('Latent size (px)'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        latent_widget = QWidget()
+        latent_layout = QHBoxLayout()
+        latent_layout.setContentsMargins(0, 0, 0, 0)
+        self.latent_size_spin_box = SettingsSpinBox(
+            key='export_latent_size',
+            minimum=1, maximum=256)
+        self.latent_size_spin_box.setToolTip(
+            'Size of one latent space pixel in image space pixels')
+        latent_layout.addWidget(self.latent_size_spin_box,
+                                Qt.AlignmentFlag.AlignLeft)
+        latent_layout.addWidget(QLabel('Quantisize alpha channel'),
+                                Qt.AlignmentFlag.AlignRight)
+        self.quantisize_alpha_check_box = SettingsBigCheckBox(key='export_quantisize_alpha')
+        self.quantisize_alpha_check_box.setToolTip(
+            'Align the masks due to include and exclude marking with the\n'
+            'latent space pixels.\n'
+            'Only available when the output format supports an alpha channel.')
+        latent_layout.addWidget(self.quantisize_alpha_check_box,
+                              Qt.AlignmentFlag.AlignLeft)
+        latent_widget.setLayout(latent_layout)
+        grid_layout.addWidget(latent_widget, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
@@ -283,6 +273,13 @@ class ExportDialog(QDialog):
         self.export_button.setEnabled(False)
         self.layout.addWidget(self.export_button)
 
+        image_list = self.get_image_list()
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(len(image_list))
+        self.progress_bar.hide()
+        self.layout.addWidget(self.progress_bar)
+
         # update display
         self.apply_preset(preset_combo_box.currentText(), False)
         self.show_megapixels()
@@ -300,15 +297,18 @@ class ExportDialog(QDialog):
         if value == 'manual':
             self.resolution_spin_box.setEnabled(True)
             self.bucket_res_size_spin_box.setEnabled(True)
+            self.latent_size_spin_box.setEnabled(True)
         else:
             self.inhibit_statistics_update = True
             self.resolution_spin_box.setValue(preset[0]) if do_value_change else 0
             self.resolution_spin_box.setEnabled(False)
             self.bucket_res_size_spin_box.setValue(preset[1]) if do_value_change else 0
             self.bucket_res_size_spin_box.setEnabled(False)
+            self.latent_size_spin_box.setValue(preset[2]) if do_value_change else 0
+            self.latent_size_spin_box.setEnabled(False)
             self.inhibit_statistics_update = inhibit_statistics_update_current
             self.show_statistics()
-        self.preferred_sizes_line_edit.setText(preset[2]) if do_value_change else 0
+        self.preferred_sizes_line_edit.setText(preset[3]) if do_value_change else 0
 
     @Slot()
     def show_megapixels(self):
@@ -331,15 +331,19 @@ class ExportDialog(QDialog):
         if export_format == ExportFormat.JPG:
             self.quality_spin_box.setValue(75) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
+            self.quantisize_alpha_check_box.setEnabled(False)
         if export_format == ExportFormat.JPGXL:
             self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
+            self.quantisize_alpha_check_box.setEnabled(True)
         elif export_format == ExportFormat.PNG:
             self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(False)
+            self.quantisize_alpha_check_box.setEnabled(True)
         elif export_format == ExportFormat.WEBP:
             self.quality_spin_box.setValue(80) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
+            self.quantisize_alpha_check_box.setEnabled(True)
 
     @Slot()
     def quality_change(self, quality: str):
@@ -456,59 +460,69 @@ class ExportDialog(QDialog):
         no_overwrite = True
         only_missing = True
         refresh_tags = False
+        path_missing = False
 
-        image_list = self.get_image_list()
-        self.progress_bar = QProgressBar(self)
-        self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(len(image_list))
-        self.layout.addWidget(self.progress_bar)
+        try:
+            if os.path.exists(export_directory_path):
+                if os.path.isfile(export_directory_path):
+                    QMessageBox.critical(
+                        self,
+                        'Path error',
+                        'The export directory path points to a file and not to a directory'
+                    )
+                    return
+                if os.listdir(export_directory_path):
+                    msgBox = QMessageBox()
+                    msgBox.setIcon(QMessageBox.Warning)
+                    msgBox.setWindowTitle('Path warning')
+                    msgBox.setText('The export directory path is not empty')
+                    refresh_button = msgBox.addButton('Refresh', QMessageBox.ApplyRole)
+                    refresh_button.setToolTip('Export only missing images, but update all captions')
+                    overwrite_button = msgBox.addButton('Overwrite', QMessageBox.DestructiveRole)
+                    refresh_button.setToolTip('Overwrite all existing files')
+                    rename_button = msgBox.addButton('Rename', QMessageBox.YesRole)
+                    refresh_button.setToolTip('Export with a new name')
+                    only_missing_button = msgBox.addButton('Only missing', QMessageBox.AcceptRole)
+                    refresh_button.setToolTip('Export only missing images')
+                    msgBox.addButton(QMessageBox.Cancel)
+                    msgBox.setDefaultButton(refresh_button)
+                    button = msgBox.exec_()
+                    if button == QMessageBox.Cancel:
+                        return
+                    if msgBox.clickedButton() == refresh_button:
+                        no_overwrite = False
+                        refresh_tags = True
+                    if msgBox.clickedButton() == overwrite_button:
+                        no_overwrite = False
+                        only_missing = False
+                    if msgBox.clickedButton() == rename_button:
+                        only_missing = False
+                else:
+                    path_missing = True
+            else:
+                path_missing = True
 
-        if os.path.exists(export_directory_path):
-            if os.path.isfile(export_directory_path):
-                QMessageBox.critical(
+            if path_missing:
+                button = QMessageBox.critical(
                     self,
                     'Path error',
-                    'The export directory path points to a file and not to a directory'
-                )
-                return
-            if os.listdir(export_directory_path):
-                msgBox = QMessageBox()
-                msgBox.setIcon(QMessageBox.Warning)
-                msgBox.setWindowTitle('Path warning')
-                msgBox.setText('The export directory path is not empty')
-                refresh_button = msgBox.addButton('Refresh', QMessageBox.ApplyRole)
-                refresh_button.setToolTip('Export only missing images, but update all captions')
-                overwrite_button = msgBox.addButton('Overwrite', QMessageBox.DestructiveRole)
-                refresh_button.setToolTip('Overwrite all existing files')
-                rename_button = msgBox.addButton('Rename', QMessageBox.YesRole)
-                refresh_button.setToolTip('Export with a new name')
-                only_missing_button = msgBox.addButton('Only missing', QMessageBox.AcceptRole)
-                refresh_button.setToolTip('Export only missing images')
-                msgBox.addButton(QMessageBox.Cancel)
-                msgBox.setDefaultButton(refresh_button)
-                button = msgBox.exec_()
+                    'The export directory path does not exist. Create it?',
+                    QMessageBox.Ok, QMessageBox.Cancel)
                 if button == QMessageBox.Cancel:
                     return
-                if msgBox.clickedButton() == refresh_button:
-                    no_overwrite = False
-                    refresh_tags = True
-                if msgBox.clickedButton() == overwrite_button:
-                    no_overwrite = False
-                    only_missing = False
-                if msgBox.clickedButton() == rename_button:
-                    only_missing = False
-        else:
-            QMessageBox.critical(
-                self,
-                'Path error',
-                'The export directory path does not exist'
-            )
+                os.makedirs(export_directory_path)
+        except Exception as e:
+            QMessageBox.critical(self, 'Path error', f'Error: {e}')
             return
+
+        self.progress_bar.show()
 
         tag_separator = settings.value('tag_separator', type=str)
         filter_hashtag = settings.value('export_filter_hashtag', type=bool)
         resolution = settings.value('export_resolution', type=int)
         bucket_res = settings.value('export_bucket_res_size', type=int)
+        latent_size = settings.value('export_latent_size', type=int)
+        quantisize_alpha = settings.value('export_quantisize_alpha', type=bool)
         export_format = settings.value('export_format', type=str)
         quality = settings.value('export_quality', type=int)
         color_space = settings.value('export_color_space', type=str)
@@ -577,12 +591,12 @@ class ExportDialog(QDialog):
                 if marking.type == ImageMarking.INCLUDE and export_can_alpha:
                     if image_file.mode == 'RGB':
                         image_file = image_file.convert("RGBA")
-                        alpha = image_file.getchannel('A')
                         # completely transparent
-                        alpha.paste(0, (0, 0, current_width, current_height))
+                        alpha = Image.new('L', image_file.size, 0)
                     else:
                         alpha = image_file.getchannel('A')
-                    alpha.paste(255, marking.rect.adjusted(0,0,1,1).getCoords())
+                    if not quantisize_alpha:
+                        alpha.paste(255, marking.rect.adjusted(0,0,1,1).getCoords())
                     image_file.putalpha(alpha)
 
             # 2. pass: remove excludes
@@ -590,34 +604,24 @@ class ExportDialog(QDialog):
                 if marking.type == ImageMarking.EXCLUDE and export_can_alpha:
                     if image_file.mode == 'RGB':
                         image_file = image_file.convert("RGBA")
-                        alpha = image_file.getchannel('A')
                         # completely opaque
-                        alpha.paste(255, (0, 0, current_width, current_height))
+                        alpha = Image.new('L', image_file.size, 255)
                     else:
                         alpha = image_file.getchannel('A')
-                    alpha.paste(0, marking.rect.adjusted(0,0,1,1).getCoords())
+                    if not quantisize_alpha:
+                        alpha.paste(0, marking.rect.adjusted(0,0,1,1).getCoords())
                     image_file.putalpha(alpha)
 
-            new_width, new_height = image_entry.target_dimension.toTuple()
-            crop_width, crop_height = image_entry.crop.size().toTuple()
-            if (bucket_strategy == BucketStrategy.CROP or
-                bucket_strategy == BucketStrategy.CROP_SCALE):
-                if crop_height * new_width / crop_width < new_height: # too wide
-                    new_width = floor(crop_width * new_height / crop_height)
-                else: # too high
-                    new_height = floor(crop_height * new_width / crop_width)
-            if bucket_strategy == BucketStrategy.CROP_SCALE:
-                new_width = floor((image_entry.target_dimension.width() + new_width)/2)
-                new_height = floor((image_entry.target_dimension.height() + new_height)/2)
-
             if image_entry.crop == None:
-                cropped_image = image_file
+                grid = Grid(QRect(0, 0, *image_file.size))
             else:
-                cropped_image = image_file.crop(image_entry.crop.adjusted(0,0,1,1).getCoords())
-
-            if cropped_image.size[0] != new_width or cropped_image.size[1] != new_height:
+                grid = Grid(image_entry.crop)
+            visible = grid.visible
+            cropped_image = image_file.crop(visible.adjusted(0,0,1,1).getCoords())
+            if not grid.is_visible_equal_sceen_size():
                 # resize with the best method available
-                resized_image = cropped_image.resize((new_width, new_height), Image.LANCZOS)
+                #resized_image = cropped_image.resize((new_width, new_height), Image.LANCZOS)
+                resized_image = cropped_image.resize(grid.target.toTuple(), Image.LANCZOS)
                 # followed by a slight sharpening as it should be done
                 sharpend_image = resized_image.filter(
                     ImageFilter.UnsharpMask(radius = 0.5, percent = 50, threshold = 0))
@@ -631,6 +635,25 @@ class ExportDialog(QDialog):
             cropped_image = sharpend_image.crop((crop_width, crop_height,
                                                  crop_width + image_entry.target_dimension.width(),
                                                  crop_height + image_entry.target_dimension.height()))
+
+            if quantisize_alpha and export_can_alpha:
+                alpha = cropped_image.getchannel('A')
+                if image_entry.crop == None:
+                    crop = QRect(0, 0, *image_entry.dimensions)
+                else:
+                    crop = image_entry.crop
+                for marking in image_entry.markings:
+                    if marking.type == ImageMarking.INCLUDE:
+                        rect = QRect(grid.map(marking.rect.topLeft(), ceil),
+                                     grid.map(marking.rect.bottomRight(), floor))
+                        alpha.paste(255, rect.getCoords())
+                for marking in image_entry.markings:
+                    if marking.type == ImageMarking.EXCLUDE:
+                        rect = QRect(grid.map(marking.rect.topLeft(), floor),
+                                     grid.map(marking.rect.bottomRight(), ceil))
+                        alpha.paste(0, rect.getCoords())
+                cropped_image.putalpha(alpha)
+
             lossless = quality > 99
 
             if color_space == "feed through (don't touch)":
