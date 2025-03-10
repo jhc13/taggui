@@ -10,10 +10,10 @@ import numpy as np
 from PySide6.QtCore import QRect, QSize, Qt, Slot
 from PySide6.QtGui import QColorSpace
 from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout,
-                               QLabel, QLineEdit, QPushButton, QTableWidget,
-                               QTableWidgetItem, QProgressBar, QMessageBox,
-                               QVBoxLayout, QHBoxLayout, QSizePolicy,
-                               QAbstractItemView)
+                               QHeaderView, QLabel, QLineEdit, QPushButton,
+                               QTableWidget, QTableWidgetItem, QProgressBar,
+                               QMessageBox, QVBoxLayout, QHBoxLayout,
+                               QSizePolicy, QAbstractItemView)
 from PIL import Image, ImageFilter, ImageCms
 
 from utils.settings import DEFAULT_SETTINGS, settings
@@ -70,6 +70,9 @@ class ExportDialog(QDialog):
         grid_row += 1
         grid_layout.addWidget(QLabel('Resolution (px)'), grid_row, 0,
                               Qt.AlignmentFlag.AlignRight)
+        resolution_widget = QWidget()
+        resolution_layout = QHBoxLayout()
+        resolution_layout.setContentsMargins(0, 0, 0, 0)
         self.resolution_spin_box = SettingsSpinBox(
             key='export_resolution',
             minimum=0, maximum=8192)
@@ -80,14 +83,16 @@ class ExportDialog(QDialog):
             '1024: SDXL, SD3, Flux')
         self.resolution_spin_box.valueChanged.connect(self.show_megapixels)
         self.resolution_spin_box.valueChanged.connect(self.show_statistics)
-        grid_layout.addWidget(self.resolution_spin_box, grid_row, 1,
-                              Qt.AlignmentFlag.AlignLeft)
+        resolution_layout.addWidget(self.resolution_spin_box,
+                                    Qt.AlignmentFlag.AlignLeft)
 
-        grid_row += 1
-        grid_layout.addWidget(QLabel('Image size (megapixel)'), grid_row, 0,
-                              Qt.AlignmentFlag.AlignRight)
+        resolution_layout.addWidget(QLabel('Image size (megapixel)'),
+                                    Qt.AlignmentFlag.AlignRight)
         self.megapixels = QLabel('-')
-        grid_layout.addWidget(self.megapixels, grid_row, 1,
+        resolution_layout.addWidget(self.megapixels,
+                                    Qt.AlignmentFlag.AlignLeft)
+        resolution_widget.setLayout(resolution_layout)
+        grid_layout.addWidget(resolution_widget, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
@@ -141,7 +146,7 @@ class ExportDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         self.preferred_sizes_line_edit = SettingsLineEdit(
             key='export_preferred_sizes')
-        self.preferred_sizes_line_edit.setMinimumWidth(500)
+        self.preferred_sizes_line_edit.setMinimumWidth(600)
         self.preferred_sizes_line_edit.setToolTip(
             'Comma separated list of preferred sizes and aspect ratios.\n'
             "The inverse aspect ratio is automatically derived and doesn't need to be included.")
@@ -230,7 +235,7 @@ class ExportDialog(QDialog):
                               Qt.AlignmentFlag.AlignRight)
         self.export_directory_line_edit = SettingsLineEdit(
             key='export_directory_path')
-        self.export_directory_line_edit.setMinimumWidth(500)
+        self.export_directory_line_edit.setMinimumWidth(600)
         self.export_directory_line_edit.setClearButtonEnabled(True)
         grid_layout.addWidget(self.export_directory_line_edit, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
@@ -258,7 +263,9 @@ class ExportDialog(QDialog):
         self.statistics_table = QTableWidget(0, 5, self)
         self.statistics_table.setHorizontalHeaderLabels(
             ['Width', 'Height', 'Count', 'Aspect ratio', 'Size utilization'])
-        self.statistics_table.setMinimumWidth(500)
+        self.statistics_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.statistics_table.setMinimumWidth(600)
+        self.statistics_table.setMinimumHeight(100)
         self.statistics_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.statistics_table.itemDoubleClicked.connect(self.set_filter)
         grid_layout.addWidget(self.statistics_table, grid_row, 1,

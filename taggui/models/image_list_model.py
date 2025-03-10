@@ -17,6 +17,7 @@ from PySide6.QtWidgets import QMessageBox
 from utils.image import Image, ImageMarking, Marking
 from utils.settings import DEFAULT_SETTINGS, settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
+import utils.target_dimension as target_dimension
 
 UNDO_STACK_SIZE = 32
 
@@ -115,6 +116,16 @@ class ImageListModel(QAbstractListModel):
             # Scale the dimensions to the image width.
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
+        if role == Qt.ToolTipRole:
+            path = image.path.relative_to(settings.value('directory_path', type=str))
+            dimensions = f'{image.dimensions[0]}:{image.dimensions[1]}'
+            if not image.target_dimension:
+                if image.crop:
+                    image.target_dimension = target_dimension.get(image.crop.size())
+                else:
+                    image.target_dimension = target_dimension.get(QSize(*image.dimensions))
+            target = f'{image.target_dimension.width()}:{image.target_dimension.height()}'
+            return f'{path}\n{dimensions} 🠮 {target}'
 
     def load_directory(self, directory_path: Path):
         self.images.clear()
@@ -197,7 +208,9 @@ class ImageListModel(QAbstractListModel):
                         markings = meta.get('markings')
                         if markings and type(markings) is list:
                             for marking in markings:
-                                marking = Marking(marking.get('label'), ImageMarking[marking.get('type')], QRect(*marking.get('rect')))
+                                marking = Marking(marking.get('label'),
+                                                  ImageMarking[marking.get('type')],
+                                                  QRect(*marking.get('rect')))
                                 image.markings.append(marking)
                     else:
                         error_messages.append(f'Invalid version '
