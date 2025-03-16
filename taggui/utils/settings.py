@@ -15,7 +15,7 @@ DEFAULT_SETTINGS = {
     'export_resolution': 1024,
     'export_bucket_res_size': 64,
     'export_latent_size': 8,
-    'export_quantisize_alpha': True,
+    'export_quantize_alpha': True,
     'export_masked_content': 'blur + noise',
     'export_preferred_sizes' : '1024:1024, 1408:704, 1216:832, 1152:896, 1344:768, 1536:640',
     'export_upscaling': False,

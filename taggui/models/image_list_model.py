@@ -39,7 +39,7 @@ def get_file_paths(directory_path: Path) -> set[Path]:
 @dataclass
 class HistoryItem:
     action_name: str
-    tags: list[list[str]]
+    tags: list[dict[str, list[str] | QRect | None | list[Marking]]]
     should_ask_for_confirmation: bool
 
 
@@ -94,8 +94,8 @@ class ImageListModel(QAbstractListModel):
             else:
                 crop = QRect(QPoint(0, 0), image_reader.size())
             if crop.height() > crop.width()*3:
-                # keep it sane, higher than 3x the width doesn't make sense
-                crop.setTop((crop.height() - crop.width()*3)/2) # center crop
+                # keep it reasonable, higher than 3x the width doesn't make sense
+                crop.setTop((crop.height() - crop.width()*3)//2) # center crop
                 crop.setHeight(crop.width()*3)
             image_reader.setClipRect(crop)
             pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
@@ -103,7 +103,6 @@ class ImageListModel(QAbstractListModel):
                 Qt.TransformationMode.SmoothTransformation)
             thumbnail = QIcon(pixmap)
             image.thumbnail = thumbnail
-            self.dataChanged.emit(index, index)
             return thumbnail
         if role == Qt.ItemDataRole.SizeHintRole:
             if image.thumbnail:
@@ -116,7 +115,7 @@ class ImageListModel(QAbstractListModel):
             # Scale the dimensions to the image width.
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
-        if role == Qt.ToolTipRole:
+        if role == Qt.ItemDataRole.ToolTipRole:
             path = image.path.relative_to(settings.value('directory_path', type=str))
             dimensions = f'{image.dimensions[0]}:{image.dimensions[1]}'
             if not image.target_dimension:
@@ -230,7 +229,9 @@ class ImageListModel(QAbstractListModel):
     def add_to_undo_stack(self, action_name: str,
                           should_ask_for_confirmation: bool):
         """Add the current state of the image tags to the undo stack."""
-        tags = [image.tags.copy() for image in self.images]
+        tags = [{'tags': image.tags.copy(),
+                 'crop': QRect(image.crop) if image.crop is not None else None,
+                 'markings': image.markings.copy()} for image in self.images]
         self.undo_stack.append(HistoryItem(action_name, tags,
                                            should_ask_for_confirmation))
         self.redo_stack.clear()
@@ -250,15 +251,12 @@ class ImageListModel(QAbstractListModel):
 
     def write_meta_to_disk(self, image: Image):
         does_exist = image.path.with_suffix('.json').exists()
-        meta = {'version': 1}
-        if image.crop != None:
+        meta: dict[str, any] = {'version': 1}
+        if image.crop is not None:
             meta['crop'] = image.crop.getRect()
-        markings: list[dict[str, any]] = []
-        for marking in image.markings:
-            markings.append({'label': marking.label,
+        meta['markings'] = [{'label': marking.label,
                              'type': marking.type.name,
-                             'rect': marking.rect.getRect()})
-        meta['markings'] = markings
+                             'rect': marking.rect.getRect()} for marking in image.markings]
         if does_exist or len(meta.keys()) > 1:
             try:
                 with image.path.with_suffix('.json').open('w', encoding='UTF-8') as meta_file:
@@ -290,17 +288,23 @@ class ImageListModel(QAbstractListModel):
             if reply != QMessageBox.StandardButton.Yes:
                 return
         source_stack.pop()
-        tags = [image.tags for image in self.images]
+        tags = [{'tags': image.tags.copy(),
+                 'crop': QRect(image.crop) if image.crop is not None else None,
+                 'markings': image.markings.copy()} for image in self.images]
         destination_stack.append(HistoryItem(
             history_item.action_name, tags,
             history_item.should_ask_for_confirmation))
         changed_image_indices = []
         for image_index, (image, history_image_tags) in enumerate(
                 zip(self.images, history_item.tags)):
-            if image.tags == history_image_tags:
+            if (image.tags == history_image_tags['tags'] and
+                image.crop == history_image_tags['crop'] and
+                image.markings == history_image_tags['markings']):
                 continue
             changed_image_indices.append(image_index)
-            image.tags = history_image_tags
+            image.tags = history_image_tags['tags']
+            image.crop = history_image_tags['crop']
+            image.markings = history_image_tags['markings']
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),

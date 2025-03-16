@@ -139,7 +139,7 @@ apply:
       caption. For example, images with the tag `orange cat` or the
       tag `catastrophe`.
 - `marking`: Images that contain at least one marking with this label. It
-  doesn't matther whether it is a hint, include or exclude marking.
+  doesn't matter whether it is a _hint_, _include_ or _exclude_ marking.
 - `name`: Images that contain the filter term in the file name
     - `name:cat` will match images such as `cat-1.jpg` or `large_cat.png`.
 - `path`: Images that contain the filter term in the full file path
@@ -263,6 +263,66 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 The `Edit` menu contains additional features for batch tag operations, such as
 `Find and Replace` (`Ctrl`+`R`) and `Batch Reorder Tags` (`Ctrl`+`B`).
 
+## Cropping and masking with markings
+
+Next to tagging images with words and text, taggui supports visual tagging, 
+called _marking_. There are different types of marking and except the `crop`
+they can be changed into each other.
+
+All markings are marking the pixels inside the border 🞑, not any pixels below
+the border.
+
+### Crop
+
+The _crop_, shown with a blue border <span style="color:blue">🞑</span>, defines
+the part of the image that will be exported. Depending on the export settings
+likely a bucketing is configured. When the cropped area doesn't exactly fit
+into a bucket as defined by the _Bucket resolution size_ and the _Bucket fitting
+strategy_, it might be necessary to crop even more. This additional cropped
+area is shown by a semitransparent red overlay.
+
+### Hint
+
+A _hint_, shown with a gray border <span style="color:gray">🞑</span>, is just
+a hint and has no effect on exporting the image. A _hint_ has a label where
+you can give it a name and which you can use for filtering images which contain
+the given marking.  
+A _hint_ can be changed in an _exclude_ or an _include_.
+
+### Exclude
+
+An _exclude_, shown with a red border <span style="color:red">🞑</span>, is 
+an area that is guaranteed to be masked (made transparent) when the image is
+exported.
+When _Latent size_ and _Quantize alpha channel_ are set and the _exclude_ area
+doesn't fit, the mask will be grown to make sure that no excluded pixel will
+stay unmasked.  
+An _exclude_ can be changed in an _include_ or a _hint_.
+
+### Include
+
+An _include_, shown with a green border <span style="color:green">🞑</span>, is
+an area that is included when the image is exported.
+When no _include_ is set, the full image (of course respecting the _crop_) is
+included.
+When an _include_ and an _exclude_ are overlapping, the _exclude_ takes
+precedence.
+And when _Latent size_ and _Quantize alpha channel_ are set and the _include_ 
+area doesn't fit, the mask will be shrunken to make sure that only included
+pixels will stay unmasked.  
+An _include_ can be changed in a _hint_ or an _include_.
+
+### Working with markings
+
+Markings can be created by the use of the toolbar or by holding the `ctrl` key
+to create a _hint_ or with `ctrl + alt` to create an _exclude_.
+The position and size can be changed by dragging them to the desired place.
+When the `shift` key is pressed during dragging the current part is snapped
+to the next position that fits the current _export_ settings.
+The marking label can be edited by clicking on it.
+And the type can be changed in the toolbar or with a right mouse button click on
+the marking.
+
 ## Export
 
 Exporting the images to a directory allows different options. By choosing the
@@ -288,14 +348,14 @@ The bucket size the training tool is using.
 `Latent size`:
 The size of one latent space pixel in image pixels.
 
-`Quantisize alpha channel`:
-When exporting with include or exclude markings in an image fortmat that
+`Quantize alpha channel`:
+When exporting with _include_ or _exclude_ markings in an image format that
 supports alpha masks (all, but not the classic JPEG) you can make sure that
 the masks are aligned to the latent pixels that the trainer is using for
 masked training.
 
 `Masked content`:
-When exporting with include or exclude markings in an image fortmat that
+When exporting with _include_ or _exclude_ markings in an image format that
 supports alpha masks (all, but not the classic JPEG) you can change the
 content that is invisible due to the mask.
 It is known that some masked content can slightly bleed through during the

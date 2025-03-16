@@ -1,11 +1,11 @@
 from math import ceil, floor
-from PySide6.QtCore import (QPoint, QPointF, QRect, QRectF, QSize, QSizeF)
+from PySide6.QtCore import (QPoint, QPointF, QRect, QSize)
 from utils.enums import BucketStrategy
 from utils.settings import settings
 import utils.target_dimension as target_dimension
 
 class Grid:
-    """Span a grid inside a the sceen.
+    """Span a grid inside the screen.
 
     The screen is adjusted according to bucket strategy and scaled to the
     target dimension and then the grid respects the latent size.
@@ -60,7 +60,7 @@ class Grid:
         self.scale_x = self.target.width() / self.visible.width()
         self.scale_y = self.target.height() / self.visible.height()
 
-    def is_visible_equal_sceen_size(self) -> bool:
+    def is_visible_equal_screen_size(self) -> bool:
         return self.screen.size() == self.visible
 
     def map_raw(self, point: QPoint) -> QPointF:
@@ -81,7 +81,7 @@ class Grid:
                       method(raw.y()/latent_size)*latent_size)
 
     def snap(self, point: QPoint, method = round) -> QPointF:
-        """Align the point to the closes position on the grid but in
+        """Align the point to the closest position on the grid but in
         screen coordinates.
         """
         assert isinstance(point, QPoint)

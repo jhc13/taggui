@@ -1,19 +1,16 @@
-from enum import Enum
 from collections import defaultdict
 import os
 import io
 from math import ceil, floor
 from pathlib import Path
-import shutil
 import numpy as np
 
 from PySide6.QtCore import QRect, QSize, Qt, Slot
 from PySide6.QtGui import QColorSpace
 from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout,
-                               QHeaderView, QLabel, QLineEdit, QPushButton,
-                               QTableWidget, QTableWidgetItem, QProgressBar,
-                               QMessageBox, QVBoxLayout, QHBoxLayout,
-                               QSizePolicy, QAbstractItemView)
+                               QHeaderView, QLabel, QPushButton, QTableWidget,
+                               QTableWidgetItem, QProgressBar, QMessageBox,
+                               QVBoxLayout, QHBoxLayout, QAbstractItemView)
 from PIL import Image, ImageFilter, ImageCms
 
 from utils.settings import DEFAULT_SETTINGS, settings
@@ -122,14 +119,14 @@ class ExportDialog(QDialog):
             'Size of one latent space pixel in image space pixels')
         latent_layout.addWidget(self.latent_size_spin_box,
                                 Qt.AlignmentFlag.AlignLeft)
-        latent_layout.addWidget(QLabel('Quantisize alpha channel'),
+        latent_layout.addWidget(QLabel('Quantize alpha channel'),
                                 Qt.AlignmentFlag.AlignRight)
-        self.quantisize_alpha_check_box = SettingsBigCheckBox(key='export_quantisize_alpha')
-        self.quantisize_alpha_check_box.setToolTip(
+        self.quantize_alpha_check_box = SettingsBigCheckBox(key='export_quantize_alpha')
+        self.quantize_alpha_check_box.setToolTip(
             'Align the masks due to include and exclude marking with the\n'
             'latent space pixels.\n'
             'Only available when the output format supports an alpha channel.')
-        latent_layout.addWidget(self.quantisize_alpha_check_box,
+        latent_layout.addWidget(self.quantize_alpha_check_box,
                               Qt.AlignmentFlag.AlignLeft)
         latent_layout.addWidget(QLabel('Masked content'),
                                 Qt.AlignmentFlag.AlignRight)
@@ -345,22 +342,22 @@ class ExportDialog(QDialog):
         if export_format == ExportFormat.JPG:
             self.quality_spin_box.setValue(75) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
-            self.quantisize_alpha_check_box.setEnabled(False)
+            self.quantize_alpha_check_box.setEnabled(False)
             self.masked_content_combo_box.setEnabled(False)
         if export_format == ExportFormat.JPGXL:
             self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
-            self.quantisize_alpha_check_box.setEnabled(True)
+            self.quantize_alpha_check_box.setEnabled(True)
             self.masked_content_combo_box.setEnabled(True)
         elif export_format == ExportFormat.PNG:
             self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(False)
-            self.quantisize_alpha_check_box.setEnabled(True)
+            self.quantize_alpha_check_box.setEnabled(True)
             self.masked_content_combo_box.setEnabled(True)
         elif export_format == ExportFormat.WEBP:
             self.quality_spin_box.setValue(80) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
-            self.quantisize_alpha_check_box.setEnabled(True)
+            self.quantize_alpha_check_box.setEnabled(True)
             self.masked_content_combo_box.setEnabled(True)
 
     @Slot()
@@ -540,7 +537,7 @@ class ExportDialog(QDialog):
         resolution = settings.value('export_resolution', type=int)
         bucket_res = settings.value('export_bucket_res_size', type=int)
         latent_size = settings.value('export_latent_size', type=int)
-        quantisize_alpha = settings.value('export_quantisize_alpha', type=bool)
+        quantize_alpha = settings.value('export_quantize_alpha', type=bool)
         masked_content = settings.value('export_masked_content', type=str)
         export_format = settings.value('export_format', type=str)
         quality = settings.value('export_quality', type=int)
@@ -614,7 +611,7 @@ class ExportDialog(QDialog):
                         alpha = Image.new('L', image_file.size, 0)
                     else:
                         alpha = image_file.getchannel('A')
-                    if not quantisize_alpha:
+                    if not quantize_alpha:
                         alpha.paste(255, marking.rect.adjusted(0,0,1,1).getCoords())
                     image_file.putalpha(alpha)
 
@@ -627,59 +624,58 @@ class ExportDialog(QDialog):
                         alpha = Image.new('L', image_file.size, 255)
                     else:
                         alpha = image_file.getchannel('A')
-                    if not quantisize_alpha:
+                    if not quantize_alpha:
                         alpha.paste(0, marking.rect.adjusted(0,0,1,1).getCoords())
                     image_file.putalpha(alpha)
 
-            if image_entry.crop == None:
+            if image_entry.crop is None:
                 grid = Grid(QRect(0, 0, *image_file.size))
             else:
                 grid = Grid(image_entry.crop)
             visible = grid.visible
             cropped_image = image_file.crop(visible.adjusted(0,0,1,1).getCoords())
-            if not grid.is_visible_equal_sceen_size():
+            if not grid.is_visible_equal_screen_size():
                 # resize with the best method available
-                #resized_image = cropped_image.resize((new_width, new_height), Image.LANCZOS)
                 resized_image = cropped_image.resize(grid.target.toTuple(), Image.LANCZOS)
                 # followed by a slight sharpening as it should be done
-                sharpend_image = resized_image.filter(
+                sharpened_image = resized_image.filter(
                     ImageFilter.UnsharpMask(radius = 0.5, percent = 50, threshold = 0))
             else:
-                sharpend_image = cropped_image
+                sharpened_image = cropped_image
 
             # crop to the desired size
-            current_width, current_height = sharpend_image.size
+            current_width, current_height = sharpened_image.size
             crop_width = floor((current_width - image_entry.target_dimension.width()) / 2)
             crop_height = floor((current_height - image_entry.target_dimension.height()) / 2)
-            cropped_image = sharpend_image.crop((crop_width, crop_height,
+            cropped_image = sharpened_image.crop((crop_width, crop_height,
                                                  crop_width + image_entry.target_dimension.width(),
                                                  crop_height + image_entry.target_dimension.height()))
 
             if export_can_alpha:
                 alpha = cropped_image.getchannel('A')
-                if quantisize_alpha:
-                    if image_entry.crop == None:
+                if quantize_alpha:
+                    if image_entry.crop is None:
                         crop = QRect(0, 0, *image_entry.dimensions)
                     else:
                         crop = image_entry.crop
                     for marking in image_entry.markings:
                         if marking.type == ImageMarking.INCLUDE:
                             rect = QRect(grid.map(marking.rect.topLeft(), ceil),
-                                        grid.map(marking.rect.bottomRight(), floor))
+                                         grid.map(marking.rect.adjusted(0,0,1,1).bottomRight(), floor))
                             alpha.paste(255, rect.getCoords())
                     for marking in image_entry.markings:
                         if marking.type == ImageMarking.EXCLUDE:
                             rect = QRect(grid.map(marking.rect.topLeft(), floor),
-                                        grid.map(marking.rect.bottomRight(), ceil))
+                                         grid.map(marking.rect.adjusted(0,0,1,1).bottomRight(), ceil))
                             alpha.paste(0, rect.getCoords())
 
                 replacement = None
                 if masked_content in [MaskedContent.BLUR, MaskedContent.BLUR_NOISE]:
                     replacement = cropped_image.filter(ImageFilter.GaussianBlur(10))
                 elif masked_content in [MaskedContent.GREY, MaskedContent.GREY_NOISE]:
-                    # 126 is an 18% grey, i.e. the neutral grey, for sRGB
-                    # as it's masked there's no need to go into detail about
-                    # different color spaces.
+                    # 126 is an 18% gray, i.e. the neutral gray, for sRGB.
+                    # As it's masked anyway, there's no need to go into detail
+                    # about different color spaces.
                     replacement = Image.new('RGB', cropped_image.size, (126, 126, 126))
                 elif masked_content == MaskedContent.BLACK:
                     replacement = Image.new('RGB', cropped_image.size, (0, 0, 0))
@@ -726,7 +722,6 @@ class ExportDialog(QDialog):
     def get_image_list(self):
         image_list_view = self.image_list.list_view
         if settings.value('export_filter') == ExportFilter.FILTERED:
-            images = image_list_view.proxy_image_list_model.sourceModel()
             image_list = []
             for row in range(image_list_view.proxy_image_list_model.sourceModel().rowCount()):
                 source_index = image_list_view.proxy_image_list_model.sourceModel().index(row, 0)
@@ -734,7 +729,6 @@ class ExportDialog(QDialog):
                 if proxy_index.isValid():
                     image_list.append(source_index.data(Qt.ItemDataRole.UserRole))
         elif settings.value('export_filter') == ExportFilter.SELECTED:
-            images = image_list_view.proxy_image_list_model.sourceModel()
             image_list = [image_index.data(Qt.ItemDataRole.UserRole)
                           for image_index in image_list_view.get_selected_image_indices()]
         else: # ExportFilter.NONE

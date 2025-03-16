@@ -593,6 +593,12 @@ class MainWindow(QMainWindow):
                 self.image_list_model.images))
         self.image_list_model.dataChanged.connect(
             self.image_tags_editor.reload_image_tags_if_changed)
+        self.image_list_model.dataChanged.connect(
+            lambda start, end, roles:
+                self.image_viewer.load_image(self.image_viewer.proxy_image_index,
+                                             False)
+                if (start.row() <= self.image_viewer.proxy_image_index.row() and
+                    self.image_viewer.proxy_image_index.row() <= end.row()) else 0)
         self.image_list_model.update_undo_and_redo_actions_requested.connect(
             self.update_undo_and_redo_actions)
         # Rows are inserted or removed from the proxy image list model when the

@@ -25,10 +25,12 @@ class CaptionDevice(str, Enum):
     GPU = 'GPU if available'
     CPU = 'CPU'
 
+
 class ExportFilter(str, Enum):
     NONE = 'All images'
     FILTERED = 'Filtered images'
     SELECTED = 'Selected images'
+
 
 Presets = {
     'manual': (0, 0, 1, '1:1, 2:1, 3:2, 4:3, 16:9, 21:9'),
@@ -36,6 +38,7 @@ Presets = {
     'SD1': (512, 64, 8, '512:512, 640:320, 576:384, 512:384, 640:384, 768:320'),
     'SDXL, SD3, Flux': (1024, 64, 8, '1024:1024, 1408:704, 1216:832, 1152:896, 1344:768, 1536:640')
 }
+
 
 class MaskedContent(str, Enum):
     ORIGINAL = 'original'
@@ -46,11 +49,13 @@ class MaskedContent(str, Enum):
     BLACK = 'black'
     WHITE = 'white'
 
+
 class ExportFormat(str, Enum):
     JPG = '.jpg - JPEG'
     JPGXL = '.jxl - JPEG XL'
     PNG = '.png - PNG'
     WEBP = '.webp - WEBP'
+
 
 ExportFormatDict = {
     ExportFormat.JPG: 'jpeg',
@@ -58,6 +63,7 @@ ExportFormatDict = {
     ExportFormat.PNG: 'png',
     ExportFormat.WEBP: 'webp'
 }
+
 
 class IccProfileList(str, Enum):
     SRgb = 'sRGB'
@@ -68,6 +74,7 @@ class IccProfileList(str, Enum):
     Bt2020 = 'BT.2020'
     Bt2100Pq = 'BT.2100(PQ)'
     Bt2100Hlg = 'BT.2100 (HLG)'
+
 
 class BucketStrategy(str, Enum):
     CROP = 'crop'
