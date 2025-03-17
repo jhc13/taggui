@@ -81,9 +81,12 @@ class ImageListModel(QAbstractListModel):
             # The text shown next to the thumbnail in the image list.
             text = image.path.name
             if image.tags:
-                text += f'\n{self.tag_separator.join(image.tags)}'
+                caption = self.tag_separator.join(image.tags)
+                text += f'\n{caption}'
             return text
         if role == Qt.ItemDataRole.DecorationRole:
+            # The thumbnail. If the image already has a thumbnail stored, use
+            # it. Otherwise, generate a thumbnail and save it to the image.
             if image.thumbnail:
                 return image.thumbnail
             try:
@@ -99,8 +102,8 @@ class ImageListModel(QAbstractListModel):
             if not dimensions:
                 return QSize(self.image_list_image_width,
                              self.image_list_image_width)
-            # Scale the dimensions to the image width.
             width, height = dimensions
+            # Scale the dimensions to the image width.
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
         return None # Added return None for clarity
@@ -148,14 +151,12 @@ class ImageListModel(QAbstractListModel):
         image_suffixes_string = settings.value(
             'image_list_file_formats',
             defaultValue=DEFAULT_SETTINGS['image_list_file_formats'], type=str)
-        
         image_suffixes = []
         for suffix in image_suffixes_string.split(','):
             suffix = suffix.strip().lower()
             if not suffix.startswith('.'):
                 suffix = '.' + suffix
             image_suffixes.append(suffix)
-
         image_paths = {path for path in file_paths
                        if path.suffix.lower() in image_suffixes}
         # Comparing paths is slow on some systems, so convert the paths to
@@ -190,19 +191,20 @@ class ImageListModel(QAbstractListModel):
             tags = []
             text_file_path = image_path.with_suffix('.txt')
             if str(text_file_path) in text_file_path_strings:
-                try:
-                    caption = text_file_path.read_text(encoding='utf-8', errors='replace')
-                    if caption:
-                        tags = [tag.strip() for tag in caption.split(self.tag_separator) if tag.strip()] # Optimized tag creation
-                except Exception as exception:
-                   print(f'Failed to read caption for {text_file_path}: {exception}', file=sys.stderr)
-
+                # `errors='replace'` inserts a replacement marker such as '?'
+                # when there is malformed data.
+                caption = text_file_path.read_text(encoding='utf-8',
+                                                   errors='replace')
+                if caption:
+                    tags = caption.split(self.tag_separator)
+                    tags = [tag.strip() for tag in tags]
+                    tags = [tag for tag in tags if tag]
             image = Image(image_path, dimensions, tags)
             self.images.append(image)
             
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
-        
+
     def add_to_undo_stack(self, action_name: str,
                           should_ask_for_confirmation: bool):
         """Add the current state of the image tags to the undo stack."""
@@ -226,13 +228,12 @@ class ImageListModel(QAbstractListModel):
             source_stack = self.undo_stack
             destination_stack = self.redo_stack
         else:
+            # Redo.
             source_stack = self.redo_stack
             destination_stack = self.undo_stack
-
         if not source_stack:
             return
-
-        history_item = source_stack.pop()
+        history_item = source_stack[-1]
         if history_item.should_ask_for_confirmation:
             undo_or_redo_string = 'Undo' if is_undo else 'Redo'
             reply = get_confirmation_dialog_reply(
@@ -241,18 +242,20 @@ class ImageListModel(QAbstractListModel):
                          f'"{history_item.action_name}"?')
             if reply != QMessageBox.StandardButton.Yes:
                 return
-        
+        source_stack.pop()
+        tags = [image.tags for image in self.images]
         destination_stack.append(HistoryItem(
-            history_item.action_name, [image.tags for image in self.images], # Optimized tag capture
+            history_item.action_name, tags,
             history_item.should_ask_for_confirmation))
         
         changed_image_indices = []
         for image_index, (image, history_image_tags) in enumerate(
                 zip(self.images, history_item.tags)):
-            if image.tags != history_image_tags:
-                changed_image_indices.append(image_index)
-                image.tags = history_image_tags
-                self.write_image_tags_to_disk(image)
+            if image.tags == history_image_tags:
+                continue
+            changed_image_indices.append(image_index)
+            image.tags = history_image_tags
+            self.write_image_tags_to_disk(image)
 
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
@@ -329,11 +332,9 @@ class ImageListModel(QAbstractListModel):
                 if find_text not in caption:
                     continue
                 caption = caption.replace(find_text, replace_text)
-            
             changed_image_indices.append(image_index)
             image.tags = caption.split(self.tag_separator)
             self.write_image_tags_to_disk(image)
-            
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -346,18 +347,16 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            
-            old_tags = image.tags.copy()
+            old_caption = self.tag_separator.join(image.tags)
             if do_not_reorder_first_tag:
                 first_tag = image.tags[0]
                 image.tags = [first_tag] + sorted(image.tags[1:])
             else:
                 image.tags.sort()
-
-            if old_tags != image.tags:
+            new_caption = self.tag_separator.join(image.tags)
+            if new_caption != old_caption:
                 changed_image_indices.append(image_index)
                 self.write_image_tags_to_disk(image)
-
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -374,8 +373,7 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            
-            changed_image_indices.append(image_index)
+            old_caption = self.tag_separator.join(image.tags)
             if do_not_reorder_first_tag:
                 first_tag = image.tags[0]
                 image.tags = [first_tag] + sorted(
@@ -383,8 +381,10 @@ class ImageListModel(QAbstractListModel):
                     reverse=True)
             else:
                 image.tags.sort(key=lambda tag: tag_counter[tag], reverse=True)
-
-            self.write_image_tags_to_disk(image)
+            new_caption = self.tag_separator.join(image.tags)
+            if new_caption != old_caption:
+                changed_image_indices.append(image_index)
+                self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -415,16 +415,14 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if len(image.tags) < 2:
                 continue
-            old_tags = image.tags.copy()
+            changed_image_indices.append(image_index)
             if do_not_reorder_first_tag:
                 first_tag, *remaining_tags = image.tags
                 random.shuffle(remaining_tags)
                 image.tags = [first_tag] + remaining_tags
             else:
                 random.shuffle(image.tags)
-            if old_tags != image.tags:
-              changed_image_indices.append(image_index)
-              self.write_image_tags_to_disk(image)
+            self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -439,18 +437,17 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not any(tag in image.tags for tag in tags_to_move):
                 continue
-            
-            old_tags = image.tags.copy()
+            old_caption = self.tag_separator.join(image.tags)
             moved_tags = []
             for tag in tags_to_move:
                 tag_count = image.tags.count(tag)
                 moved_tags.extend([tag] * tag_count)
             unmoved_tags = [tag for tag in image.tags if tag not in moved_tags]
             image.tags = moved_tags + unmoved_tags
-
-            if old_tags != image.tags:
-               changed_image_indices.append(image_index)
-               self.write_image_tags_to_disk(image)
+            new_caption = self.tag_separator.join(image.tags)
+            if new_caption != old_caption:
+                changed_image_indices.append(image_index)
+                self.write_image_tags_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -585,7 +582,6 @@ class ImageListModel(QAbstractListModel):
                               if image_tag not in tags]
             changed_image_indices.append(image_index)
             self.write_image_tags_to_disk(image)
-
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
