@@ -57,7 +57,6 @@ class MarkingItem(QGraphicsRectItem):
         super().__init__(rect.toRectF(), parent)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
-        self.setAcceptHoverEvents(True)
         self.rect_type = rect_type
         self.label: MarkingLabel | None = None
         self.color = marking_colors[rect_type]
@@ -67,6 +66,7 @@ class MarkingItem(QGraphicsRectItem):
         self.setZValue(2)
         if rect_type in [ImageMarking.INCLUDE, ImageMarking.EXCLUDE]:
             self.area = QGraphicsRectItem(self)
+            self.area.setVisible(self.show_marking_latent)
             self.area.setFlag(QGraphicsItem.ItemStacksBehindParent)
             self.area.setZValue(1)
             area_color = QColor(self.color)
@@ -94,21 +94,6 @@ class MarkingItem(QGraphicsRectItem):
                                  point.y() < self.rect().top() + handle_space,
                                  point.y() > self.rect().bottom() - handle_space)
 
-    def hoverMoveEvent(self, event):
-        handle = self.handleAt(event.pos())
-        if handle == RectPosition.TL or handle == RectPosition.BR:
-            self.setCursor(Qt.SizeFDiagCursor)
-        elif handle == RectPosition.TR or handle == RectPosition.BL:
-            self.setCursor(Qt.SizeBDiagCursor)
-        elif handle == RectPosition.TOP or handle == RectPosition.BOTTOM:
-            self.setCursor(Qt.SizeVerCursor)
-        elif handle == RectPosition.LEFT or handle == RectPosition.RIGHT:
-            self.setCursor(Qt.SizeHorCursor)
-        else:
-            self.unsetCursor()
-            event.ignore()
-        super().hoverMoveEvent(event)
-
     def mousePressEvent(self, event):
         self.handle_selected = self.handleAt(event.pos())
         if (event.button() == Qt.MouseButton.LeftButton and
@@ -116,7 +101,6 @@ class MarkingItem(QGraphicsRectItem):
             self.image_view.image_viewer.proxy_image_index.model().sourceModel().add_to_undo_stack(
                 action_name=f'Change marking geometry', should_ask_for_confirmation=False)
             self.mouse_press_pos = event.pos()
-            self.mouse_press_scene_pos = event.scenePos()
             self.mouse_press_rect = self.rect()
             self.setZValue(4)
             self.move(False)
@@ -409,6 +393,7 @@ class ImageGraphicsView(QGraphicsView):
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.image_viewer = image_viewer
         MarkingItem.image_view = self
+        self.setMouseTracking(True)
         self.last_pos = None
         self.clear_scene()
 
@@ -459,7 +444,6 @@ class ImageGraphicsView(QGraphicsView):
         self.insertion_mode = mode
         if mode:
             self.setDragMode(QGraphicsView.DragMode.NoDrag)
-            self.setCursor(QCursor(Qt.CursorShape.CrossCursor))
             self.horizontal_line = QGraphicsLineItem()
             self.horizontal_line.setZValue(5)
             self.vertical_line = QGraphicsLineItem()
@@ -469,7 +453,6 @@ class ImageGraphicsView(QGraphicsView):
             self.update_lines_pos()
         else:
             self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-            self.unsetCursor()
             if self.horizontal_line:
                 self.scene().removeItem(self.horizontal_line)
                 self.horizontal_line = None
@@ -510,12 +493,38 @@ class ImageGraphicsView(QGraphicsView):
             super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
-        last_pos_raw = self.mapToScene(event.position().toPoint())
+        scene_pos = self.mapToScene(event.position().toPoint())
+        items = self.scene().items(scene_pos)
+        cursor = None
+
+        if self.insertion_mode:
+            cursor = Qt.CursorShape.CrossCursor
+        else:
+            for item in items:
+                if isinstance(item, MarkingItem):
+                    handle = item.handleAt(scene_pos)
+                    if handle == RectPosition.NONE:
+                        continue
+                    elif handle == RectPosition.TL or handle == RectPosition.BR:
+                        cursor = Qt.CursorShape.SizeFDiagCursor
+                    elif handle == RectPosition.TR or handle == RectPosition.BL:
+                        cursor = Qt.CursorShape.SizeBDiagCursor
+                    elif handle == RectPosition.TOP or handle == RectPosition.BOTTOM:
+                        cursor = Qt.CursorShape.SizeVerCursor
+                    elif handle == RectPosition.LEFT or handle == RectPosition.RIGHT:
+                        cursor = Qt.CursorShape.SizeHorCursor
+                    break
+        if cursor is None:
+            self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        else:
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            self.setCursor(cursor)
+
         if ((event.modifiers() & Qt.KeyboardModifier.ShiftModifier) ==
             Qt.KeyboardModifier.ShiftModifier):
-            self.last_pos = grid.snap(last_pos_raw.toPoint()).toPoint()
+            self.last_pos = grid.snap(scene_pos.toPoint()).toPoint()
         else:
-            self.last_pos = last_pos_raw.toPoint()
+            self.last_pos = scene_pos.toPoint()
 
         if self.insertion_mode:
             self.update_lines_pos()
@@ -537,6 +546,11 @@ class ImageGraphicsView(QGraphicsView):
         if event.key() == Qt.Key.Key_Control:
             self.set_insertion_mode(False)
         super().keyReleaseEvent(event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.image_viewer.is_zoom_to_fit:
+           self.image_viewer.zoom_fit()
 
 
 class ImageViewer(QWidget):
@@ -636,10 +650,9 @@ class ImageViewer(QWidget):
     def zoom_out(self, center_pos: QPoint = None):
         view = self.view.viewport().size()
         scene = self.scene.sceneRect()
-        MarkingItem.zoom_factor = max(MarkingItem.zoom_factor / 1.25,
-                                         min(view.width()/scene.width(),
-                                             view.height()/scene.height()))
-        self.is_zoom_to_fit = False
+        limit = min(view.width()/scene.width(), view.height()/scene.height())
+        MarkingItem.zoom_factor = max(MarkingItem.zoom_factor / 1.25, limit)
+        self.is_zoom_to_fit = MarkingItem.zoom_factor == limit
         self.zoom_emit()
 
     @Slot()
@@ -714,15 +727,17 @@ class ImageViewer(QWidget):
         MarkingItem.show_marking_latent = checked
         for marking in self.marking_items:
             if marking.rect_type in [ImageMarking.INCLUDE, ImageMarking.EXCLUDE]:
-                marking.update()
+                marking.area.setVisible(checked)
 
     def wheelEvent(self, event):
         old_pos = self.view.mapToScene(event.position().toPoint())
 
         if event.angleDelta().y() > 0:
             self.zoom_in()
-        else:
+        elif event.angleDelta().y() < 0:
             self.zoom_out()
+        else:
+            return
 
         new_pos = self.view.mapToScene(event.position().toPoint())
         delta = new_pos - old_pos
@@ -774,6 +789,7 @@ class ImageViewer(QWidget):
                 image.markings.append(Marking(marking.data(0),
                                       marking.rect_type,
                                       marking.rect().toRect()))
+        self.proxy_image_list_model.sourceModel().write_meta_to_disk(image)
 
     @Slot(QGraphicsRectItem)
     def marking_changed(self, marking: QGraphicsRectItem):
@@ -787,17 +803,18 @@ class ImageViewer(QWidget):
             image.thumbnail = None
             image.crop = marking.rect().toRect() # ensure int!
             image.target_dimension = grid.target
+            self.inhibit_reload_image = True
+            self.proxy_image_list_model.sourceModel().dataChanged.emit(
+                self.proxy_image_index, self.proxy_image_index,
+                [Qt.ItemDataRole.DecorationRole, Qt.ItemDataRole.SizeHintRole,
+                 Qt.ToolTipRole, Qt.ItemDataRole.UserRole])
+            self.inhibit_reload_image = False
         else:
             image.markings = [Marking(m.data(0),
                                       m.rect_type,
                                       m.rect().toRect())
                 for m in self.marking_items if m.rect_type != ImageMarking.CROP]
-        if marking.rect_type == ImageMarking.CROP:
-            self.inhibit_reload_image = True
-            self.proxy_image_list_model.sourceModel().dataChanged.emit(
-                self.proxy_image_index, self.proxy_image_index,
-                [Qt.ItemDataRole.DecorationRole, Qt.ItemDataRole.SizeHintRole, Qt.ToolTipRole])
-            self.inhibit_reload_image = False
+        self.proxy_image_list_model.sourceModel().write_meta_to_disk(image)
 
     def get_selected_type(self) -> ImageMarking:
         if len(self.scene.selectedItems()) > 0:
@@ -813,7 +830,6 @@ class ImageViewer(QWidget):
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
         if items is None:
             items = self.scene.selectedItems()
-        tmp_delete_crop = False
         for item in items:
             if item.rect_type == ImageMarking.CROP:
                 self.crop_marking = None
@@ -822,15 +838,15 @@ class ImageViewer(QWidget):
                 image.target_dimension = None
                 self.accept_crop_addition.emit(True)
                 calculate_grid(MarkingItem.image_size)
-                tmp_delete_crop = True
+                self.proxy_image_list_model.sourceModel().dataChanged.emit(
+                    self.proxy_image_index, self.proxy_image_index,
+                    [Qt.ItemDataRole.DecorationRole, Qt.ItemDataRole.SizeHintRole,
+                     Qt.ToolTipRole, Qt.ItemDataRole.UserRole])
             else:
                 self.marking_items.remove(item)
                 self.label_changed(False)
+                self.proxy_image_list_model.sourceModel().write_meta_to_disk(image)
             self.scene.removeItem(item)
-        if tmp_delete_crop:
-            self.proxy_image_list_model.sourceModel().dataChanged.emit(
-                self.proxy_image_index, self.proxy_image_index,
-                [Qt.ItemDataRole.DecorationRole, Qt.ItemDataRole.SizeHintRole, Qt.ToolTipRole])
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

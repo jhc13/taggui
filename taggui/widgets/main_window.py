@@ -582,7 +582,7 @@ class MainWindow(QMainWindow):
         self.image_list_selection_model.currentChanged.connect(
             self.image_list.update_image_index_label)
         self.image_list_selection_model.currentChanged.connect(
-            self.image_viewer.load_image)
+            lambda current, previous: self.image_viewer.load_image(current))
         self.image_list_selection_model.currentChanged.connect(
             self.image_tags_editor.load_image_tags)
         self.image_list_model.modelReset.connect(

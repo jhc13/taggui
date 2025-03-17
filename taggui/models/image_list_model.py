@@ -61,11 +61,6 @@ class ImageListModel(QAbstractListModel):
         self.redo_stack = []
         self.proxy_image_list_model = None
         self.image_list_selection_model = None
-        self.dataChanged.connect(lambda start, end: [
-            self.write_meta_to_disk(
-                start.sibling(row, start.column())
-                .data(Qt.ItemDataRole.UserRole))
-            for row in range(start.row(), end.row()+1)])
 
     def rowCount(self, parent=None) -> int:
         return len(self.images)
@@ -306,6 +301,7 @@ class ImageListModel(QAbstractListModel):
             image.crop = history_image_tags['crop']
             image.markings = history_image_tags['markings']
             self.write_image_tags_to_disk(image)
+            self.write_meta_to_disk(image)
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
