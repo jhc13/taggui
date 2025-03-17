@@ -13,9 +13,8 @@ from models.proxy_image_list_model import ProxyImageListModel
 from utils.image import Image, ImageMarking, Marking
 import utils.target_dimension as target_dimension
 from utils.grid import Grid
-from utils.rect import (RectPosition, flip_rect_position, change_rect,
-                        change_rect_to_match_size)
-
+from utils.rect import (change_rect, change_rect_to_match_size,
+                        flip_rect_position, get_rect_position, RectPosition)
 
 # Grid for alignment to latent space
 grid = Grid(QRect(0, 0, 1, 1))
@@ -141,10 +140,21 @@ class MarkingItem(QGraphicsRectItem):
                     rect = change_rect(self.rect(),
                                        self.handle_selected,
                                        event.pos())
-                    rect = QRectF(grid.snap(rect.toRect().topLeft(), floor),
-                                  grid.snap(rect.toRect().bottomRight(), ceil))
-                    rect = QRect(QPoint(ceil(rect.topLeft().x()),ceil(rect.topLeft().y())),
-                                 QPoint(floor(rect.bottomRight().x()),floor(rect.bottomRight().y())))
+
+                    round_tl = round
+                    round_br = round
+                    if self.rect_type == ImageMarking.EXCLUDE:
+                        round_tl = floor
+                        round_br = ceil
+                    elif self.rect_type == ImageMarking.INCLUDE:
+                        round_tl = ceil
+                        round_br = floor
+                    rect = QRectF(grid.snap(rect.toRect().topLeft(), round_tl),
+                                  grid.snap(rect.toRect().bottomRight(), round_br))
+                    rect = QRect(QPoint(round_br(rect.topLeft().x()),
+                                        round_br(rect.topLeft().y())),
+                                 QPoint(round_tl(rect.bottomRight().x()),
+                                        round_tl(rect.bottomRight().y())))
             else:
                 pos_quantized = event.pos().toPoint()
                 rect = change_rect(self.rect().toRect(),
