@@ -47,7 +47,7 @@ class JXLBitstream:
 def decode_codestream(file, offset=0, offsets=[]):
     """
     Decodes the actual codestream.
-    JXL codestream specification: http://www-internal/2022/18181-1
+    JXL codestream specification: https://www.iso.org/standard/85066.html
     """
 
     # Convert codestream to int within an object to get some handy methods.
