@@ -181,6 +181,9 @@ class MarkingItem(QGraphicsRectItem):
         self.move(False)
         self.image_view.image_viewer.marking_changed(self)
         self.setZValue(2)
+        if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
+                Qt.KeyboardModifier.ControlModifier):
+            self.image_view.set_insertion_mode(True)
         super().mouseReleaseEvent(event)
 
     def paint(self, painter, option, widget=None):
@@ -506,6 +509,12 @@ class ImageGraphicsView(QGraphicsView):
         scene_pos = self.mapToScene(event.position().toPoint())
         items = self.scene().items(scene_pos)
         cursor = None
+        if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
+                Qt.KeyboardModifier.ControlModifier and not self.insertion_mode):
+            self.set_insertion_mode(True)
+        elif ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) !=
+                Qt.KeyboardModifier.ControlModifier and self.insertion_mode):
+            self.set_insertion_mode(False)
 
         if self.insertion_mode:
             cursor = Qt.CursorShape.CrossCursor
@@ -857,6 +866,3 @@ class ImageViewer(QWidget):
                 self.label_changed(False)
                 self.proxy_image_list_model.sourceModel().write_meta_to_disk(image)
             self.scene.removeItem(item)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
