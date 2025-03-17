@@ -17,6 +17,7 @@ from PIL import Image as pilimage  # Import Pillow's Image class
 
 
 from utils.image import Image
+from taggui.utils.jxlutil import get_jxl_size
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
@@ -164,7 +165,10 @@ class ImageListModel(QAbstractListModel):
         for image_path in image_paths:
             try:
                 with pilimage.open(image_path) as ci:
-                    dimensions = ci.size
+                    if str(image_path).endswith('jxl'):
+                        dimensions = get_jxl_size(image_path)
+                    else:
+                        dimensions = ci.size
                     with open(image_path, 'rb') as image_file:
                         try:
                             exif_tags = exifread.process_file(
