@@ -71,9 +71,7 @@ class ImageListModel(QAbstractListModel):
     def rowCount(self, parent=None) -> int:
         return len(self.images)
 
-    def data(self, index: QModelIndex, role=None) -> Image | str | QIcon | QSize | None: # Added None to possible return type
-        if not index.isValid() or index.row() >= len(self.images): #Handle invalid index
-            return None
+    def data(self, index: QModelIndex, role=None) -> Image | str | QIcon | QSize:
         image = self.images[index.row()]
         if role == Qt.ItemDataRole.UserRole:
             return image
@@ -106,7 +104,6 @@ class ImageListModel(QAbstractListModel):
             # Scale the dimensions to the image width.
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
-        return None # Added return None for clarity
 
 
     def get_icon(self, image, image_width: int) -> QIcon:
