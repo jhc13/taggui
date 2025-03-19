@@ -67,6 +67,7 @@ class AutoCaptioningModel:
         self.processor = None
         self.model = None
         self.tokenizer = None
+        #raise print(caption_settings)
 
     def get_device(self) -> torch.device:
         if (self.device_setting == CaptionDevice.GPU

@@ -12,14 +12,11 @@ class RemoteGen(AutoCaptioningModel):
 	def __init__(self,
 					captioning_thread_: 'captioning_thread.CaptioningThread',
 					caption_settings: dict):
-		super().__init__(captioning_thread_, caption_settings)
-		self.caption_settings = caption_settings
-		self.set_api_url = self.caption_settings['api_url']
+		self.api_url = 'https://localhost:5001'
+		self.set_api_url = caption_settings['api_url']
 		self.headers = {"Content-Type": "application/json"}
+		super().__init__(captioning_thread_, caption_settings)
 		
-		
-		
-
 	def get_processor(self):
 		return None
 	def get_model_load_arguments(self) -> dict:
