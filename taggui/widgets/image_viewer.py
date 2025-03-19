@@ -1,4 +1,4 @@
-from math import ceil, floor
+from math import ceil, floor, sqrt
 from PySide6.QtCore import (QModelIndex, QPersistentModelIndex, QPoint, QPointF,
                             QRect, QRectF, QSize, Qt, Signal, Slot)
 from PySide6.QtGui import (QAction, QActionGroup, QCursor, QColor, QIcon,
@@ -15,6 +15,9 @@ import utils.target_dimension as target_dimension
 from utils.grid import Grid
 from utils.rect import (change_rect, change_rect_to_match_size,
                         flip_rect_position, get_rect_position, RectPosition)
+
+# The (inverse) golden ratio for showing hints during cropping
+golden_ratio = 2 / (1 + sqrt(5))
 
 # Grid for alignment to latent space
 grid = Grid(QRect(0, 0, 1, 1))
@@ -50,6 +53,10 @@ class MarkingItem(QGraphicsRectItem):
     # Static link to the single ImageGraphicsView in this application
     image_view = None
     show_marking_latent = True
+    handle_selected = None
+    mouse_press_pos = None
+    mouse_press_rect = None
+    show_crop_hint = True
 
     def __init__(self, rect: QRect, rect_type: ImageMarking,
                  parent = None):
@@ -59,9 +66,6 @@ class MarkingItem(QGraphicsRectItem):
         self.rect_type = rect_type
         self.label: MarkingLabel | None = None
         self.color = marking_colors[rect_type]
-        self.handle_selected = None
-        self.mouse_press_pos = None
-        self.mouse_press_rect = None
         self.setZValue(2)
         if rect_type in [ImageMarking.INCLUDE, ImageMarking.EXCLUDE]:
             self.area = QGraphicsRectItem(self)
@@ -94,6 +98,7 @@ class MarkingItem(QGraphicsRectItem):
                                  point.y() > self.rect().bottom() - handle_space)
 
     def mousePressEvent(self, event):
+        self.show_crop_hint = (event.modifiers() & Qt.KeyboardModifier.AltModifier) != Qt.KeyboardModifier.AltModifier
         self.handle_selected = self.handleAt(event.pos())
         if (event.button() == Qt.MouseButton.LeftButton and
             self.handle_selected != RectPosition.NONE):
@@ -108,6 +113,7 @@ class MarkingItem(QGraphicsRectItem):
 
     def mouseMoveEvent(self, event):
         if self.handle_selected:
+            self.show_crop_hint = (event.modifiers() & Qt.KeyboardModifier.AltModifier) != Qt.KeyboardModifier.AltModifier
             if ((event.modifiers() & Qt.KeyboardModifier.ShiftModifier) ==
                 Qt.KeyboardModifier.ShiftModifier):
                 if self.rect_type == ImageMarking.CROP:
@@ -188,6 +194,29 @@ class MarkingItem(QGraphicsRectItem):
 
     def paint(self, painter, option, widget=None):
         if self.rect_type == ImageMarking.CROP:
+            if (self.show_crop_hint and  self.handle_selected and
+                    self.handle_selected != RectPosition.NONE):
+                hint_line_crossings = [
+                    self.rect().center(),
+                    self.rect().topLeft() + QPointF(self.rect().width()*golden_ratio,
+                                                    self.rect().height()*golden_ratio),
+                    self.rect().bottomRight() - QPointF(self.rect().width()*golden_ratio,
+                                                        self.rect().height()*golden_ratio),
+                    self.rect().topLeft() + QPointF(self.rect().width()/3,
+                                                    self.rect().height()/3),
+                    self.rect().bottomRight() - QPointF(self.rect().width()/3,
+                                                        self.rect().height()/3)]
+                lint_line_style = [Qt.SolidLine, Qt.DotLine, Qt.DotLine, Qt.DashLine, Qt.DashLine]
+                for crossing, style in zip(hint_line_crossings, lint_line_style):
+                    path = QPainterPath()
+                    path.moveTo(self.rect().x(), crossing.y())
+                    path.lineTo(self.rect().right(), crossing.y())
+                    path.moveTo(crossing.x(), self.rect().y())
+                    path.lineTo(crossing.x(), self.rect().bottom())
+                    painter.setPen(QPen(QColor(255, 255, 255, 127), 3 / self.zoom_factor))
+                    painter.drawPath(path)
+                    painter.setPen(QPen(QColor(0, 0, 0), 1 / self.zoom_factor, style))
+                    painter.drawPath(path)
             painter.setPen(Qt.NoPen)
             painter.setBrush(QColor(255, 0, 0, 127))
             path = QPainterPath()
@@ -356,23 +385,18 @@ class ResizeHintHUD(QGraphicsItem):
     def add_hyperbola_limit(self, pos: QPointF, lr: int, td: int):
         target_area = settings.value('export_resolution', type=int)**2
         res_size = max(settings.value('export_bucket_res_size', type=int), 1)
-        dx = res_size
-        first = QPointF(pos.x() + lr * dx, pos.y() + td * target_area / dx)
-        while dx * res_size <= target_area:
-            p = QPointF(pos.x() + lr * dx, pos.y() + td * target_area / dx)
-            dx = dx + 50
-            # add all points above the parent as well as one before and one after
-            if self.parentItem().contains(p):
-                if first:
-                    self.path.moveTo(first)
-                    first = None
-                self.path.lineTo(p)
-            else:
-                if first:
-                    first = p
-                else:
-                    self.path.lineTo(p)
-                    break
+        if td < 0:
+            distance_x = target_area / (pos.y() - self._boundingRect.y())
+        else:
+            distance_x = target_area / (self._boundingRect.bottom() - pos.y())
+        x = self._boundingRect.x() if lr < 0 else pos.x() + distance_x
+        end_x = pos.x() - distance_x if lr < 0 else self._boundingRect.right()
+        first = True
+        while x < end_x + 50:
+            p = QPointF(x, pos.y() + td * target_area / (lr * (x - pos.x())))
+            self.path.moveTo(p) if first else self.path.lineTo(p)
+            first = False
+            x += 50
 
         for ar in target_dimension.get_preferred_sizes():
             s = max(res_size / ar[0], res_size / ar[1])
