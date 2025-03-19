@@ -87,6 +87,9 @@ class AutoCaptioningModel:
         return self.get_additional_error_message()
 
     def get_processor(self):
+        print(self.model)
+        if self.model == 'remote':
+            return
         return AutoProcessor.from_pretrained(self.model_id,
                                              trust_remote_code=True)
 

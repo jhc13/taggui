@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
 
 from auto_captioning.captioning_thread import CaptioningThread
 from auto_captioning.models.wd_tagger import WdTagger
+from auto_captioning.models.remote import RemoteGen
 from auto_captioning.models_list import MODELS, get_model_class
 from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
 from models.image_list_model import ImageListModel
@@ -66,11 +67,14 @@ class CaptionSettingsForm(QVBoxLayout):
         # custom model that was set.
         self.model_combo_box.setEditable(True)
         self.model_combo_box.addItems(self.get_local_model_paths())
-        self.model_combo_box.addItems(MODELS)
+        self.model_combo_box.addItems(MODELS)#remote
+        self.remote_address_line_edit = SettingsLineEdit(key='remote_address', default='http://localhost:5000')
         self.prompt_text_edit = SettingsPlainTextEdit(key='prompt')
         set_text_edit_height(self.prompt_text_edit, 4)
         self.caption_start_line_edit = SettingsLineEdit(key='caption_start')
         self.caption_start_line_edit.setClearButtonEnabled(True)
+        self.caption_stop_line_edit = SettingsLineEdit(key='stop_sequence', default='[<|eot_id|>, <|eot|>, <|eos|>]')
+        self.caption_stop_line_edit.setClearButtonEnabled(True)
         self.caption_position_combo_box = FocusedScrollSettingsComboBox(
             key='caption_position')
         self.caption_position_combo_box.addItems(list(CaptionPosition))
@@ -98,11 +102,15 @@ class CaptionSettingsForm(QVBoxLayout):
         remove_tag_separators_layout.addWidget(
             self.remove_tag_separators_check_box)
         basic_settings_form.addRow('Model', self.model_combo_box)
+        basic_settings_form.addRow('OAI endpoint', self.remote_address_line_edit)
         self.prompt_label = QLabel('Prompt')
         basic_settings_form.addRow(self.prompt_label, self.prompt_text_edit)
         self.caption_start_label = QLabel('Start caption with')
+        self.caption_stop_label = QLabel('Stop tokens')
         basic_settings_form.addRow(self.caption_start_label,
                                    self.caption_start_line_edit)
+        basic_settings_form.addRow(self.caption_stop_label,
+                                   self.caption_stop_line_edit)
         basic_settings_form.addRow('Caption position',
                                    self.caption_position_combo_box)
         self.device_label = QLabel('Device')
@@ -183,6 +191,14 @@ class CaptionSettingsForm(QVBoxLayout):
         self.top_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
             key='top_p', default=1, minimum=0, maximum=1)
         self.top_p_spin_box.setSingleStep(0.01)
+        self.top_a_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='top_a', default=1, minimum=0, maximum=5)
+        self.top_a_spin_box.setSingleStep(0.01)
+        self.min_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='min_p', default=1, minimum=0, maximum=1)
+        self.min_p_spin_box.setSingleStep(0.01)
+        self.typical_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='typical', default=1, minimum=0, maximum=1)
         self.repetition_penalty_spin_box = FocusedScrollSettingsDoubleSpinBox(
             key='repetition_penalty', default=1, minimum=1, maximum=2)
         self.repetition_penalty_spin_box.setSingleStep(0.01)
@@ -190,6 +206,8 @@ class CaptionSettingsForm(QVBoxLayout):
             key='no_repeat_ngram_size', default=3, minimum=0, maximum=5)
         self.gpu_index_spin_box = FocusedScrollSettingsSpinBox(
             key='gpu_index', default=0, minimum=0, maximum=9)
+        
+        
         advanced_settings_form.addRow(bad_forced_words_form)
         advanced_settings_form.addRow(HorizontalLine())
         advanced_settings_form.addRow('Minimum tokens',
@@ -206,6 +224,9 @@ class CaptionSettingsForm(QVBoxLayout):
                                       self.temperature_spin_box)
         advanced_settings_form.addRow('Top-k', self.top_k_spin_box)
         advanced_settings_form.addRow('Top-p', self.top_p_spin_box)
+        advanced_settings_form.addRow('Top-a', self.top_a_spin_box)
+        advanced_settings_form.addRow('Min-p', self.min_p_spin_box)
+        advanced_settings_form.addRow('Typical P', self.typical_p_spin_box)
         advanced_settings_form.addRow('Repetition penalty',
                                       self.repetition_penalty_spin_box)
         advanced_settings_form.addRow('No repeat n-gram size',
@@ -263,25 +284,58 @@ class CaptionSettingsForm(QVBoxLayout):
 
     @Slot(str)
     def show_settings_for_model(self, model_id: str):
-        wd_tagger_widgets = [self.wd_tagger_settings_form_container]
-        non_wd_tagger_widgets = [
+        remote_widgets = [
             self.prompt_label,
             self.prompt_text_edit,
             self.caption_start_label,
             self.caption_start_line_edit,
-            self.device_label,
-            self.device_combo_box,
-            self.load_in_4_bit_container,
-            self.remove_tag_separators_container,
-            self.horizontal_line,
+            self.remote_address_line_edit,
+            self.caption_stop_label,
+            self.caption_stop_line_edit
+        ]
+        is_remote = get_model_class(model_id) == RemoteGen
+        wd_tagger_widgets = [
+            self.wd_tagger_settings_form_container
+        ]
+        prompted_widgets = [
+            self.prompt_label,
+            self.prompt_text_edit,
+            self.caption_start_label,
+            self.caption_start_line_edit,
             self.toggle_advanced_settings_form_button,
             self.advanced_settings_form_container
         ]
+        local_widgets = [
+            self.device_combo_box,
+            self.load_in_4_bit_container,
+            self.remove_tag_separators_container,
+            self.device_label,
+            self.horizontal_line
+        ]
         is_wd_tagger_model = get_model_class(model_id) == WdTagger
-        for widget in wd_tagger_widgets:
-            widget.setVisible(is_wd_tagger_model)
-        for widget in non_wd_tagger_widgets:
-            widget.setVisible(not is_wd_tagger_model)
+        if is_wd_tagger_model:
+            for widget in wd_tagger_widgets:
+                widget.setVisible(True)
+            for widget in prompted_widgets:
+                widget.setVisible(False)
+            for widget in remote_widgets:
+                widget.setVisible(False)
+            for widget in local_widgets:
+                widget.setVisible(False)
+        elif is_remote:
+            for widget in wd_tagger_widgets:
+                widget.setVisible(False)
+            for widget in prompted_widgets:
+                widget.setVisible(True)
+            for widget in remote_widgets:
+                widget.setVisible(True)
+            for widget in local_widgets:
+                widget.setVisible(False)
+        else:
+            for widget in prompted_widgets:
+                widget.setVisible(True)
+            for widget in local_widgets:
+                widget.setVisible(False)
         self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
 
     @Slot(str)
@@ -308,6 +362,7 @@ class CaptionSettingsForm(QVBoxLayout):
 
     def get_caption_settings(self) -> dict:
         return {
+            'api_url': self.remote_address_line_edit.text(),
             'model_id': self.model_combo_box.currentText(),
             'prompt': self.prompt_text_edit.toPlainText(),
             'caption_start': self.caption_start_line_edit.text(),
@@ -328,6 +383,8 @@ class CaptionSettingsForm(QVBoxLayout):
                 'temperature': self.temperature_spin_box.value(),
                 'top_k': self.top_k_spin_box.value(),
                 'top_p': self.top_p_spin_box.value(),
+                'min_p': self.min_p_spin_box.value(),
+                'typical': self.typical_p_spin_box.value(),
                 'repetition_penalty': self.repetition_penalty_spin_box.value(),
                 'no_repeat_ngram_size':
                     self.no_repeat_ngram_size_spin_box.value()
