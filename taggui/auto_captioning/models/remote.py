@@ -16,6 +16,8 @@ class RemoteGen(AutoCaptioningModel):
 		self.api_url = 'https://localhost:5001'
 		self.set_api_url(caption_settings['api_url'])
 		self.headers = {"Content-Type": "application/json"}
+		if caption_settings['api_key'] and len(caption_settings['api_key']) > 0:
+			self.headers.append({"Authorization": 'Bearar ' + caption_settings['api_key']})
 		super().__init__(captioning_thread_, caption_settings)
 		
 	def get_processor(self):

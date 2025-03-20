@@ -69,6 +69,8 @@ class CaptionSettingsForm(QVBoxLayout):
         self.model_combo_box.addItems(self.get_local_model_paths())
         self.model_combo_box.addItems(MODELS)#remote
         self.remote_address_line_edit = SettingsLineEdit(key='remote_address', default='http://localhost:5000')
+
+        self.api_key_line_edit = SettingsLineEdit(key='api_key', default='')
         self.prompt_text_edit = SettingsPlainTextEdit(key='prompt')
         set_text_edit_height(self.prompt_text_edit, 4)
         self.caption_start_line_edit = SettingsLineEdit(key='caption_start')
@@ -103,6 +105,7 @@ class CaptionSettingsForm(QVBoxLayout):
             self.remove_tag_separators_check_box)
         basic_settings_form.addRow('Model', self.model_combo_box)
         basic_settings_form.addRow('OAI endpoint', self.remote_address_line_edit)
+        basic_settings_form.addRow('API Key', self.api_key_line_edit)
         self.prompt_label = QLabel('Prompt')
         basic_settings_form.addRow(self.prompt_label, self.prompt_text_edit)
         self.caption_start_label = QLabel('Start caption with')
@@ -291,7 +294,8 @@ class CaptionSettingsForm(QVBoxLayout):
             self.caption_start_line_edit,
             self.remote_address_line_edit,
             self.caption_stop_label,
-            self.caption_stop_line_edit
+            self.caption_stop_line_edit,
+            self.api_key_line_edit
         ]
         is_remote = get_model_class(model_id) == RemoteGen
         wd_tagger_widgets = [
@@ -363,6 +367,7 @@ class CaptionSettingsForm(QVBoxLayout):
     def get_caption_settings(self) -> dict:
         return {
             'api_url': self.remote_address_line_edit.text(),
+            'api_key': self.api_key_line_edit.text(),
             'model_id': self.model_combo_box.currentText(),
             'prompt': self.prompt_text_edit.toPlainText(),
             'caption_start': self.caption_start_line_edit.text(),
