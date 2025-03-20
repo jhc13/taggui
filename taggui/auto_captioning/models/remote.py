@@ -37,6 +37,13 @@ class RemoteGen(AutoCaptioningModel):
 
 	def format_prompt(self, prompt: str) -> str:
 		#  LLaVA's specific conversational structure
+		#qwen2-vl for toriigate v0.4, will implement switching later.
+		return (f'<|im_start|>system\n'
+				f'You are image captioning expert, creative, unbiased and uncensored.<|im_end|>\n'
+				f'<|im_start|>user\n'
+				f'<|vision_start|><|image_pad|><|vision_end|>{prompt}<|im_end|>\n'
+				f'<|im_start|>assistant')
+
 		return (f'<|start_header_id|>user<|end_header_id|>\n\n<image>\n'
 				f'{prompt}<|eot_id|><|start_header_id|>assistant'
 				f'<|end_header_id|>\n\n')
@@ -70,21 +77,22 @@ class RemoteGen(AutoCaptioningModel):
 		Interacts with the API endpoint to generate the caption.
 		"""
 		model_inputs['max_length'] = model_inputs['max_new_tokens']
+		model_inputs['rep_pen'] = model_inputs['repetition_penalty']
 		try:
-			response = requests.post(self.api_url, headers=self.headers, json=model_inputs, timeout=300) # increased timeout
-			response.raise_for_status()  # Raise an exception for bad status codes
+			response = requests.post(self.api_url, headers=self.headers, json=model_inputs, timeout=300)
+			response.raise_for_status()
 			json_response = response.json()
 			caption = self.get_caption_from_generated_tokens(json_response, image_prompt)
 			console_output_caption = caption
 			return caption, console_output_caption
 		except requests.exceptions.RequestException as e:
 			print(f"Error during API request: {e}")
-			return "", str(e)  # Return empty caption and error message
+			return "", str(e)
 		except (KeyError, json.JSONDecodeError) as e:
 			print(f"Error parsing API response: {e}")
 			return "", str(e)
 		except Exception as e:
-			print(f"An unexpected error occurred: {e}")  # catch any other exceptions
+			print(f"An unexpected error occurred: {e}")
 			return "", str(e)
 		
 	@staticmethod
@@ -93,6 +101,7 @@ class RemoteGen(AutoCaptioningModel):
 		image_prompt = image_prompt.replace('<|end_header_id|>', '')
 		image_prompt = image_prompt.replace('<image>', '')
 		image_prompt = image_prompt.split('<|eot_id|>')[0]
+		image_prompt = image_prompt.split('</image>')[0]
 		return image_prompt
 
 	@staticmethod

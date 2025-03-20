@@ -384,10 +384,12 @@ class CaptionSettingsForm(QVBoxLayout):
                 'top_k': self.top_k_spin_box.value(),
                 'top_p': self.top_p_spin_box.value(),
                 'min_p': self.min_p_spin_box.value(),
+                'top_a': self.top_a_spin_box.value(),
                 'typical': self.typical_p_spin_box.value(),
                 'repetition_penalty': self.repetition_penalty_spin_box.value(),
                 'no_repeat_ngram_size':
-                    self.no_repeat_ngram_size_spin_box.value()
+                    self.no_repeat_ngram_size_spin_box.value(),
+                'stop_sequnce': self.caption_stop_line_edit.text()
             },
             'wd_tagger_settings': {
                 'show_probabilities':

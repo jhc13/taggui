@@ -60,7 +60,7 @@ MODELS = [
     'Salesforce/blip2-flan-t5-xl',
     'Salesforce/blip2-flan-t5-xxl',
     'microsoft/kosmos-2-patch14-224',
-    'remote'
+    'Remote'
 ]
 
 
