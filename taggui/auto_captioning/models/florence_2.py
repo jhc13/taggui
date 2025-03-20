@@ -5,6 +5,7 @@ from utils.utils import list_with_and
 
 
 class Florence2(AutoCaptioningModel):
+    use_safetensors = None
     transformers_model_class = AutoModelForCausalLM
     task_prompts = [
         '<CAPTION>',
@@ -30,6 +31,7 @@ class Florence2(AutoCaptioningModel):
 
 
 class Florence2Promptgen(Florence2):
+    use_safetensors = True
     task_prompts = [
         '<GENERATE_PROMPT>',
         '<CAPTION>',

@@ -91,7 +91,7 @@ class Cogvlm(Cog):
 
     def monkey_patch_after_loading(self):
         """
-        Monkey patch CogVLM to support `caption_start`. This has to be done
+        Monkey patch the model to support `caption_start`. This has to be done
         every time after loading because `caption_start` might have changed.
         """
         cogvlm_module = next(
@@ -118,7 +118,9 @@ class Cogagent(Cog):
     template_version = 'chat_old'
 
     def monkey_patch_after_loading(self):
-        """Monkey patch CogAgent to support beam search and `caption_start`."""
+        """
+        Monkey patch the model to support beam search and `caption_start`.
+        """
         cogagent_module = next(module
                                for module_name, module in sys.modules.items()
                                if 'modeling_cogagent' in module_name)

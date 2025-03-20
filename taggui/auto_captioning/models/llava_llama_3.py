@@ -1,7 +1,15 @@
+from transformers import AutoConfig, AutoProcessor
+
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
 
 
 class LlavaLlama3(AutoCaptioningModel):
+    def get_processor(self):
+        config = AutoConfig.from_pretrained(self.model_id)
+        patch_size = config.vision_config.patch_size
+        return AutoProcessor.from_pretrained(
+            self.model_id, trust_remote_code=True, patch_size=patch_size)
+
     @staticmethod
     def get_default_prompt() -> str:
         return 'Describe the image in one sentence.'
