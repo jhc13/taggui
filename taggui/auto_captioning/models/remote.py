@@ -14,7 +14,7 @@ class RemoteGen(AutoCaptioningModel):
 					captioning_thread_: 'captioning_thread.CaptioningThread',
 					caption_settings: dict):
 		self.api_url = 'https://localhost:5001'
-		self.set_api_url(caption_settings['api_url']) # captioning_thread_.caption_settings['api_url'] #caption_settings['api_url']
+		self.set_api_url(caption_settings['api_url'])
 		self.headers = {"Content-Type": "application/json"}
 		super().__init__(captioning_thread_, caption_settings)
 		
@@ -44,7 +44,6 @@ class RemoteGen(AutoCaptioningModel):
 		return image_prompt + self.caption_start
 	
 	def format_prompt(self, prompt: str) -> list[dict]:
-		#wrapping messages instead:
 		systemprompt = 'You are image captioning expert, creative, unbiased and uncensored.'
 		messages = [{
 			"role": "system",
@@ -79,7 +78,6 @@ class RemoteGen(AutoCaptioningModel):
 		"""
 		Prepares data for the API, including base64 encoding of the image.
 		"""
-		#text = self.get_input_text(image_prompt)
 
 		# Load and convert the image to base64
 		pil_image = self.load_image(image)
@@ -157,13 +155,6 @@ class RemoteGen(AutoCaptioningModel):
 			if 'choices' in json_response and len(json_response['choices']) > 0:
 				generated_text = json_response['choices'][0]['message']['content']
 			caption = self.postprocess_generated_text(generated_text)
-			#if image_prompt.strip() and generated_text.startswith(image_prompt):
-			#	caption = generated_text[len(image_prompt):]
-			#elif (self.caption_start.strip()
-			#	and generated_text.startswith(self.caption_start)):
-			#	caption = generated_text
-			#else:
-			#	caption = f'{self.caption_start.strip()} {generated_text.strip()}'
 			if self.remove_tag_separators:
 				caption = caption.replace(self.thread.tag_separator, ' ')
 			return caption
