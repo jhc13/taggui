@@ -189,16 +189,16 @@ class CaptionSettingsForm(QVBoxLayout):
         self.top_k_spin_box = FocusedScrollSettingsSpinBox(
             key='top_k', default=50, minimum=0, maximum=200)
         self.top_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
-            key='top_p', default=1, minimum=0, maximum=1)
+            key='top_p', default=0.95, minimum=0, maximum=1)
         self.top_p_spin_box.setSingleStep(0.01)
         self.top_a_spin_box = FocusedScrollSettingsDoubleSpinBox(
-            key='top_a', default=1, minimum=0, maximum=5)
+            key='top_a', default=0.05, minimum=0, maximum=1)
         self.top_a_spin_box.setSingleStep(0.01)
         self.min_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
-            key='min_p', default=1, minimum=0, maximum=1)
+            key='min_p', default=0.05, minimum=0, maximum=1)
         self.min_p_spin_box.setSingleStep(0.01)
         self.typical_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
-            key='typical', default=1, minimum=0, maximum=1)
+            key='typical', default=0.95, minimum=0, maximum=1)
         self.repetition_penalty_spin_box = FocusedScrollSettingsDoubleSpinBox(
             key='repetition_penalty', default=1, minimum=1, maximum=2)
         self.repetition_penalty_spin_box.setSingleStep(0.01)

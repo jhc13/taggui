@@ -13,7 +13,7 @@ class RemoteGen(AutoCaptioningModel):
 					captioning_thread_: 'captioning_thread.CaptioningThread',
 					caption_settings: dict):
 		self.api_url = 'https://localhost:5001'
-		self.set_api_url = caption_settings['api_url']
+		self.set_api_url(caption_settings['api_url']) # captioning_thread_.caption_settings['api_url'] #caption_settings['api_url']
 		self.headers = {"Content-Type": "application/json"}
 		super().__init__(captioning_thread_, caption_settings)
 		
@@ -69,11 +69,9 @@ class RemoteGen(AutoCaptioningModel):
 		"""
 		Interacts with the API endpoint to generate the caption.
 		"""
-		payload_inputs = self.caption_settings['generation_parameters']
-		payload_inputs['max_length'] = payload_inputs['max_new_tokens']
-		payload_inputs['use_default_badwordsids'] = 'false'
+		model_inputs['max_length'] = model_inputs['max_new_tokens']
 		try:
-			response = requests.post(self.api_url, headers=self.headers, json=payload_inputs, timeout=300) # increased timeout
+			response = requests.post(self.api_url, headers=self.headers, json=model_inputs, timeout=300) # increased timeout
 			response.raise_for_status()  # Raise an exception for bad status codes
 			json_response = response.json()
 			caption = self.get_caption_from_generated_tokens(json_response, image_prompt)
