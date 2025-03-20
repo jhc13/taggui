@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import re
 from typing import Tuple
 
 import requests
@@ -100,8 +101,6 @@ class RemoteGen(AutoCaptioningModel):
 		image_prompt = image_prompt.replace('<|start_header_id|>', '')
 		image_prompt = image_prompt.replace('<|end_header_id|>', '')
 		image_prompt = image_prompt.replace('<image>', '')
-		image_prompt = image_prompt.split('<|eot_id|>')[0]
-		image_prompt = image_prompt.split('</image>')[0]
 		return image_prompt
 
 	@staticmethod
@@ -110,8 +109,14 @@ class RemoteGen(AutoCaptioningModel):
 		generated_text = generated_text.split("<|eot_id|>")[0]
 		generated_text = generated_text.split("<|eot|>")[0]
 		generated_text = generated_text.split("</description>")[0]
+		generated_text = generated_text.split('<image>')[0]
+		generated_text = generated_text.split('<|eot_id|>')[0]
+		generated_text = generated_text.split('</image>')[0]
+		# Use regex to capture complete sentences. maybe this should be a setting.
+		sentences = re.findall(r'[^.!?]*[.!?]', generated_text)
 
-		return generated_text
+		# Join complete sentences
+		return ' '.join(sentences).strip()
 	
 	def get_caption_from_generated_tokens(self, json_response, image_prompt):
 		try:
