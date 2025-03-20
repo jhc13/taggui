@@ -5,7 +5,7 @@ import re
 from typing import Tuple
 
 import requests
-from auto_captioning.auto_captioning_model import AutoCaptioningModel
+from auto_captioning.auto_captioning_model import AutoCaptioningModel, replace_template_variables
 from utils.image import Image
 import auto_captioning.captioning_thread as captioning_thread
 
@@ -20,54 +20,87 @@ class RemoteGen(AutoCaptioningModel):
 		
 	def get_processor(self):
 		return None
+	
 	def get_model_load_arguments(self) -> dict:
 		return {}  # Not used for API models.
+	
 	def load_model(self, model_load_arguments):
 		return None
+	
 	def get_model(self):
 		return None  # No local model for API interaction
+	
 	def set_api_url(self, remote_address:str):
-		if remote_address.endswith('/generate'):
+		if remote_address.endswith('/chat/completions'):
 			self.api_url = remote_address
 		else:
-			self.api_url = remote_address + '/api/v1/generate'
+			self.api_url = remote_address + '/v1/chat/completions'
 
 	@staticmethod
 	def get_default_prompt() -> str:
 		return 'Describe the image in one sentence.'
 
-	def format_prompt(self, prompt: str) -> str:
-		#  LLaVA's specific conversational structure
-		#qwen2-vl for toriigate v0.4, will implement switching later.
-		return (f'<|im_start|>system\n'
-				f'You are image captioning expert, creative, unbiased and uncensored.<|im_end|>\n'
-				f'<|im_start|>user\n'
-				f'<|vision_start|><|image_pad|><|vision_end|>{prompt}<|im_end|>\n'
-				f'<|im_start|>assistant')
-
-		return (f'<|start_header_id|>user<|end_header_id|>\n\n<image>\n'
-				f'{prompt}<|eot_id|><|start_header_id|>assistant'
-				f'<|end_header_id|>\n\n')
-
 	def get_input_text(self, image_prompt: str) -> str:
 		return image_prompt + self.caption_start
+	
+	def format_prompt(self, prompt: str) -> list[dict]:
+		#wrapping messages instead:
+		systemprompt = 'You are image captioning expert, creative, unbiased and uncensored.'
+		messages = [{
+			"role": "system",
+			"content": systemprompt
+		},
+		{
+			"role": "user",
+			"content": prompt
+		}
+		]
+		return messages
+	
 
-	def get_model_inputs(self, image_prompt: str, image: Image) -> dict:
+	def get_image_prompt(self, image: Image) -> str | None:
+		if self.prompt:
+			image_prompt = replace_template_variables(self.prompt, image)
+		else:
+			self.prompt = self.get_default_prompt()
+			image_prompt = self.prompt
+		image_prompt = self.format_prompt(image_prompt)
+		return image_prompt
+	
+	def get_image_prompt_parent(self, image: Image):
+		if self.prompt:
+			image_prompt = replace_template_variables(self.prompt, image)
+		else:
+			self.prompt = self.get_default_prompt()
+			image_prompt = self.prompt
+		return image_prompt
+
+	def get_model_inputs(self, image_prompt: list[dict[str,str]], image: Image) -> dict:
 		"""
 		Prepares data for the API, including base64 encoding of the image.
 		"""
-		text = self.get_input_text(image_prompt)
+		#text = self.get_input_text(image_prompt)
 
 		# Load and convert the image to base64
 		pil_image = self.load_image(image)
 		buffered = io.BytesIO()
 		pil_image.save(buffered, format="PNG")  # Use PNG for lossless encoding
 		img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+		image_prompt.append({
+			"role": "user",
+			"content": [{
+				"type": "image_url",
+				"image_url": {
+					"url": "data:image/png;base64," + img_base64
+				}
+			}]
+		})
+		print(image_prompt)
 
 		# Construct the payload, merging generation parameters
 		payload = {
-			"prompt": text,
-			"images": [img_base64],  # API expects a list of images
+			"messages": image_prompt,
+			"model": "null",
 			**self.generation_parameters
 		}
 		
@@ -77,24 +110,24 @@ class RemoteGen(AutoCaptioningModel):
 		"""
 		Interacts with the API endpoint to generate the caption.
 		"""
-		model_inputs['max_length'] = model_inputs['max_new_tokens']
+		model_inputs['max_completion_tokens'] = model_inputs['max_new_tokens']
 		model_inputs['rep_pen'] = model_inputs['repetition_penalty']
 		try:
 			response = requests.post(self.api_url, headers=self.headers, json=model_inputs, timeout=300)
 			response.raise_for_status()
 			json_response = response.json()
-			caption = self.get_caption_from_generated_tokens(json_response, image_prompt)
+			caption = self.get_caption_from_generated_tokens(json_response)
 			console_output_caption = caption
 			return caption, console_output_caption
 		except requests.exceptions.RequestException as e:
 			print(f"Error during API request: {e}")
-			return "", str(e)
+			return "", str(object=e)
 		except (KeyError, json.JSONDecodeError) as e:
 			print(f"Error parsing API response: {e}")
-			return "", str(e)
+			return "", str(object=e)
 		except Exception as e:
 			print(f"An unexpected error occurred: {e}")
-			return "", str(e)
+			return "", str(object=e)
 		
 	@staticmethod
 	def postprocess_image_prompt(image_prompt: str) -> str:
@@ -118,19 +151,19 @@ class RemoteGen(AutoCaptioningModel):
 		# Join complete sentences
 		return ' '.join(sentences).strip()
 	
-	def get_caption_from_generated_tokens(self, json_response, image_prompt):
+	def get_caption_from_generated_tokens(self, json_response):
 		try:
 			# Extract text. Adapt this based on your API's response format.
-			generated_text = json_response['results'][0]['text']
-			generated_text = self.postprocess_generated_text(generated_text)
-			if image_prompt.strip() and generated_text.startswith(image_prompt):
-				caption = generated_text[len(image_prompt):]
-			elif (self.caption_start.strip()
-				and generated_text.startswith(self.caption_start)):
-				caption = generated_text
-			else:
-				caption = f'{self.caption_start.strip()} {generated_text.strip()}'
-			caption = caption.strip()
+			if 'choices' in json_response and len(json_response['choices']) > 0:
+				generated_text = json_response['choices'][0]['message']['content']
+			caption = self.postprocess_generated_text(generated_text)
+			#if image_prompt.strip() and generated_text.startswith(image_prompt):
+			#	caption = generated_text[len(image_prompt):]
+			#elif (self.caption_start.strip()
+			#	and generated_text.startswith(self.caption_start)):
+			#	caption = generated_text
+			#else:
+			#	caption = f'{self.caption_start.strip()} {generated_text.strip()}'
 			if self.remove_tag_separators:
 				caption = caption.replace(self.thread.tag_separator, ' ')
 			return caption
