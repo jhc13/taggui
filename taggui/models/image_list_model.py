@@ -5,32 +5,40 @@ from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import List, Set, Tuple
 
 import exifread
-import imagesize
 from PySide6.QtCore import (QAbstractListModel, QModelIndex, QSize, Qt, Signal,
                             Slot)
-from PySide6.QtGui import QIcon, QImageReader, QPixmap
+from PySide6.QtGui import QIcon, QImageReader, QPixmap, QImage
 from PySide6.QtWidgets import QMessageBox
+import pillow_jxl
+from PIL import Image as pilimage  # Import Pillow's Image class
+
 
 from utils.image import Image
+from utils.jxlutil import get_jxl_size
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.utils import get_confirmation_dialog_reply, pluralize
 
 UNDO_STACK_SIZE = 32
 
+def pil_to_qimage(pil_image):
+    """Convert PIL image to QImage properly"""
+    pil_image = pil_image.convert("RGBA")
+    data = pil_image.tobytes("raw", "RGBA")
+    qimage = QImage(data, pil_image.width, pil_image.height, QImage.Format_RGBA8888)
+    return qimage
 
 def get_file_paths(directory_path: Path) -> set[Path]:
     """
-    Recursively get all file paths in a directory, including those in
+    Recursively get all file paths in a directory, including 
     subdirectories.
     """
     file_paths = set()
-    for path in directory_path.iterdir():
+    for path in directory_path.rglob("*"):  # Use rglob for recursive search
         if path.is_file():
             file_paths.add(path)
-        elif path.is_dir():
-            file_paths.update(get_file_paths(path))
     return file_paths
 
 
@@ -63,7 +71,7 @@ class ImageListModel(QAbstractListModel):
     def rowCount(self, parent=None) -> int:
         return len(self.images)
 
-    def data(self, index, role=None) -> Image | str | QIcon | QSize:
+    def data(self, index: QModelIndex, role=None) -> Image | str | QIcon | QSize:
         image = self.images[index.row()]
         if role == Qt.ItemDataRole.UserRole:
             return image
@@ -79,15 +87,12 @@ class ImageListModel(QAbstractListModel):
             # it. Otherwise, generate a thumbnail and save it to the image.
             if image.thumbnail:
                 return image.thumbnail
-            image_reader = QImageReader(str(image.path))
-            # Rotate the image based on the orientation tag.
-            image_reader.setAutoTransform(True)
-            pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
-                self.image_list_image_width,
-                Qt.TransformationMode.SmoothTransformation)
-            thumbnail = QIcon(pixmap)
-            image.thumbnail = thumbnail
-            return thumbnail
+            try:
+                return self.get_icon(image, self.image_list_image_width)
+            except Exception as e:
+                print(f"Error getting icon for {image.path} {e}")
+                return QIcon()
+
         if role == Qt.ItemDataRole.SizeHintRole:
             if image.thumbnail:
                 return image.thumbnail.availableSizes()[0]
@@ -99,6 +104,39 @@ class ImageListModel(QAbstractListModel):
             # Scale the dimensions to the image width.
             return QSize(self.image_list_image_width,
                          int(self.image_list_image_width * height / width))
+
+
+    def get_icon(self, image, image_width: int) -> QIcon:
+        """Load the image and return a QIcon while keeping aspect ratio."""
+        try:
+            if image.path.suffix.lower() == ".jxl":
+                pil_image = pilimage.open(image.path)  # Uses pillow-jxl
+                qimage = pil_to_qimage(pil_image)
+
+                # Convert to QPixmap and scale while keeping aspect ratio
+                pixmap = QPixmap.fromImage(qimage)
+                pixmap = pixmap.scaled(image_width, image_width * 3, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+                icon = QIcon(pixmap)
+                image.thumbnail = icon
+                return icon
+
+            else:
+                
+                image_reader = QImageReader(str(image.path))
+                # Rotate the image based on the orientation tag.
+                image_reader.setAutoTransform(True)
+                pixmap = QPixmap.fromImageReader(image_reader).scaledToWidth(
+                    self.image_list_image_width,
+                    Qt.TransformationMode.SmoothTransformation)
+                thumbnail = QIcon(pixmap)
+                image.thumbnail = thumbnail
+                return thumbnail
+
+        except Exception as e:
+            print(f"Error loading image {image.path}: {e}")
+            return QIcon()       
+
 
     def load_directory(self, directory_path: Path):
         self.images.clear()
@@ -124,9 +162,10 @@ class ImageListModel(QAbstractListModel):
                                   if path.suffix == '.txt'}
         for image_path in image_paths:
             try:
-                dimensions = imagesize.get(image_path)
-                # Check the Exif orientation tag and rotate the dimensions if
-                # necessary.
+                if str(image_path).endswith('jxl'):
+                    dimensions = get_jxl_size(image_path)
+                else:
+                    dimensions = pilimage.open(image_path).size
                 with open(image_path, 'rb') as image_file:
                     try:
                         exif_tags = exifread.process_file(
@@ -136,15 +175,16 @@ class ImageListModel(QAbstractListModel):
                             orientations = (exif_tags['Image Orientation']
                                             .values)
                             if any(value in orientations
-                                   for value in (5, 6, 7, 8)):
+                                for value in (5, 6, 7, 8)):
                                 dimensions = (dimensions[1], dimensions[0])
                     except Exception as exception:
                         print(f'Failed to get Exif tags for {image_path}: '
-                              f'{exception}', file=sys.stderr)
+                            f'{exception}', file=sys.stderr)
             except (ValueError, OSError) as exception:
                 print(f'Failed to get dimensions for {image_path}: '
                       f'{exception}', file=sys.stderr)
                 dimensions = None
+            
             tags = []
             text_file_path = image_path.with_suffix('.txt')
             if str(text_file_path) in text_file_path_strings:
@@ -158,6 +198,7 @@ class ImageListModel(QAbstractListModel):
                     tags = [tag for tag in tags if tag]
             image = Image(image_path, dimensions, tags)
             self.images.append(image)
+            
         self.images.sort(key=lambda image_: image_.path)
         self.modelReset.emit()
 
@@ -176,11 +217,8 @@ class ImageListModel(QAbstractListModel):
                 self.tag_separator.join(image.tags), encoding='utf-8',
                 errors='replace')
         except OSError:
-            error_message_box = QMessageBox()
-            error_message_box.setWindowTitle('Error')
-            error_message_box.setIcon(QMessageBox.Icon.Critical)
-            error_message_box.setText(f'Failed to save tags for {image.path}.')
-            error_message_box.exec()
+            QMessageBox.critical(None, 'Error',
+                                 f'Failed to save tags for {image.path}.')  # Simpler error message
 
     def restore_history_tags(self, is_undo: bool):
         if is_undo:
@@ -206,6 +244,7 @@ class ImageListModel(QAbstractListModel):
         destination_stack.append(HistoryItem(
             history_item.action_name, tags,
             history_item.should_ask_for_confirmation))
+        
         changed_image_indices = []
         for image_index, (image, history_image_tags) in enumerate(
                 zip(self.images, history_item.tags)):
@@ -214,6 +253,7 @@ class ImageListModel(QAbstractListModel):
             changed_image_indices.append(image_index)
             image.tags = history_image_tags
             self.write_image_tags_to_disk(image)
+
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -425,7 +465,6 @@ class ImageListModel(QAbstractListModel):
                 continue
             changed_image_indices.append(image_index)
             removed_tag_count += tag_count - unique_tag_count
-            # Use a dictionary instead of a set to preserve the order.
             image.tags = list(dict.fromkeys(image.tags))
             self.write_image_tags_to_disk(image)
         if changed_image_indices:
@@ -464,6 +503,7 @@ class ImageListModel(QAbstractListModel):
         self.dataChanged.emit(image_index, image_index)
         self.write_image_tags_to_disk(image)
 
+
     @Slot(list, list)
     def add_tags(self, tags: list[str], image_indices: list[QModelIndex]):
         """Add one or more tags to one or more images."""
@@ -479,6 +519,7 @@ class ImageListModel(QAbstractListModel):
         min_image_index = min(image_indices, key=lambda index: index.row())
         max_image_index = max(image_indices, key=lambda index: index.row())
         self.dataChanged.emit(min_image_index, max_image_index)
+
 
     @Slot(list, str)
     def rename_tags(self, old_tags: list[str], new_tag: str,
@@ -506,6 +547,7 @@ class ImageListModel(QAbstractListModel):
                               for image_tag in image.tags]
             changed_image_indices.append(image_index)
             self.write_image_tags_to_disk(image)
+
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
@@ -521,6 +563,7 @@ class ImageListModel(QAbstractListModel):
         for image_index, image in enumerate(self.images):
             if not self.is_image_in_scope(scope, image_index, image):
                 continue
+            
             if use_regex:
                 pattern = tags[0]
                 if not any(re.fullmatch(pattern=pattern, string=image_tag)

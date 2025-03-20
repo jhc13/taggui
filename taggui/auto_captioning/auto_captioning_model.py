@@ -5,6 +5,7 @@ from datetime import datetime
 
 import numpy as np
 import torch
+import pillow_jxl
 from PIL import Image as PilImage
 from PIL.ImageOps import exif_transpose
 from transformers import (AutoModelForVision2Seq, AutoProcessor,
@@ -71,6 +72,7 @@ class AutoCaptioningModel:
         self.processor = None
         self.model = None
         self.tokenizer = None
+        #raise print(caption_settings)
 
     def get_device(self) -> torch.device:
         if (self.device_setting == CaptionDevice.GPU
@@ -91,6 +93,9 @@ class AutoCaptioningModel:
         return self.get_additional_error_message()
 
     def get_processor(self):
+        print(self.model)
+        if self.model == 'remote':
+            return
         return AutoProcessor.from_pretrained(self.model_id,
                                              trust_remote_code=True)
 
