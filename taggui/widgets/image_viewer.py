@@ -14,7 +14,8 @@ from utils.image import Image, ImageMarking, Marking
 import utils.target_dimension as target_dimension
 from utils.grid import Grid
 from utils.rect import (change_rect, change_rect_to_match_size,
-                        flip_rect_position, get_rect_position, RectPosition)
+                        flip_rect_position, get_rect_position,
+                        map_rect_position_to_cursor, RectPosition)
 
 # The (inverse) golden ratio for showing hints during cropping
 golden_ratio = 2 / (1 + sqrt(5))
@@ -44,25 +45,22 @@ def calculate_grid(content: QRect):
 class MarkingItem(QGraphicsRectItem):
     # the halved size of the pen in local coordinates to make sure it stays the
     # same during zooming
-    pen_half_width = 1.0
+    pen_half_width: float = 1.0
     # the minimal size of the active area in scene coordinates
-    handle_half_size = 5
-    zoom_factor = 1.0
+    handle_half_size: int = 5
+    zoom_factor: float = 1.0
     # The size of the image this rect belongs to
-    image_size = QRect(0, 0, 1, 1)
+    image_size: QRect = QRect(0, 0, 1, 1)
     # Static link to the single ImageGraphicsView in this application
-    image_view = None
-    show_marking_latent = True
-    handle_selected = None
-    mouse_press_pos = None
-    mouse_press_rect = None
-    show_crop_hint = True
+    image_view: bool = None
+    show_marking_latent: bool = True
+    handle_selected: RectPosition = RectPosition.NONE
+    show_crop_hint: bool = True
 
-    def __init__(self, rect: QRect, rect_type: ImageMarking,
+    def __init__(self, rect: QRect, rect_type: ImageMarking, interactive: bool,
                  parent = None):
         super().__init__(rect.toRectF(), parent)
         self.setFlag(QGraphicsItem.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.ItemSendsScenePositionChanges, True)
         self.rect_type = rect_type
         self.label: MarkingLabel | None = None
         self.color = marking_colors[rect_type]
@@ -77,11 +75,13 @@ class MarkingItem(QGraphicsRectItem):
             self.area.setBrush(area_color)
             self.area.setPen(Qt.NoPen)
             self.move(False)
+        if interactive:
+            MarkingItem.handle_selected = RectPosition.BR
 
     def move(self, is_in_move):
         if self.rect_type == ImageMarking.CROP:
             if not is_in_move:
-                self.image_view.image_viewer.hud_item.setValues(self.rect(), self.handle_selected)
+                self.image_view.image_viewer.hud_item.setValues(self.rect(), MarkingItem.handle_selected)
         elif self.rect_type == ImageMarking.INCLUDE:
             self.area.setRect(QRectF(grid.snap(self.rect().toRect().topLeft(), ceil),
                                      grid.snap(self.rect().toRect().adjusted(0,0,1,1).bottomRight(), floor)))
@@ -98,28 +98,28 @@ class MarkingItem(QGraphicsRectItem):
                                  point.y() > self.rect().bottom() - handle_space)
 
     def mousePressEvent(self, event):
-        self.show_crop_hint = (event.modifiers() & Qt.KeyboardModifier.AltModifier) != Qt.KeyboardModifier.AltModifier
-        self.handle_selected = self.handleAt(event.pos())
+        self.show_crop_hint = ((event.modifiers() & Qt.KeyboardModifier.AltModifier) !=
+                               Qt.KeyboardModifier.AltModifier)
+        MarkingItem.handle_selected = self.handleAt(event.pos())
         if (event.button() == Qt.MouseButton.LeftButton and
-            self.handle_selected != RectPosition.NONE):
+            MarkingItem.handle_selected != RectPosition.NONE):
             self.image_view.image_viewer.proxy_image_index.model().sourceModel().add_to_undo_stack(
                 action_name=f'Change marking geometry', should_ask_for_confirmation=False)
-            self.mouse_press_pos = event.pos()
-            self.mouse_press_rect = self.rect()
             self.setZValue(4)
             self.move(False)
         else:
             event.ignore()
 
     def mouseMoveEvent(self, event):
-        if self.handle_selected:
-            self.show_crop_hint = (event.modifiers() & Qt.KeyboardModifier.AltModifier) != Qt.KeyboardModifier.AltModifier
+        if MarkingItem.handle_selected != RectPosition.NONE:
+            self.show_crop_hint = ((event.modifiers() & Qt.KeyboardModifier.AltModifier) !=
+                                   Qt.KeyboardModifier.AltModifier)
             if ((event.modifiers() & Qt.KeyboardModifier.ShiftModifier) ==
                 Qt.KeyboardModifier.ShiftModifier):
                 if self.rect_type == ImageMarking.CROP:
                     pos_quantized = event.pos().toPoint()
                     rect_pre = change_rect(self.rect().toRect(),
-                                           self.handle_selected,
+                                           MarkingItem.handle_selected,
                                            pos_quantized)
                     target = target_dimension.get(rect_pre.size())
                     if rect_pre.height() * target.width() / rect_pre.width() < target.height(): # too wide
@@ -140,11 +140,11 @@ class MarkingItem(QGraphicsRectItem):
                     else:
                         target_size = target_size1
                     rect = change_rect_to_match_size(self.rect().toRect(),
-                                                     self.handle_selected,
+                                                     MarkingItem.handle_selected,
                                                      target_size)
                 else:
                     rect = change_rect(self.rect(),
-                                       self.handle_selected,
+                                       MarkingItem.handle_selected,
                                        event.pos())
 
                     round_tl = round
@@ -164,12 +164,12 @@ class MarkingItem(QGraphicsRectItem):
             else:
                 pos_quantized = event.pos().toPoint()
                 rect = change_rect(self.rect().toRect(),
-                                   self.handle_selected,
+                                   MarkingItem.handle_selected,
                                    pos_quantized)
 
-            self.handle_selected = flip_rect_position(self.handle_selected,
-                                                      rect.width() < 0,
-                                                      rect.height() < 0)
+            MarkingItem.handle_selected = flip_rect_position(self.handle_selected,
+                                                             rect.width() < 0,
+                                                             rect.height() < 0)
 
             if rect.width() == 0 or rect.height() == 0:
                 self.setRect(rect)
@@ -182,20 +182,19 @@ class MarkingItem(QGraphicsRectItem):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if self.handle_selected:
-            self.handle_selected = RectPosition.NONE
+        MarkingItem.handle_selected = RectPosition.NONE
         self.move(False)
         self.image_view.image_viewer.marking_changed(self)
         self.setZValue(2)
         if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
                 Qt.KeyboardModifier.ControlModifier):
-            self.image_view.set_insertion_mode(True)
+            self.image_view.set_insertion_mode(self.rect_type)
+        self.ungrabMouse()
         super().mouseReleaseEvent(event)
 
     def paint(self, painter, option, widget=None):
         if self.rect_type == ImageMarking.CROP:
-            if (self.show_crop_hint and  self.handle_selected and
-                    self.handle_selected != RectPosition.NONE):
+            if self.show_crop_hint and MarkingItem.handle_selected != RectPosition.NONE:
                 hint_line_crossings = [
                     self.rect().center(),
                     self.rect().topLeft() + QPointF(self.rect().width()*golden_ratio,
@@ -439,7 +438,7 @@ class ImageGraphicsView(QGraphicsView):
         item = self.scene().itemAt(scene_pos, self.transform())
         if isinstance(item, MarkingLabel):
             item = item.parentItem().parentItem()
-        if isinstance(item, MarkingItem) and item.handle_selected != RectPosition.NONE:
+        if isinstance(item, MarkingItem) and MarkingItem.handle_selected != RectPosition.NONE:
             menu = QMenu()
             if item.rect_type != ImageMarking.NONE:
                 if item.rect_type != ImageMarking.CROP:
@@ -477,17 +476,20 @@ class ImageGraphicsView(QGraphicsView):
         self.vertical_line = None
         self.scene().clear()
 
-    def set_insertion_mode(self, mode):
-        self.insertion_mode = mode
-        if mode:
-            self.setDragMode(QGraphicsView.DragMode.NoDrag)
-            self.horizontal_line = QGraphicsLineItem()
-            self.horizontal_line.setZValue(5)
-            self.vertical_line = QGraphicsLineItem()
-            self.vertical_line.setZValue(5)
-            self.scene().addItem(self.horizontal_line)
-            self.scene().addItem(self.vertical_line)
-            self.update_lines_pos()
+    def set_insertion_mode(self, marking: ImageMarking):
+        old_insertion_mode = self.insertion_mode
+        self.insertion_mode = marking != ImageMarking.NONE
+        if self.insertion_mode:
+            if not old_insertion_mode:
+                self.setDragMode(QGraphicsView.DragMode.NoDrag)
+                self.horizontal_line = QGraphicsLineItem()
+                self.horizontal_line.setZValue(5)
+                self.vertical_line = QGraphicsLineItem()
+                self.vertical_line.setZValue(5)
+                self.scene().addItem(self.horizontal_line)
+                self.scene().addItem(self.vertical_line)
+                self.update_lines_pos()
+            self.image_viewer.marking.emit(marking)
         else:
             self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
             if self.horizontal_line:
@@ -495,6 +497,7 @@ class ImageGraphicsView(QGraphicsView):
                 self.horizontal_line = None
                 self.scene().removeItem(self.vertical_line)
                 self.vertical_line = None
+            self.image_viewer.marking.emit(ImageMarking.NONE)
 
     def update_lines_pos(self):
         """Show the hint lines at the position self.last_pos.
@@ -523,39 +526,28 @@ class ImageGraphicsView(QGraphicsView):
                 action_name=f'Add {rect_type.value}', should_ask_for_confirmation=False)
 
             self.image_viewer.add_rectangle(QRect(self.last_pos, QSize(0, 0)),
-                                            rect_type)
-            self.set_insertion_mode(False)
-            super().mousePressEvent(event)
-        else:
-            super().mousePressEvent(event)
+                                            rect_type, interactive=True)
+            self.set_insertion_mode(ImageMarking.NONE)
+            self.setDragMode(QGraphicsView.DragMode.NoDrag)
+            return
+        super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
         scene_pos = self.mapToScene(event.position().toPoint())
         items = self.scene().items(scene_pos)
         cursor = None
-        if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
-                Qt.KeyboardModifier.ControlModifier and not self.insertion_mode):
-            self.set_insertion_mode(True)
-        elif ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) !=
-                Qt.KeyboardModifier.ControlModifier and self.insertion_mode):
-            self.set_insertion_mode(False)
 
         if self.insertion_mode:
             cursor = Qt.CursorShape.CrossCursor
+        elif MarkingItem.handle_selected != RectPosition.NONE:
+            cursor = map_rect_position_to_cursor(MarkingItem.handle_selected)
         else:
             for item in items:
                 if isinstance(item, MarkingItem):
                     handle = item.handleAt(scene_pos)
                     if handle == RectPosition.NONE:
                         continue
-                    elif handle == RectPosition.TL or handle == RectPosition.BR:
-                        cursor = Qt.CursorShape.SizeFDiagCursor
-                    elif handle == RectPosition.TR or handle == RectPosition.BL:
-                        cursor = Qt.CursorShape.SizeBDiagCursor
-                    elif handle == RectPosition.TOP or handle == RectPosition.BOTTOM:
-                        cursor = Qt.CursorShape.SizeVerCursor
-                    elif handle == RectPosition.LEFT or handle == RectPosition.RIGHT:
-                        cursor = Qt.CursorShape.SizeHorCursor
+                    cursor = map_rect_position_to_cursor(handle)
                     break
         if cursor is None:
             self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
@@ -575,19 +567,32 @@ class ImageGraphicsView(QGraphicsView):
             super().mouseMoveEvent(event)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Control:
-            self.set_insertion_mode(True)
-        elif event.key() == Qt.Key.Key_Delete:
+        if event.key() == Qt.Key.Key_Delete:
             edited_item = self.scene().focusItem()
             if not (isinstance(edited_item, MarkingLabel) and
                 edited_item.textInteractionFlags() == Qt.TextEditorInteraction):
                 # Delete marking only when not editing the label
                 self.image_viewer.delete_markings()
+        else:
+            if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
+                    Qt.KeyboardModifier.ControlModifier):
+                if ((event.modifiers() & Qt.KeyboardModifier.AltModifier) ==
+                        Qt.KeyboardModifier.AltModifier):
+                    self.set_insertion_mode(ImageMarking.EXCLUDE)
+                else:
+                    self.set_insertion_mode(ImageMarking.HINT)
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
-        if event.key() == Qt.Key.Key_Control:
-            self.set_insertion_mode(False)
+        if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
+                Qt.KeyboardModifier.ControlModifier):
+            if ((event.modifiers() & Qt.KeyboardModifier.AltModifier) ==
+                    Qt.KeyboardModifier.AltModifier):
+                self.set_insertion_mode(ImageMarking.EXCLUDE)
+            else:
+                self.set_insertion_mode(ImageMarking.HINT)
+        else:
+            self.set_insertion_mode(ImageMarking.NONE)
         super().keyReleaseEvent(event)
 
     def resizeEvent(self, event):
@@ -660,11 +665,12 @@ class ImageViewer(QWidget):
         self.marking.emit(ImageMarking.NONE)
         self.accept_crop_addition.emit(image.crop is None)
         if image.crop is not None:
-            self.add_rectangle(image.crop, ImageMarking.CROP)
+            self.add_rectangle(image.crop, ImageMarking.CROP, interactive=False)
         else:
             calculate_grid(MarkingItem.image_size)
         for marking in image.markings:
-            self.add_rectangle(marking.rect, marking.type, name=marking.label)
+            self.add_rectangle(marking.rect, marking.type, interactive=False,
+                               name=marking.label)
 
     @Slot()
     def setting_change(self, key, value):
@@ -728,7 +734,7 @@ class ImageViewer(QWidget):
     @Slot(ImageMarking)
     def add_marking(self, marking: ImageMarking):
         self.marking_to_add = marking
-        self.view.set_insertion_mode(marking != ImageMarking.NONE)
+        self.view.set_insertion_mode(marking)
 
     @Slot()
     def change_marking(self, items: list[MarkingItem] | None = None,
@@ -787,9 +793,9 @@ class ImageViewer(QWidget):
         self.view.translate(delta.x(), delta.y())
 
     def add_rectangle(self, rect: QRect, rect_type: ImageMarking,
-                      size: QSize = None, name: str = ''):
+                      interactive: bool, size: QSize = None, name: str = ''):
         self.marking_to_add = ImageMarking.NONE
-        marking_item = MarkingItem(rect, rect_type, size)
+        marking_item = MarkingItem(rect, rect_type, interactive, size)
         marking_item.setVisible(self.show_marking_state)
         if rect_type == ImageMarking.CROP:
             self.crop_marking = marking_item
@@ -814,7 +820,9 @@ class ImageViewer(QWidget):
             marking_item.adjust_layout()
         self.scene.addItem(marking_item)
         self.marking_items.append(marking_item)
-        self.marking.emit(ImageMarking.NONE)
+        if interactive:
+            self.scene.clearSelection()
+            marking_item.grabMouse()
         if rect_type == ImageMarking.CROP:
             self.accept_crop_addition.emit(False)
 

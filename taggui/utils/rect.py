@@ -1,7 +1,7 @@
 from enum import Enum
 from math import floor, ceil
 
-from PySide6.QtCore import QPoint, QRect, QSize, QPointF, QRectF
+from PySide6.QtCore import QPoint, QRect, QSize, QPointF, QRectF, Qt
 
 
 class RectPosition(str, Enum):
@@ -14,6 +14,17 @@ class RectPosition(str, Enum):
     BL = 'bottom left'
     LEFT = 'left'
     NONE = 'none'
+
+def map_rect_position_to_cursor(handle: RectPosition) -> Qt.CursorShape | None:
+    if handle == RectPosition.TL or handle == RectPosition.BR:
+        return Qt.CursorShape.SizeFDiagCursor
+    elif handle == RectPosition.TR or handle == RectPosition.BL:
+        return Qt.CursorShape.SizeBDiagCursor
+    elif handle == RectPosition.TOP or handle == RectPosition.BOTTOM:
+        return Qt.CursorShape.SizeVerCursor
+    elif handle == RectPosition.LEFT or handle == RectPosition.RIGHT:
+        return Qt.CursorShape.SizeHorCursor
+    return None
 
 def get_rect_position(left: bool, right: bool, top: bool, bottom: bool) -> RectPosition:
    if top:
