@@ -11,14 +11,13 @@ from auto_captioning.models.llava_next import (LlavaNext34b, LlavaNextMistral,
 from auto_captioning.models.moondream import Moondream1, Moondream2
 from auto_captioning.models.phi_3_vision import Phi3Vision
 from auto_captioning.models.wd_tagger import WdTagger
-from auto_captioning.models.xcomposer2 import Xcomposer2, Xcomposer2_4khd
+try:
+  from auto_captioning.models.xcomposer2 import Xcomposer2, Xcomposer2_4khd
+except:
+  print('GPTQModel probably failed to install')
 
 MODELS = [
     'fancyfeast/llama-joycaption-alpha-two-hf-llava',
-    'internlm/internlm-xcomposer2-vl-7b-4bit',
-    'internlm/internlm-xcomposer2-vl-7b',
-    'internlm/internlm-xcomposer2-vl-1_8b',
-    'internlm/internlm-xcomposer2-4khd-7b',
     'THUDM/cogvlm-chat-hf',
     'THUDM/cogagent-vqa-hf',
     'THUDM/cogvlm2-llama3-chat-19B-int4',
@@ -60,7 +59,12 @@ MODELS = [
     'Salesforce/blip2-flan-t5-xxl',
     'microsoft/kosmos-2-patch14-224'
 ]
-
+if Xcomposer:
+  MODELS.extend([
+    'internlm/internlm-xcomposer2-vl-7b-4bit',
+    'internlm/internlm-xcomposer2-vl-7b',
+    'internlm/internlm-xcomposer2-vl-1_8b',
+    'internlm/internlm-xcomposer2-4khd-7b',])
 
 def get_model_class(model_id: str) -> type[AutoCaptioningModel]:
     lowercase_model_id = model_id.lower()
