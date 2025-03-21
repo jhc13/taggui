@@ -17,8 +17,6 @@ sentencepiece==0.2.0
 torchvision==0.21.0
 xformers==0.0.29.post3
 
-# InternLM-XComposer2
-gptqmodel==1.9.0
 numpy==2.2.3
 
 # WD Tagger
