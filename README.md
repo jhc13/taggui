@@ -272,28 +272,52 @@ they can be changed into each other.
 All markings are marking the pixels inside the border 🞑, not any pixels below
 the border.
 
+![cropping.jpg](images/doc/cropping.jpg)
+
 ### Crop
 
-The _crop_, shown with a blue border <span style="color:blue">🞑</span>, defines
+The _crop_, shown with a blue border, defines
 the part of the image that will be exported. Depending on the export settings
-likely a bucketing is configured. When the cropped area doesn't exactly fit
+a bucketing is likely configured. When the cropped area doesn't exactly fit
 into a bucket as defined by the _Bucket resolution size_ and the _Bucket fitting
 strategy_, it might be necessary to crop even more. This additional cropped
 area is shown by a semitransparent red overlay.
 
+During the editing of the crop, you get hints to help with this task:
+
+In the image list, an overlay shows the size of the original images as well as 
+the size of the cropped area. The small number in the brackets shows how many
+pixels the crop is extended to fit into a bucket. The target size is the image
+size when exported, a checkmark is shown when this size is one of the preferred 
+sizes. And when the crop has a well-known aspect ratio, it is also shown.
+
+In the main image, lines are shown to quickly be able to select the best size.
+The straight lines follow well-known aspect ratios. And a green line shows where
+the size of the crop is big enough to fully use the native _Resolution_ of the 
+model.  
+These lines are intended for a quick orientation and thus placed at the 
+theoretical optimal position, taking the discrete nature of image pixels into
+account the real optimal position might be in a slightly different place. 
+Especially when the _Bucket resolution size_ is changed it might be necessary
+to optimize the crop when a pixel-perfect result is required.
+
+Inside the cropping area lines are shown to help with aesthetical alignment
+of the content. These lines are drawn in the middle (stroked), following the
+1/3rd rule (dashed) and in the golden ratio (dotted).  
+These lines can temporarily be hidden by pressing the `alt` key.
+
 ### Hint
 
-A _hint_, shown with a gray border <span style="color:gray">🞑</span>, is just
-a hint and has no effect on exporting the image. A _hint_ has a label where
-you can give it a name and which you can use for filtering images which contain
-the given marking.  
+A _hint_, shown with a gray border, is just a hint and has no effect on
+exporting the image. 
+A _hint_ has a label where you can give it a name and which you can use for
+filtering images which contain the given marking.  
 A _hint_ can be changed in an _exclude_ or an _include_.
 
 ### Exclude
 
-An _exclude_, shown with a red border <span style="color:red">🞑</span>, is 
-an area that is guaranteed to be masked (made transparent) when the image is
-exported.
+An _exclude_, shown with a red border, is an area guaranteed to be masked
+(made transparent) when the image is exported.
 When _Latent size_ and _Quantize alpha channel_ are set and the _exclude_ area
 doesn't fit, the mask will be grown to make sure that no excluded pixel will
 stay unmasked.  
@@ -301,8 +325,8 @@ An _exclude_ can be changed in an _include_ or a _hint_.
 
 ### Include
 
-An _include_, shown with a green border <span style="color:green">🞑</span>, is
-an area that is included when the image is exported.
+An _include_, shown with a green border, is an area included when the image is
+exported.
 When no _include_ is set, the full image (of course respecting the _crop_) is
 included.
 When an _include_ and an _exclude_ are overlapping, the _exclude_ takes

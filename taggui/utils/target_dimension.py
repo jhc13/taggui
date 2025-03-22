@@ -183,5 +183,3 @@ def get_noteable_aspect_ratio(width: float|int, height: float|int) -> tuple[int,
         elif abs(1/ar[2] - aspect_ratio) < 1e-3:
             return ar[1], ar[0], (width, height) in _preferred_sizes
     return None
-
-# notable aspect ratios
