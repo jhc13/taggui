@@ -6,12 +6,12 @@ from pathlib import Path
 
 from PySide6.QtCore import (QFile, QItemSelection, QItemSelectionModel,
                             QItemSelectionRange, QModelIndex, QSize, QUrl, Qt,
-                            Signal, Slot)
-from PySide6.QtGui import QDesktopServices
+                            Signal, Slot, QPersistentModelIndex)
+from PySide6.QtGui import QDesktopServices, QColor
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QDockWidget,
                                QFileDialog, QHBoxLayout, QLabel, QLineEdit,
                                QListView, QMenu, QMessageBox, QVBoxLayout,
-                               QWidget)
+                               QWidget, QStyledItemDelegate)
 from pyparsing import (CaselessKeyword, CaselessLiteral, Group, OpAssoc,
                        ParseException, QuotedString, Suppress, Word,
                        infix_notation, nums, one_of, printables)
@@ -21,6 +21,8 @@ from utils.image import Image
 from utils.settings import settings
 from utils.settings_widgets import SettingsComboBox
 from utils.utils import get_confirmation_dialog_reply, pluralize
+
+from taggui.utils.grid import Grid
 
 
 def replace_filter_wildcards(filter_: str | list) -> str | list:
@@ -97,6 +99,35 @@ class SelectionMode(str, Enum):
     TOGGLE = 'Toggle'
 
 
+class ImageDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.labels = {}
+
+    def sizeHint(self, option, index):
+        return index.data(Qt.ItemDataRole.SizeHintRole)
+
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+        p_index = QPersistentModelIndex(index)
+        if p_index in self.labels:
+            label_text = self.labels[p_index]
+            painter.setBrush(QColor(255, 255, 255, 163))
+            painter.drawRect(option.rect)
+            painter.drawText(option.rect, label_text, Qt.AlignCenter)
+
+    def update_label(self, index: QModelIndex, label: str):
+        p_index = QPersistentModelIndex(index)
+        self.labels[p_index] = label
+        self.parent().update(p_index)
+
+    def remove_label(self, index: QPersistentModelIndex):
+        p_index = QPersistentModelIndex(index)
+        if p_index in self.labels:
+            del self.labels[p_index]
+            self.parent().update(index)
+
+
 class ImageListView(QListView):
     tags_paste_requested = Signal(list, list)
     directory_reload_requested = Signal()
@@ -107,6 +138,8 @@ class ImageListView(QListView):
         self.proxy_image_list_model = proxy_image_list_model
         self.tag_separator = tag_separator
         self.setModel(proxy_image_list_model)
+        self.delegate = ImageDelegate(self)
+        self.setItemDelegate(self.delegate)
         self.setWordWrap(True)
         # If the actual height of the image is greater than 3 times the width,
         # the image will be scaled down to fit.
@@ -167,6 +200,24 @@ class ImageListView(QListView):
 
     def contextMenuEvent(self, event):
         self.context_menu.exec_(event.globalPos())
+
+    @Slot(Grid)
+    def show_crop_size(self, grid):
+        for index in self.selectedIndexes():
+            image = index.data(Qt.ItemDataRole.UserRole)
+            if grid is None:
+                self.delegate.remove_label(index)
+            else:
+                crop_delta = grid.screen.size() - grid.visible.size()
+                crop_fit = max(crop_delta.width(), crop_delta.height())
+                crop_fit_text = f' (-{crop_fit})' if crop_fit > 0 else ''
+                label = f'image: {image.dimensions[0]}x{image.dimensions[1]}\n'\
+                        f'crop: {grid.screen.width()}x{grid.screen.height()}{crop_fit_text}\n'\
+                        f'target: {grid.target.width()}x{grid.target.height()}'
+                if grid.aspect_ratio is not None:
+                    label += '✅' if grid.aspect_ratio[2] else ''
+                    label += f'  {grid.aspect_ratio[0]}:{grid.aspect_ratio[1]}'
+                self.delegate.update_label(index, label)
 
     @Slot()
     def invert_selection(self):

@@ -618,6 +618,7 @@ class MainWindow(QMainWindow):
         self.image_list.visibilityChanged.connect(
             lambda: self.toggle_image_list_action.setChecked(
                 self.image_list.isVisible()))
+        self.image_viewer.crop_changed.connect(self.image_list.list_view.show_crop_size)
 
     @Slot()
     def update_image_tags(self):

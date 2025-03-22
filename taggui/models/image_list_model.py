@@ -102,14 +102,14 @@ class ImageListModel(QAbstractListModel):
         if role == Qt.ItemDataRole.SizeHintRole:
             if image.thumbnail:
                 return image.thumbnail.availableSizes()[0]
-            dimensions = image.dimensions
+            dimensions = image.crop.size().toTuple() if image.crop else image.dimensions
             if not dimensions:
                 return QSize(self.image_list_image_width,
                              self.image_list_image_width)
             width, height = dimensions
             # Scale the dimensions to the image width.
             return QSize(self.image_list_image_width,
-                         int(self.image_list_image_width * height / width))
+                         int(self.image_list_image_width * min(height / width, 3)))
         if role == Qt.ItemDataRole.ToolTipRole:
             path = image.path.relative_to(settings.value('directory_path', type=str))
             dimensions = f'{image.dimensions[0]}:{image.dimensions[1]}'

@@ -20,6 +20,7 @@ class Grid:
         self.target: QSize
         self.scale_x: float
         self.scale_y: float
+        self.aspect_ratio: tuple[int, int, float] | None
 
         self.update(screen)
 
@@ -39,14 +40,15 @@ class Grid:
 
         vis_size = self.screen.size()
         self.target = target_dimension.get(vis_size)
+        aspect_ratio = self.target.width() / self.target.height()
 
         if (bucket_strategy == BucketStrategy.CROP or
             bucket_strategy == BucketStrategy.CROP_SCALE):
             if (self.screen.height() * self.target.width()
                 < self.target.height() * self.screen.width()): # too wide
-                vis_size.setWidth(floor(self.screen.height() * self.target.width() / self.target.height()))
+                vis_size.setWidth(floor(self.screen.height() * aspect_ratio))
             else:
-                vis_size.setHeight(floor(self.screen.width() * self.target.height() / self.target.width()))
+                vis_size.setHeight(floor(self.screen.width() / aspect_ratio))
         if bucket_strategy == BucketStrategy.CROP_SCALE:
                 vis_size.setWidth(floor((self.screen.width() + vis_size.width())/2))
                 vis_size.setHeight(floor((self.screen.height() + vis_size.height())/2))
@@ -59,6 +61,9 @@ class Grid:
 
         self.scale_x = self.target.width() / self.visible.width()
         self.scale_y = self.target.height() / self.visible.height()
+
+        self.aspect_ratio = target_dimension.get_noteable_aspect_ratio(
+            self.target.width(), self.target.height())
 
     def is_visible_equal_screen_size(self) -> bool:
         return self.screen.size() == self.visible

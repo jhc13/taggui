@@ -381,21 +381,12 @@ class ExportDialog(QDialog):
         resolution = settings.value('export_resolution', type=int)
         bucket_res = settings.value('export_bucket_res_size', type=int)
 
-        # notable aspect ratios
-        aspect_ratios = [
-            (1, 1, 1),
-            (2, 1, 2/1),
-            (3, 2, 3/2),
-            (4, 3, 4/3),
-            (16, 9, 16/9),
-            (21, 9, 21/9),
-        ]
-        aspect_ratios = target_dimension.prepare(aspect_ratios)
+        aspect_ratios = target_dimension.prepare()
 
         image_list = self.get_image_list()
         image_dimensions = defaultdict(int)
         for this_image in image_list:
-            if this_image.crop != None:
+            if this_image.crop is not None:
                 this_image.target_dimension = target_dimension.get(
                     this_image.crop.size())
             else:
@@ -417,11 +408,8 @@ class ExportDialog(QDialog):
             aspect_ratio = width / height
             rowPosition = self.statistics_table.rowCount()
             notable_aspect_ratio = ''
-            for ar in aspect_ratios:
-                if abs(ar[2] - aspect_ratio) < 1e-3:
-                    notable_aspect_ratio = f" ({ar[0]}:{ar[1]})"
-                elif abs(1/ar[2] - aspect_ratio) < 1e-3:
-                    notable_aspect_ratio = f" ({ar[1]}:{ar[0]})"
+            ar = target_dimension.get_noteable_aspect_ratio(aspect_ratio)
+            notable_aspect_ratio = f' ({ar[0]}:{ar[1]})' if ar is not None else ''
             utilization = (width * height)**0.5 / resolution if resolution > 0 else 1
 
             self.statistics_table.insertRow(rowPosition)

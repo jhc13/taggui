@@ -1,3 +1,4 @@
+import sys
 from math import floor, sqrt
 import re
 
@@ -7,6 +8,15 @@ from utils.settings import DEFAULT_SETTINGS, settings
 
 # singleton data store
 _preferred_sizes : list[QSize] = []
+notable_aspect_ratios = [
+    (1, 1, 1),
+    (2, 1, 2/1),
+    (3, 2, 3/2),
+    (4, 3, 4/3),
+    (16, 9, 16/9),
+    (21, 9, 21/9),
+]
+aspect_ratios = notable_aspect_ratios
 
 settings.change.connect(lambda: _preferred_sizes.clear())
 
@@ -17,14 +27,9 @@ def get_preferred_sizes():
     return _preferred_sizes
 
 
-def prepare(aspect_ratios : list[tuple[int, int, float]] | None = None) -> list[tuple[int, int, float]] | None:
+def prepare() -> list[tuple[int, int, float]] | None:
     """
     Prepare by parsing the user supplied preferred sizes.
-
-    Parameters
-    ----------
-    aspect_ratios : list(tuple[int, int, int]) | None
-        A list of typical aspect ratios to take care of
 
     Return
     ------
@@ -32,7 +37,9 @@ def prepare(aspect_ratios : list[tuple[int, int, float]] | None = None) -> list[
         aspect ratios of the preferred sizes.
     """
     global _preferred_sizes
+    global aspect_ratios
     _preferred_sizes = []
+    aspect_ratios = notable_aspect_ratios
     for res_str in re.split(r'\s*,\s*', settings.value('export_preferred_sizes') or ''):
         try:
             if res_str == '':
@@ -43,14 +50,18 @@ def prepare(aspect_ratios : list[tuple[int, int, float]] | None = None) -> list[
             _preferred_sizes.append((width, height))
             if not width == height:
                 _preferred_sizes.append((height, width))
-            if aspect_ratios != None:
+            if aspect_ratios is not None:
                 # add exact aspect ratio of the preferred size to label it
                 # similar to the perfect one
                 aspect_ratio = width / height
                 for ar in aspect_ratios:
-                    if abs(ar[2] - aspect_ratio) < 0.15:
+                    ar_delta = abs(ar[2] - aspect_ratio)
+                    if ar_delta < 1e-4:
+                        # already included
+                        break
+                    if ar_delta < 0.15:
                         aspect_ratios.append((ar[0], ar[1], aspect_ratio))
-                    break
+                        break
         except ValueError:
             # Handle cases where the resolution string is not in the correct format
             print(f'Warning: Invalid resolution format: {res_str}. Skipping.',
@@ -88,8 +99,8 @@ def get(dimensions: QSize) -> QSize:
         return QSize((width // bucket_res)*bucket_res, (height // bucket_res)*bucket_res)
 
     if width < bucket_res or height < bucket_res:
-        # it doesn't make sense to use such a small image. But we shouldn't
-        # patronize the user
+        # It doesn't make sense to use such a small image.
+        # But we shouldn't patronize the user.
         return dimensions
 
     preferred_sizes_bonus = 0.4 # reduce the loss by this factor
@@ -162,3 +173,15 @@ def get(dimensions: QSize) -> QSize:
                 loss = test_loss
 
         return QSize(candidate_width, candidate_height)
+
+def get_noteable_aspect_ratio(width: float|int, height: float|int) -> tuple[int, int, bool] | None:
+    """Test whether the aspect_ratio is noteable and return it."""
+    aspect_ratio = width / height if height > 0 else 100
+    for ar in aspect_ratios:
+        if abs(ar[2] - aspect_ratio) < 1e-3:
+            return ar[0], ar[1], (width, height) in _preferred_sizes
+        elif abs(1/ar[2] - aspect_ratio) < 1e-3:
+            return ar[1], ar[0], (width, height) in _preferred_sizes
+    return None
+
+# notable aspect ratios

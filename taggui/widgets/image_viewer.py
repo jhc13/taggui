@@ -1,7 +1,7 @@
 from math import ceil, floor, sqrt
 from PySide6.QtCore import (QModelIndex, QPersistentModelIndex, QPoint, QPointF,
                             QRect, QRectF, QSize, Qt, Signal, Slot)
-from PySide6.QtGui import (QAction, QActionGroup, QCursor, QColor, QIcon,
+from PySide6.QtGui import (QAction, QActionGroup, QColor, QIcon,
                            QPainter, QPainterPath, QPen, QPixmap, QTransform,
                            QMouseEvent)
 from PySide6.QtWidgets import (QGraphicsItem, QGraphicsLineItem,
@@ -194,7 +194,9 @@ class MarkingItem(QGraphicsRectItem):
 
     def paint(self, painter, option, widget=None):
         if self.rect_type == ImageMarking.CROP:
-            if self.show_crop_hint and MarkingItem.handle_selected != RectPosition.NONE:
+            if (self.show_crop_hint and
+                MarkingItem.handle_selected != RectPosition.NONE and
+                self==self.scene().mouseGrabberItem()):
                 hint_line_crossings = [
                     self.rect().center(),
                     self.rect().topLeft() + QPointF(self.rect().width()*golden_ratio,
@@ -318,7 +320,8 @@ class ResizeHintHUD(QGraphicsItem):
         super().__init__(parent)
         self._boundingRect = boundingRect
         self.rect = QRectF(0, 0, 1, 1)
-        self.path = QPainterPath()
+        self.path_ar = QPainterPath()
+        self.path_size = QPainterPath()
         self.setCacheMode(QGraphicsItem.DeviceCoordinateCache)
         self.setZValue(3)
 
@@ -330,7 +333,8 @@ class ResizeHintHUD(QGraphicsItem):
         self.rect = rect
         self.setVisible(pos != RectPosition.NONE)
 
-        self.path = QPainterPath()
+        self.path_ar = QPainterPath()
+        self.path_size = QPainterPath()
 
         if pos == RectPosition.TL:
             self.add_hyperbola_limit(self.rect.bottomRight(), -1, -1)
@@ -354,32 +358,32 @@ class ResizeHintHUD(QGraphicsItem):
     def add_line_limit_td(self, x: float, lr: int):
         width = settings.value('export_resolution', type=int)**2 / self.rect.height()
         res_size = max(settings.value('export_bucket_res_size', type=int), 1)
-        self.path.moveTo(x + lr * width, self.rect.y()                     )
-        self.path.lineTo(x + lr * width, self.rect.y() + self.rect.height())
+        self.path_size.moveTo(x + lr * width, self.rect.y()                     )
+        self.path_size.lineTo(x + lr * width, self.rect.y() + self.rect.height())
 
         for ar in target_dimension.get_preferred_sizes():
             s = max(res_size / ar[0], res_size / ar[1])
             f = max(self._boundingRect.width() / ar[0],
                     self._boundingRect.height() / ar[1], 2)
-            self.path.moveTo(x + lr * ar[0] * s, self.rect.y()      + ar[1] * s)
-            self.path.lineTo(x + lr * ar[0] * f, self.rect.y()      + ar[1] * f)
-            self.path.moveTo(x + lr * ar[0] * s, self.rect.bottom() - ar[1] * s)
-            self.path.lineTo(x + lr * ar[0] * f, self.rect.bottom() - ar[1] * f)
+            self.path_ar.moveTo(x + lr * ar[0] * s, self.rect.y()      + ar[1] * s)
+            self.path_ar.lineTo(x + lr * ar[0] * f, self.rect.y()      + ar[1] * f)
+            self.path_ar.moveTo(x + lr * ar[0] * s, self.rect.bottom() - ar[1] * s)
+            self.path_ar.lineTo(x + lr * ar[0] * f, self.rect.bottom() - ar[1] * f)
 
     def add_line_limit_lr(self, y: float, td: int):
         height = settings.value('export_resolution', type=int)**2 / self.rect.width()
         res_size = max(settings.value('export_bucket_res_size', type=int), 1)
-        self.path.moveTo(self.rect.x(),                     y + td * height)
-        self.path.lineTo(self.rect.x() + self.rect.width(), y + td * height)
+        self.path_size.moveTo(self.rect.x(),                     y + td * height)
+        self.path_size.lineTo(self.rect.x() + self.rect.width(), y + td * height)
 
         for ar in target_dimension.get_preferred_sizes():
             s = max(res_size / ar[0], res_size / ar[1])
             f = max(self._boundingRect.width() / ar[0],
                     self._boundingRect.height() / ar[1], 2)
-            self.path.moveTo(self.rect.x()     + ar[0] * s, y + td * ar[1] * s)
-            self.path.lineTo(self.rect.x()     + ar[0] * f, y + td * ar[1] * f)
-            self.path.moveTo(self.rect.right() - ar[0] * s, y + td * ar[1] * s)
-            self.path.lineTo(self.rect.right() - ar[0] * f, y + td * ar[1] * f)
+            self.path_ar.moveTo(self.rect.x()     + ar[0] * s, y + td * ar[1] * s)
+            self.path_ar.lineTo(self.rect.x()     + ar[0] * f, y + td * ar[1] * f)
+            self.path_ar.moveTo(self.rect.right() - ar[0] * s, y + td * ar[1] * s)
+            self.path_ar.lineTo(self.rect.right() - ar[0] * f, y + td * ar[1] * f)
 
     def add_hyperbola_limit(self, pos: QPointF, lr: int, td: int):
         target_area = settings.value('export_resolution', type=int)**2
@@ -393,7 +397,7 @@ class ResizeHintHUD(QGraphicsItem):
         first = True
         while x < end_x + 50:
             p = QPointF(x, pos.y() + td * target_area / (lr * (x - pos.x())))
-            self.path.moveTo(p) if first else self.path.lineTo(p)
+            self.path_size.moveTo(p) if first else self.path_size.lineTo(p)
             first = False
             x += 50
 
@@ -401,8 +405,8 @@ class ResizeHintHUD(QGraphicsItem):
             s = max(res_size / ar[0], res_size / ar[1])
             f = max(self._boundingRect.width() / ar[0],
                     self._boundingRect.height() / ar[1], 2)
-            self.path.moveTo(pos.x() + lr * ar[0] * s, pos.y() + td * ar[1] * s)
-            self.path.lineTo(pos.x() + lr * ar[0] * f, pos.y() + td * ar[1] * f)
+            self.path_ar.moveTo(pos.x() + lr * ar[0] * s, pos.y() + td * ar[1] * s)
+            self.path_ar.lineTo(pos.x() + lr * ar[0] * f, pos.y() + td * ar[1] * f)
 
     def boundingRect(self):
         return self._boundingRect
@@ -413,10 +417,14 @@ class ResizeHintHUD(QGraphicsItem):
         painter.setClipPath(clip_path)
         pen = QPen(QColor(255, 255, 255, 127), 3 / self.zoom_factor)
         painter.setPen(pen)
-        painter.drawPath(self.path)
+        painter.drawPath(self.path_size)
+        painter.drawPath(self.path_ar)
+        pen = QPen(QColor(0, 255, 0), 1 / self.zoom_factor)
+        painter.setPen(pen)
+        painter.drawPath(self.path_size)
         pen = QPen(QColor(0, 0, 0), 1 / self.zoom_factor)
         painter.setPen(pen)
-        painter.drawPath(self.path)
+        painter.drawPath(self.path_ar)
 
 class ImageGraphicsView(QGraphicsView):
     def __init__(self, scene, image_viewer):
@@ -574,25 +582,27 @@ class ImageGraphicsView(QGraphicsView):
                 # Delete marking only when not editing the label
                 self.image_viewer.delete_markings()
         else:
+            if MarkingItem.handle_selected == RectPosition.NONE:
+                if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
+                        Qt.KeyboardModifier.ControlModifier):
+                    if ((event.modifiers() & Qt.KeyboardModifier.AltModifier) ==
+                            Qt.KeyboardModifier.AltModifier):
+                        self.set_insertion_mode(ImageMarking.EXCLUDE)
+                    else:
+                        self.set_insertion_mode(ImageMarking.HINT)
+        super().keyPressEvent(event)
+
+    def keyReleaseEvent(self, event):
+        if MarkingItem.handle_selected == RectPosition.NONE:
             if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
-                    Qt.KeyboardModifier.ControlModifier):
+                Qt.KeyboardModifier.ControlModifier):
                 if ((event.modifiers() & Qt.KeyboardModifier.AltModifier) ==
                         Qt.KeyboardModifier.AltModifier):
                     self.set_insertion_mode(ImageMarking.EXCLUDE)
                 else:
                     self.set_insertion_mode(ImageMarking.HINT)
-        super().keyPressEvent(event)
-
-    def keyReleaseEvent(self, event):
-        if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
-                Qt.KeyboardModifier.ControlModifier):
-            if ((event.modifiers() & Qt.KeyboardModifier.AltModifier) ==
-                    Qt.KeyboardModifier.AltModifier):
-                self.set_insertion_mode(ImageMarking.EXCLUDE)
             else:
-                self.set_insertion_mode(ImageMarking.HINT)
-        else:
-            self.set_insertion_mode(ImageMarking.NONE)
+                self.set_insertion_mode(ImageMarking.NONE)
         super().keyReleaseEvent(event)
 
     def resizeEvent(self, event):
@@ -605,6 +615,7 @@ class ImageViewer(QWidget):
     zoom = Signal(float, name='zoomChanged')
     marking = Signal(ImageMarking, name='markingToAdd')
     accept_crop_addition = Signal(bool, name='allowAdditionOfCrop')
+    crop_changed = Signal(Grid, name='cropChanged')
 
     def __init__(self, proxy_image_list_model: ProxyImageListModel):
         super().__init__()
@@ -682,6 +693,9 @@ class ImageViewer(QWidget):
     def recalculate_markings(self, ignore: MarkingItem | None = None):
         if self.crop_marking:
             calculate_grid(self.crop_marking.rect().toRect())
+            if MarkingItem.handle_selected != RectPosition.NONE:
+                # currently editing the crop marking -> update display
+                self.crop_changed.emit(grid)
         else:
             calculate_grid(MarkingItem.image_size)
         for marking in self.marking_items:
@@ -827,7 +841,7 @@ class ImageViewer(QWidget):
             self.accept_crop_addition.emit(False)
 
     @Slot()
-    def label_changed(self, do_emit = True):
+    def label_changed(self):
         """Slot to call when a marking label was changed to sync the information
         in the image."""
         self.proxy_image_index.model().sourceModel().add_to_undo_stack(
@@ -855,6 +869,7 @@ class ImageViewer(QWidget):
             image.crop = marking.rect().toRect() # ensure int!
             image.target_dimension = grid.target
             self.inhibit_reload_image = True
+            self.crop_changed.emit(None)
             self.proxy_image_list_model.sourceModel().dataChanged.emit(
                 self.proxy_image_index, self.proxy_image_index,
                 [Qt.ItemDataRole.DecorationRole, Qt.ItemDataRole.SizeHintRole,
@@ -895,6 +910,6 @@ class ImageViewer(QWidget):
                      Qt.ToolTipRole, Qt.ItemDataRole.UserRole])
             else:
                 self.marking_items.remove(item)
-                self.label_changed(False)
+                self.label_changed()
                 self.proxy_image_list_model.sourceModel().write_meta_to_disk(image)
             self.scene.removeItem(item)

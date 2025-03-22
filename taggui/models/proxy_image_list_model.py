@@ -51,8 +51,8 @@ class ProxyImageListModel(QSortFilterProxyModel):
                 if image.target_dimension == None:
                     image.target_dimension = target_dimension.get(image.dimensions)
                 return (len(dimension) == 2
-                        and dimension[0] == str(image.target_dimension[0])
-                        and dimension[1] == str(image.target_dimension[1]))
+                        and dimension[0] == str(image.target_dimension.width())
+                        and dimension[1] == str(image.target_dimension.height()))
         if filter_[1] == 'AND':
             return (self.does_image_match_filter(image, filter_[0])
                     and self.does_image_match_filter(image, filter_[2:]))
