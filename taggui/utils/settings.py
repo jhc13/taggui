@@ -10,6 +10,7 @@ DEFAULT_SETTINGS = {
     'insert_space_after_tag_separator': True,
     'autocomplete_tags': True,
     'models_directory_path': '',
+    'marking_models_directory_path': '',
     'export_filter': 'All images',
     'export_preset': 'SDXL, SD3, Flux',
     'export_resolution': 1024,

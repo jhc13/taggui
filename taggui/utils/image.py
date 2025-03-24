@@ -19,6 +19,7 @@ class Marking:
     label: str
     type: ImageMarking
     rect: QRect
+    confidence: float = 1.0
 
 
 @dataclass

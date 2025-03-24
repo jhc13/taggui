@@ -30,11 +30,17 @@ class SettingsDialog(QDialog):
                               5, 0, Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Auto-captioning models directory'), 6, 0,
                               Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Auto-marking models directory'), 8, 0,
+                              Qt.AlignmentFlag.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
             key='font_size',
             minimum=1, maximum=99)
         font_size_spin_box.valueChanged.connect(self.show_restart_warning)
+        file_types_line_edit = SettingsLineEdit(
+            key='image_list_file_formats')
+        file_types_line_edit.setMinimumWidth(400)
+        file_types_line_edit.textChanged.connect(self.show_restart_warning)
         # Images that are too small cause lag, so set a minimum width.
         image_list_image_width_spin_box = SettingsSpinBox(
             key='image_list_image_width',
@@ -70,10 +76,15 @@ class SettingsDialog(QDialog):
         models_directory_button.setFixedWidth(
             int(models_directory_button.sizeHint().width() * 1.3))
         models_directory_button.clicked.connect(self.set_models_directory_path)
-        file_types_line_edit = SettingsLineEdit(
-            key='image_list_file_formats')
-        file_types_line_edit.setMinimumWidth(400)
-        file_types_line_edit.textChanged.connect(self.show_restart_warning)
+        self.marking_models_directory_line_edit = SettingsLineEdit(
+            key='marking_models_directory_path')
+        self.marking_models_directory_line_edit.setMinimumWidth(400)
+        self.marking_models_directory_line_edit.setClearButtonEnabled(True)
+        marking_models_directory_button = QPushButton('Select Directory...')
+        marking_models_directory_button.setFixedWidth(
+            int(marking_models_directory_button.sizeHint().width() * 1.3))
+        marking_models_directory_button.clicked.connect(
+            self.set_marking_models_directory_path)
 
         grid_layout.addWidget(font_size_spin_box, 0, 1,
                               Qt.AlignmentFlag.AlignLeft)
@@ -90,6 +101,10 @@ class SettingsDialog(QDialog):
         grid_layout.addWidget(self.models_directory_line_edit, 6, 1,
                               Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(models_directory_button, 7, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(self.marking_models_directory_line_edit, 8, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(marking_models_directory_button, 9, 1,
                               Qt.AlignmentFlag.AlignLeft)
         layout.addLayout(grid_layout)
 
@@ -147,3 +162,21 @@ class SettingsDialog(QDialog):
             dir=initial_directory_path)
         if models_directory_path:
             self.models_directory_line_edit.setText(models_directory_path)
+
+    @Slot()
+    def set_marking_models_directory_path(self):
+        marking_models_directory_path = settings.value(
+            'marking_models_directory_path',
+            defaultValue=DEFAULT_SETTINGS['marking_models_directory_path'], type=str)
+        if marking_models_directory_path:
+            initial_directory_path = marking_models_directory_path
+        elif settings.contains('directory_path'):
+            initial_directory_path = settings.value('directory_path')
+        else:
+            initial_directory_path = ''
+        marking_models_directory_path = QFileDialog.getExistingDirectory(
+            parent=self, caption='Select directory containing auto-marking '
+                                 'models (YOLO models)',
+            dir=initial_directory_path)
+        if marking_models_directory_path:
+            self.marking_models_directory_line_edit.setText(marking_models_directory_path)

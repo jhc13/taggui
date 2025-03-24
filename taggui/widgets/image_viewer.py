@@ -1,3 +1,4 @@
+import re
 from math import ceil, floor, sqrt
 from PySide6.QtCore import (QModelIndex, QPersistentModelIndex, QPoint, QPointF,
                             QRect, QRectF, QSize, Qt, Signal, Slot)
@@ -282,8 +283,11 @@ class MarkingItem(QGraphicsRectItem):
 class MarkingLabel(QGraphicsTextItem):
     editingFinished = Signal()
 
-    def __init__(self, text, parent):
-        super().__init__(text, parent)
+    def __init__(self, text, confidence, parent):
+        if 0 <= confidence < 1:
+            super().__init__(f'{text}: {confidence:.3f}', parent)
+        else:
+            super().__init__(text, parent)
         self.setDefaultTextColor(Qt.black)
         self.setTextInteractionFlags(Qt.TextEditorInteraction)
 
@@ -681,7 +685,7 @@ class ImageViewer(QWidget):
             calculate_grid(MarkingItem.image_size)
         for marking in image.markings:
             self.add_rectangle(marking.rect, marking.type, interactive=False,
-                               name=marking.label)
+                               name=marking.label, confidence=marking.confidence)
 
     @Slot()
     def setting_change(self, key, value):
@@ -807,7 +811,8 @@ class ImageViewer(QWidget):
         self.view.translate(delta.x(), delta.y())
 
     def add_rectangle(self, rect: QRect, rect_type: ImageMarking,
-                      interactive: bool, size: QSize = None, name: str = ''):
+                      interactive: bool, size: QSize = None, name: str = '',
+                      confidence: float = 1.0):
         self.marking_to_add = ImageMarking.NONE
         marking_item = MarkingItem(rect, rect_type, interactive, size)
         marking_item.setVisible(self.show_marking_state)
@@ -819,15 +824,16 @@ class ImageViewer(QWidget):
             name = {ImageMarking.HINT: 'hint',
                     ImageMarking.INCLUDE: 'include',
                     ImageMarking.EXCLUDE: 'exclude'}[rect_type]
-            image.markings.append(Marking(name, rect_type, rect))
+            image.markings.append(Marking(name, rect_type, rect, confidence))
         marking_item.setData(0, name)
+        marking_item.setData(1, confidence)
         if rect_type != ImageMarking.CROP and rect_type != ImageMarking.NONE:
             label_background = QGraphicsRectItem(marking_item)
             label_background.setZValue(2)
             label_background.setBrush(marking_item.color)
             label_background.setPen(Qt.NoPen)
             label_background.setVisible(self.show_label_state)
-            marking_item.label = MarkingLabel(name, label_background)
+            marking_item.label = MarkingLabel(name, confidence, label_background)
             marking_item.label.setZValue(2)
             marking_item.label.setVisible(self.show_label_state)
             marking_item.label.editingFinished.connect(self.label_changed)
@@ -850,10 +856,19 @@ class ImageViewer(QWidget):
         image.markings.clear()
         for marking in self.marking_items:
             if marking.rect_type != ImageMarking.CROP:
-                marking.label.parentItem().parentItem().setData(0, marking.label.toPlainText())
-                image.markings.append(Marking(marking.data(0),
-                                      marking.rect_type,
-                                      marking.rect().toRect()))
+                label = marking.label.toPlainText()
+                match = re.match(r'^(.*):\s*(\d*\.\d+)$', label)
+                if match:
+                    label = match.group(1)
+                    confidence = float(match.group(2))
+                else:
+                    confidence = 1.0
+                marking.label.parentItem().parentItem().setData(0, label)
+                marking.label.parentItem().parentItem().setData(1, confidence)
+                image.markings.append(Marking(label=label,
+                                              type=marking.rect_type,
+                                              rect=marking.rect().toRect(),
+                                              confidence=confidence))
         self.proxy_image_list_model.sourceModel().write_meta_to_disk(image)
 
     @Slot(QGraphicsRectItem)
@@ -878,7 +893,8 @@ class ImageViewer(QWidget):
         else:
             image.markings = [Marking(m.data(0),
                                       m.rect_type,
-                                      m.rect().toRect())
+                                      m.rect().toRect(),
+                                      m.data(1))
                 for m in self.marking_items if m.rect_type != ImageMarking.CROP]
         self.proxy_image_list_model.sourceModel().write_meta_to_disk(image)
 

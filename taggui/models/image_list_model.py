@@ -4,6 +4,7 @@ import sys
 from collections import Counter, deque
 from dataclasses import dataclass
 from enum import Enum
+from math import floor, ceil
 from pathlib import Path
 import json
 
@@ -202,9 +203,10 @@ class ImageListModel(QAbstractListModel):
                         markings = meta.get('markings')
                         if markings and type(markings) is list:
                             for marking in markings:
-                                marking = Marking(marking.get('label'),
-                                                  ImageMarking[marking.get('type')],
-                                                  QRect(*marking.get('rect')))
+                                marking = Marking(label=marking.get('label'),
+                                                  type=ImageMarking[marking.get('type')],
+                                                  rect=QRect(*marking.get('rect')),
+                                                  confidence=marking.get('confidence', 1.0))
                                 image.markings.append(marking)
                     else:
                         error_messages.append(f'Invalid version '
@@ -249,8 +251,10 @@ class ImageListModel(QAbstractListModel):
         meta: dict[str, any] = {'version': 1}
         if image.crop is not None:
             meta['crop'] = image.crop.getRect()
+        print('image.markings', image.markings)
         meta['markings'] = [{'label': marking.label,
                              'type': marking.type.name,
+                             'confidence': marking.confidence,
                              'rect': marking.rect.getRect()} for marking in image.markings]
         if does_exist or len(meta.keys()) > 1:
             try:
@@ -627,3 +631,21 @@ class ImageListModel(QAbstractListModel):
         if changed_image_indices:
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
+
+    def add_image_markings(self, image_index: QModelIndex, markings: list[dict]):
+        image: Image = self.data(image_index, Qt.ItemDataRole.UserRole)
+        for marking in markings:
+            marking_type = {
+                'hint': ImageMarking.HINT,
+                'include': ImageMarking.INCLUDE,
+                'exclude': ImageMarking.EXCLUDE}[marking['type']]
+            box = marking['box']
+            top_left = QPoint(floor(box[0]), floor(box[1]))
+            bottom_right = QPoint(ceil(box[2]), ceil(box[3]))
+            image.markings.append(Marking(label=marking['label'],
+                                          type=marking_type,
+                                          rect=QRect(top_left, bottom_right),
+                                          confidence=marking['confidence']))
+        if len(markings) > 0:
+            self.dataChanged.emit(image_index, image_index)
+            self.write_meta_to_disk(image)

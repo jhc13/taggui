@@ -1,10 +1,8 @@
 from pathlib import Path
 
-from PySide6.QtCore import (QKeyCombination, QModelIndex, QPoint, QRect, QUrl,
-                            Qt, Slot)
-from PySide6.QtGui import (QAction, QActionGroup, QColor, QCloseEvent,
-                           QDesktopServices, QIcon, QKeySequence, QPainter,
-                           QPainterPath, QPen, QPixmap, QShortcut)
+from PySide6.QtCore import QKeyCombination, QModelIndex, QUrl, Qt, Slot
+from PySide6.QtGui import (QAction, QActionGroup, QCloseEvent, QDesktopServices,
+                           QIcon, QKeySequence, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QMessageBox, QStackedWidget, QToolBar,
                                QVBoxLayout, QWidget)
@@ -27,15 +25,15 @@ from utils.shortcut_remover import ShortcutRemover
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
 from widgets.auto_captioner import AutoCaptioner
+from widgets.auto_markings import AutoMarkings
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer, ImageMarking
 
-ICON_PATH = Path('images/icon.ico')
-TOGGLE_MARKING_ICON_PATH = Path('images/toggle_marking.png')
-SHOW_MARKINGS_ICON_PATH = Path('images/show_marking.png')
-SHOW_LABELS_ICON_PATH = Path('images/show_label.png')
-SHOW_MARKING_LATENT_ICON_PATH = Path('images/show_marking_latent.png')
+from taggui.widgets.icons import (taggui_icon, create_add_box_icon,
+                                  toggle_marking_icon, show_markings_icon,
+                                  show_labels_icon, show_marking_latent_icon)
+
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
 TOKENIZER_DIRECTORY_PATH = Path('clip-vit-base-patch32')
 
@@ -64,7 +62,7 @@ class MainWindow(QMainWindow):
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
-        self.setWindowIcon(QIcon(QPixmap(get_resource_path(ICON_PATH))))
+        self.setWindowIcon(taggui_icon())
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
         # The font size must be set before creating the widgets to ensure that
@@ -114,25 +112,21 @@ class MainWindow(QMainWindow):
                                             'Delete marking', self)
         self.delete_marking_action.setEnabled(False)
         self.toolbar.addAction(self.delete_marking_action)
-        self.add_toggle_marking_action = QAction(
-            QIcon(QPixmap(get_resource_path(TOGGLE_MARKING_ICON_PATH))),
+        self.add_toggle_marking_action = QAction(toggle_marking_icon(),
             'Change marking type', self)
         self.add_toggle_marking_action.setEnabled(False)
         self.toolbar.addAction(self.add_toggle_marking_action)
-        self.add_show_marking_action = QAction(
-            QIcon(QPixmap(get_resource_path(SHOW_MARKINGS_ICON_PATH))),
+        self.add_show_marking_action = QAction(show_markings_icon(),
             'Show markings', self)
         self.add_show_marking_action.setCheckable(True)
         self.add_show_marking_action.setChecked(True)
         self.toolbar.addAction(self.add_show_marking_action)
-        self.add_show_labels_action = QAction(
-            QIcon(QPixmap(get_resource_path(SHOW_LABELS_ICON_PATH))),
+        self.add_show_labels_action = QAction(show_labels_icon(),
             'Show labels', self)
         self.add_show_labels_action.setCheckable(True)
         self.add_show_labels_action.setChecked(True)
         self.toolbar.addAction(self.add_show_labels_action)
-        self.add_show_marking_latent_action = QAction(
-            QIcon(QPixmap(get_resource_path(SHOW_MARKING_LATENT_ICON_PATH))),
+        self.add_show_marking_latent_action = QAction(show_marking_latent_icon(),
             'Show marking in latent space', self)
         self.add_show_marking_latent_action.setCheckable(True)
         self.add_show_marking_latent_action.setChecked(True)
@@ -157,7 +151,12 @@ class MainWindow(QMainWindow):
                                             self.image_list)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                            self.auto_captioner)
+        self.auto_markings = AutoMarkings(self.image_list_model,
+                                          self.image_list, self)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
+                           self.auto_markings)
         self.tabifyDockWidget(self.all_tags_editor, self.auto_captioner)
+        self.tabifyDockWidget(self.auto_captioner, self.auto_markings)
         self.all_tags_editor.raise_()
         # Set default widths for the dock widgets.
         # Temporarily set a size for the window so that the dock widgets can be
@@ -183,6 +182,8 @@ class MainWindow(QMainWindow):
         self.toggle_all_tags_editor_action = QAction('All Tags', parent=self)
         self.toggle_auto_captioner_action = QAction('Auto-Captioner',
                                                     parent=self)
+        self.toggle_auto_markings_action = QAction('Auto-Markings',
+                                                    parent=self)
         self.create_menus()
 
         self.image_list_selection_model = (self.image_list.list_view
@@ -194,6 +195,7 @@ class MainWindow(QMainWindow):
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()
         self.connect_auto_captioner_signals()
+        self.connect_auto_markings_signals()
         # Forward any unhandled image changing key presses to the image list.
         key_press_forwarder = KeyPressForwarder(
             parent=self, target=self.image_list.list_view,
@@ -458,6 +460,7 @@ class MainWindow(QMainWindow):
         self.toggle_image_tags_editor_action.setCheckable(True)
         self.toggle_all_tags_editor_action.setCheckable(True)
         self.toggle_auto_captioner_action.setCheckable(True)
+        self.toggle_auto_markings_action.setCheckable(True)
         self.toggle_toolbar_action.triggered.connect(
             lambda is_checked: self.toolbar.setVisible(is_checked))
         self.toggle_image_list_action.triggered.connect(
@@ -468,11 +471,14 @@ class MainWindow(QMainWindow):
             lambda is_checked: self.all_tags_editor.setVisible(is_checked))
         self.toggle_auto_captioner_action.triggered.connect(
             lambda is_checked: self.auto_captioner.setVisible(is_checked))
+        self.toggle_auto_markings_action.triggered.connect(
+            lambda is_checked: self.auto_markings.setVisible(is_checked))
         view_menu.addAction(self.toggle_toolbar_action)
         view_menu.addAction(self.toggle_image_list_action)
         view_menu.addAction(self.toggle_image_tags_editor_action)
         view_menu.addAction(self.toggle_all_tags_editor_action)
         view_menu.addAction(self.toggle_auto_captioner_action)
+        view_menu.addAction(self.toggle_auto_markings_action)
 
         help_menu = menu_bar.addMenu('Help')
         open_github_repository_action = QAction('GitHub', parent=self)
@@ -711,6 +717,14 @@ class MainWindow(QMainWindow):
             lambda: self.toggle_auto_captioner_action.setChecked(
                 self.auto_captioner.isVisible()))
 
+    def connect_auto_markings_signals(self):
+        self.auto_markings.marking_generated.connect(
+            lambda image_index, markings:
+            self.image_list_model.add_image_markings(image_index, markings))
+        self.auto_markings.visibilityChanged.connect(
+            lambda: self.toggle_auto_markings_action.setChecked(
+                self.auto_markings.isVisible()))
+
     def restore(self):
         # Restore the window geometry and state.
         if settings.contains('geometry'):
@@ -729,28 +743,3 @@ class MainWindow(QMainWindow):
                                                       type=str))
             if directory_path.is_dir():
                 self.load_directory(directory_path, select_index=image_index)
-
-def create_add_box_icon(color: QColor) -> QPixmap:
-    """Create a QPixmap for an icon"""
-    pixmap = QPixmap(32, 32)
-    pixmap.fill(QColor('transparent'))
-
-    # Create a painter to draw on the pixmap
-    painter = QPainter(pixmap)
-
-    # Draw a bordered rectangle in the specified color
-    rect = QRect(2, 2, 28, 28)
-    painter.setPen(QPen(color, 2))
-    painter.drawRect(rect)
-
-    # Draw a plus sign in the middle
-    painter.setPen(QPen(Qt.black, 1))
-    path = QPainterPath()
-    path.moveTo(16, 10)
-    path.lineTo(16, 22)
-    path.moveTo(10, 16)
-    path.lineTo(22, 16)
-    painter.drawPath(path)
-    painter.end()
-
-    return pixmap
