@@ -2,22 +2,26 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import Signal, QModelIndex, Qt, Slot
-from PySide6.QtGui import QTextCursor, QFont
-from PySide6.QtWidgets import QDockWidget, QProgressBar, QPlainTextEdit, QWidget, QVBoxLayout, QScrollArea, \
-    QAbstractScrollArea, QFrame, QFormLayout, QMessageBox, QTableWidget, QHeaderView, QTableWidgetItem, QComboBox
+from PySide6.QtGui import QTextCursor
+from PySide6.QtWidgets import (QDockWidget, QProgressBar, QPlainTextEdit,
+                               QWidget, QVBoxLayout, QScrollArea,
+                               QAbstractScrollArea, QFrame, QFormLayout,
+                               QMessageBox, QTableWidget, QHeaderView,
+                               QTableWidgetItem, QComboBox)
 
+from utils.icons import create_add_box_icon
 from models.image_list_model import ImageListModel
+from utils.utils import pluralize
 from utils.big_widgets import TallPushButton
 from utils.settings import settings, DEFAULT_SETTINGS
-from utils.settings_widgets import FocusedScrollSettingsComboBox
-from widgets.auto_captioner import set_text_edit_height, restore_stdout_and_stderr
+from utils.settings_widgets import (FocusedScrollSettingsComboBox,
+                                    FocusedScrollSettingsDoubleSpinBox,
+                                    FocusedScrollSettingsSpinBox)
+from widgets.auto_captioner import (set_text_edit_height,
+                                    restore_stdout_and_stderr, HorizontalLine)
 from widgets.image_list import ImageList
 from auto_marking.marking_thread import MarkingThread
 from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
-
-from widgets.icons import create_add_box_icon
-
-from taggui.utils.utils import pluralize
 
 
 class MarkingSettingsForm(QVBoxLayout):
@@ -44,7 +48,47 @@ class MarkingSettingsForm(QVBoxLayout):
         self.class_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         basic_settings_form.addRow('Classes', self.class_table)
 
+        self.toggle_advanced_settings_form_button = TallPushButton(
+            'Show Advanced Settings')
+
+        self.advanced_settings_form_container = QWidget()
+        advanced_settings_form = QFormLayout(
+            self.advanced_settings_form_container)
+        advanced_settings_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        advanced_settings_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        # Sets the minimum confidence threshold for detections.
+        # Objects detected with confidence below this threshold will be
+        # disregarded. Adjusting this value can help reduce false positives.
+        self.confidence_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='confidence', default=0.25, minimum=0.01, maximum=1.0)
+        self.confidence_spin_box.setSingleStep(0.01)
+        advanced_settings_form.addRow('Confidence',
+                                      self.confidence_spin_box)
+        # Intersection Over Union (IoU) threshold for Non-Maximum Suppression
+        # (NMS). Lower values result in fewer detections by eliminating
+        # overlapping boxes, useful for reducing duplicates.
+        self.iou_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='iou', default=0.7, minimum=0.01, maximum=1.0)
+        self.iou_spin_box.setSingleStep(0.01)
+        advanced_settings_form.addRow('Intersection Over Union (IoU)',
+                                      self.iou_spin_box)
+        # Maximum number of detections allowed per image.
+        # Limits the total number of objects the model can detect in a single
+        # inference, preventing excessive outputs in dense scenes.
+        self.max_det_spin_box = FocusedScrollSettingsSpinBox(
+            key='max_det', default=300, minimum=1, maximum=500)
+        advanced_settings_form.addRow('Maximum number of detections', self.max_det_spin_box)
+        self.advanced_settings_form_container.hide()
+
         self.addLayout(basic_settings_form)
+        self.horizontal_line = HorizontalLine()
+        self.addWidget(self.horizontal_line)
+        self.addWidget(self.toggle_advanced_settings_form_button)
+        self.addWidget(self.advanced_settings_form_container)
+
+        self.toggle_advanced_settings_form_button.clicked.connect(
+            self.toggle_advanced_settings_form)
 
     def get_local_model_paths(self):
         models_directory_path = settings.value(
@@ -68,13 +112,23 @@ class MarkingSettingsForm(QVBoxLayout):
                 self.model_combo_box.addItem(
                     str(path.relative_to(models_directory_path)), userData=path)
 
+    @Slot()
+    def toggle_advanced_settings_form(self):
+        if self.advanced_settings_form_container.isHidden():
+            self.advanced_settings_form_container.show()
+            self.toggle_advanced_settings_form_button.setText(
+                'Hide Advanced Settings')
+        else:
+            self.advanced_settings_form_container.hide()
+            self.toggle_advanced_settings_form_button.setText(
+                'Show Advanced Settings')
+
     def get_marking_settings(self) -> dict:
         return {
-            #'model_id': self.model_combo_box.currentText(),
             'model_path': self.model_combo_box.currentData(),
-            'conf': 0.25,
-            'iou': 0.7,
-            'max_det': 300,
+            'conf': self.confidence_spin_box.value(),
+            'iou': self.iou_spin_box.value(),
+            'max_det': self.max_det_spin_box.value(),
             'classes': []
         }
 
@@ -229,6 +283,7 @@ class AutoMarkings(QDockWidget):
         if self.marking_thread is None:
             self.prepare_generation()
         self.marking_thread.selected_image_indices = selected_image_indices
+        self.marking_thread.marking_settings = self.marking_settings_form.get_marking_settings()
         classes = {}
         for row, (class_id, class_name) in enumerate(
                 self.marking_thread.model.names.items()):

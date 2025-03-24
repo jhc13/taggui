@@ -251,7 +251,6 @@ class ImageListModel(QAbstractListModel):
         meta: dict[str, any] = {'version': 1}
         if image.crop is not None:
             meta['crop'] = image.crop.getRect()
-        print('image.markings', image.markings)
         meta['markings'] = [{'label': marking.label,
                              'type': marking.type.name,
                              'confidence': marking.confidence,

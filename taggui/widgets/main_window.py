@@ -17,6 +17,9 @@ from models.image_list_model import ImageListModel
 from models.image_tag_list_model import ImageTagListModel
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
+from utils.icons import (taggui_icon, create_add_box_icon, toggle_marking_icon,
+                         show_markings_icon, show_labels_icon,
+                         show_marking_latent_icon)
 from utils.big_widgets import BigPushButton
 from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
@@ -29,10 +32,6 @@ from widgets.auto_markings import AutoMarkings
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
 from widgets.image_viewer import ImageViewer, ImageMarking
-
-from taggui.widgets.icons import (taggui_icon, create_add_box_icon,
-                                  toggle_marking_icon, show_markings_icon,
-                                  show_labels_icon, show_marking_latent_icon)
 
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
 TOKENIZER_DIRECTORY_PATH = Path('clip-vit-base-patch32')
