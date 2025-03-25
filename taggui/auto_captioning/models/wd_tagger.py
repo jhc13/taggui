@@ -112,8 +112,8 @@ class WdTagger(AutoCaptioningModel):
     def get_generation_text() -> str:
         return 'Generating tags'
 
-    def get_model_inputs(self, image_prompt: str, image: Image) -> np.ndarray:
-        pil_image = self.load_image(image)
+    def get_model_inputs(self, image_prompt: str, image: Image, crop: bool) -> np.ndarray:
+        pil_image = self.load_image(image, crop)
         # Add a white background to the image in case it has transparent areas.
         canvas = PilImage.new('RGBA', pil_image.size, (255, 255, 255))
         canvas.alpha_composite(pil_image)

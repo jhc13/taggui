@@ -84,6 +84,15 @@ class CaptionSettingsForm(QVBoxLayout):
         load_in_4_bit_layout.addWidget(QLabel('Load in 4-bit'))
         load_in_4_bit_layout.addWidget(self.load_in_4_bit_check_box)
         self.load_in_4_bit_container.setLayout(load_in_4_bit_layout)
+        self.limit_to_crop_container = QWidget()
+        limit_to_crop_layout = QHBoxLayout()
+        limit_to_crop_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        limit_to_crop_layout.setContentsMargins(0, 0, 0, 0)
+        self.limit_to_crop_check_box = SettingsBigCheckBox(
+            key='limit_to_crop', default=True)
+        limit_to_crop_layout.addWidget(QLabel('Limit to crop'))
+        limit_to_crop_layout.addWidget(self.limit_to_crop_check_box)
+        self.limit_to_crop_container.setLayout(limit_to_crop_layout)
         self.remove_tag_separators_container = QWidget()
         remove_tag_separators_layout = QHBoxLayout(
             self.remove_tag_separators_container)
@@ -108,6 +117,7 @@ class CaptionSettingsForm(QVBoxLayout):
         basic_settings_form.addRow(self.device_label, self.device_combo_box)
         basic_settings_form.addRow(self.load_in_4_bit_container)
         basic_settings_form.addRow(self.remove_tag_separators_container)
+        basic_settings_form.addRow(self.limit_to_crop_container)
 
         self.wd_tagger_settings_form_container = QWidget()
         wd_tagger_settings_form = QFormLayout(
@@ -314,6 +324,7 @@ class CaptionSettingsForm(QVBoxLayout):
             'device': self.device_combo_box.currentText(),
             'gpu_index': self.gpu_index_spin_box.value(),
             'load_in_4_bit': self.load_in_4_bit_check_box.isChecked(),
+            'limit_to_crop': self.limit_to_crop_check_box.isChecked(),
             'remove_tag_separators':
                 self.remove_tag_separators_check_box.isChecked(),
             'bad_words': self.bad_words_line_edit.text(),

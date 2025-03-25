@@ -68,7 +68,10 @@ class CaptioningThread(ModelThread):
 
     def get_model_inputs(self, image: Image):
         image_prompt =  self.model.get_image_prompt(image)
-        return image_prompt, self.model.get_model_inputs(image_prompt, image)
+        crop = self.caption_settings['limit_to_crop']
+        return image_prompt, self.model.get_model_inputs(image_prompt,
+                                                         image,
+                                                         crop)
 
     def generate_output(self, image_index, image: Image, image_prompt: str | None, model_inputs) -> str:
         caption_position = self.caption_settings['caption_position']

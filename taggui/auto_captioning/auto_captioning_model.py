@@ -199,17 +199,19 @@ class AutoCaptioningModel:
             text = image_prompt or self.caption_start
         return text
 
-    def load_image(self, image: Image) -> PilImage:
+    def load_image(self, image: Image, crop: bool) -> PilImage:
         pil_image = PilImage.open(image.path)
         # Rotate the image according to the orientation tag.
         pil_image = exif_transpose(pil_image)
         pil_image = pil_image.convert(self.image_mode)
+        if crop and image.crop is not None:
+            pil_image = pil_image.crop( image.crop.getCoords())
         return pil_image
 
-    def get_model_inputs(self, image_prompt: str,
-                         image: Image) -> BatchFeature | dict | np.ndarray:
+    def get_model_inputs(self, image_prompt: str, image: Image,
+                         crop: bool) -> BatchFeature | dict | np.ndarray:
         text = self.get_input_text(image_prompt)
-        pil_image = self.load_image(image)
+        pil_image = self.load_image(image, crop)
         model_inputs = (self.processor(text=text, images=pil_image,
                                        return_tensors='pt')
                         .to(self.device, **self.dtype_argument))
