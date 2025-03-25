@@ -18,6 +18,10 @@ like Stable Diffusion.
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
 - Export images ready to be used for training
+- Mark images manually or with the help of YOLO models to create masks for
+  inclusion and exclusion of image parts for masked training
+- Crop images with advanced hints that respect relevant aspect ratios and
+  bucket sizes of the training scripts
 
 ## Installation
 
@@ -272,7 +276,7 @@ they can be changed into each other.
 All markings are marking the pixels inside the border 🞑, not any pixels below
 the border.
 
-![cropping.jpg](images/doc/cropping.jpg)
+<img src='images/doc/cropping.jpg' alt='TagGUI cropping and masking feature' width='100%'>
 
 ### Crop
 
@@ -347,10 +351,27 @@ The marking label can be edited by clicking on it.
 And the type can be changed in the toolbar or with a right mouse button click on
 the marking.
 
+### Automatic marking detection
+
+When you have the path to the YOLO models configured in the _Settings..._ 
+dialog, you can use them to automatically detect features in the image that
+can be used for marking. After selecting the relevant model in the drop-down 
+list, you see a table with all classes it can detect. In each line you can
+decide whether it should be ignored or added as a hint, exclude or include.
+Next to the label you can see the confidence the model had during detection.
+
+More detailed control about the minimal required confidence, the IoU and
+the maximal number of detected markings per image can be set in the
+advanced settings.
+
+Note: When you are already using image generation tools like ADetailer you
+will most likely have already relevant YOLO models. There are many models
+widely available when you are searching for "YOLO" or "ADetailer".
+
 ## Export
 
 Exporting the images to a directory allows different options. By choosing the
-preset for the target AI model many important settings are automatically set.
+preset for the target AI model, many important settings are automatically set.
 
 `Image selection`:
 Select whether all images, or those with the current filter or only the
