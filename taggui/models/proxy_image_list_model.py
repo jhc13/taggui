@@ -1,4 +1,5 @@
 import operator
+import re
 from fnmatch import fnmatchcase
 
 from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt
@@ -7,6 +8,17 @@ from transformers import PreTrainedTokenizerBase
 from models.image_list_model import ImageListModel
 from utils.image import Image
 import utils.target_dimension as target_dimension
+
+comparison_operators = {
+    '=': operator.eq,
+    '==': operator.eq,
+    '!=': operator.ne,
+    '<': operator.lt,
+    '>': operator.gt,
+    '<=': operator.le,
+    '>=': operator.ge
+}
+
 
 class ProxyImageListModel(QSortFilterProxyModel):
     def __init__(self, image_list_model: ImageListModel,
@@ -34,7 +46,23 @@ class ProxyImageListModel(QSortFilterProxyModel):
                 caption = self.tag_separator.join(image.tags)
                 return fnmatchcase(caption, f'*{filter_[1]}*')
             if filter_[0] == 'marking':
-                return any(fnmatchcase(markings.label, filter_[1]) for markings in image.markings)
+                last_colon_index = filter_[1].rfind(':')
+                if last_colon_index < 0:
+                    return any(fnmatchcase(marking.label, filter_[1])
+                               for marking in image.markings)
+                else:
+                    label = filter_[1][:last_colon_index]
+                    confidence = filter_[1][last_colon_index + 1:]
+                    pattern =r'^(<=|>=|==|<|>|=)\s*(0?[.,][0-9]+)'
+                    match = re.match(pattern, confidence)
+                    if not match or len(match.group(2)) == 0:
+                        return False
+                    comparison_operator = comparison_operators[match.group(1)]
+                    confidence_target = float(match.group(2).replace(',', '.'))
+                    return any((fnmatchcase(marking.label, label) and
+                               comparison_operator(marking.confidence,
+                                                   confidence_target))
+                               for marking in image.markings)
             if filter_[0] == 'name':
                 return fnmatchcase(image.path.name, f'*{filter_[1]}*')
             if filter_[0] == 'path':
@@ -48,7 +76,7 @@ class ProxyImageListModel(QSortFilterProxyModel):
             if filter_[0] == 'target':
                 # accept any dimension separator of [x:]
                 dimension = (filter_[1]).replace(':', 'x').split('x')
-                if image.target_dimension == None:
+                if image.target_dimension is None:
                     image.target_dimension = target_dimension.get(image.dimensions)
                 return (len(dimension) == 2
                         and dimension[0] == str(image.target_dimension.width())
@@ -59,15 +87,6 @@ class ProxyImageListModel(QSortFilterProxyModel):
         if filter_[1] == 'OR':
             return (self.does_image_match_filter(image, filter_[0])
                     or self.does_image_match_filter(image, filter_[2:]))
-        comparison_operators = {
-            '=': operator.eq,
-            '==': operator.eq,
-            '!=': operator.ne,
-            '<': operator.lt,
-            '>': operator.gt,
-            '<=': operator.le,
-            '>=': operator.ge
-        }
         comparison_operator = comparison_operators[filter_[1]]
         number_to_compare = None
         if filter_[0] == 'tags':
@@ -79,9 +98,9 @@ class ProxyImageListModel(QSortFilterProxyModel):
             caption = self.tag_separator.join(image.tags)
             # Subtract 2 for the `<|startoftext|>` and `<|endoftext|>` tokens.
             number_to_compare = len(self.tokenizer(caption).input_ids) - 2
-        elif filter_[0] == 'x':
+        elif filter_[0] == 'width':
             number_to_compare = image.dimensions[0]
-        elif filter_[0] == 'y':
+        elif filter_[0] == 'height':
             number_to_compare = image.dimensions[1]
         return comparison_operator(number_to_compare, int(filter_[2]))
 

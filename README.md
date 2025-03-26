@@ -144,6 +144,10 @@ apply:
       tag `catastrophe`.
 - `marking`: Images that contain at least one marking with this label. It
   doesn't matter whether it is a _hint_, _include_ or _exclude_ marking.
+  - `marking:cat:>0.789` when the label is followed by a colon with a
+    relational operator and a number then only those markings are matched 
+    where the confidence fits to the specified number, in this example case
+    a `cat` marking must have a confidence number higher than 0.789.
 - `name`: Images that contain the filter term in the file name
     - `name:cat` will match images such as `cat-1.jpg` or `large_cat.png`.
 - `path`: Images that contain the filter term in the full file path
@@ -174,9 +178,9 @@ comparison.
       caption.
     - `tokens:<=50` will match images that have 50 or fewer tokens in the
       caption.
-- `x` and `y`: will match images with the specified x or y dimension.
-    - `x:>512` will match images where the width is greater than 512 pixels.
-    - `y:=1024` will match images where the height is exactly 1024 pixels.
+- `width` and `height`: will match images with the specified width or height.
+    - `width:>512` will match images where the width is greater than 512 pixels.
+    - `height:=1024` will match images where the height is exactly 1024 pixels.
 
 ### Spaces and quotes
 

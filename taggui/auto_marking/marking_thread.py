@@ -58,6 +58,6 @@ class MarkingThread(ModelThread):
                     markings.append({'box': box,
                                      'label': marking[0],
                                      'type': marking[1],
-                                     'confidence': confidence})
+                                     'confidence': round(confidence, 3)})
         self.marking_generated.emit(image_index, markings)
         return f'Found {len(markings)} marking(s).'
