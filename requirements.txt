@@ -36,4 +36,4 @@ https://github.com/kingbri1/flash-attention/releases/download/v2.7.4.post1/flash
 https://github.com/kingbri1/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu124torch2.6.0cxx11abiFALSE-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
 
 # YOLO
-ultalytics
+ultralytics
