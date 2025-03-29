@@ -116,31 +116,20 @@ class MarkingItem(QGraphicsRectItem):
             if ((event.modifiers() & Qt.KeyboardModifier.ShiftModifier) ==
                 Qt.KeyboardModifier.ShiftModifier):
                 if self.rect_type == ImageMarking.CROP:
-                    pos_quantized = event.pos().toPoint()
-                    rect_pre = change_rect(self.rect().toRect(),
+                    bucket_res = settings.value('export_bucket_res_size', type=int)
+                    rect_pre = change_rect(self.rect(),
                                            MarkingItem.handle_selected,
-                                           pos_quantized)
-                    target = target_dimension.get(rect_pre.size())
-                    if rect_pre.height() * target.width() / rect_pre.width() < target.height(): # too wide
-                        scale = rect_pre.height() / target.height()
-                        target_size0 = QSize(floor(target.width()*scale),
-                                             rect_pre.height())
-                        target_size1 = QSize(floor(target.width()*scale)+1,
-                                             rect_pre.height())
-                    else: # too high
-                        scale = rect_pre.width() / target.width()
-                        target_size0 = QSize(rect_pre.width(),
-                                             floor(target.height()*scale))
-                        target_size1 = QSize(rect_pre.width(),
-                                             floor(target.height()*scale)+1)
-                    t0 = target_dimension.get(target_size0)
-                    if t0 == target:
-                        target_size = target_size0
-                    else:
-                        target_size = target_size1
-                    rect = change_rect_to_match_size(self.rect().toRect(),
+                                           event.pos())
+                    target_size = target_dimension.get(rect_pre.toRect().size())
+                    # target is the final size, so anticipate the scaling
+                    scale = min(rect_pre.width() / target_size.width(),
+                                rect_pre.height() / target_size.height())
+                    target = target_size.toSizeF() * scale
+                    target = QSize(max(bucket_res, ceil(target.width())),
+                                   max(bucket_res, ceil(target.height())))
+                    rect = change_rect_to_match_size(self.rect(),
                                                      MarkingItem.handle_selected,
-                                                     target_size)
+                                                     target)
                 else:
                     rect = change_rect(self.rect(),
                                        MarkingItem.handle_selected,

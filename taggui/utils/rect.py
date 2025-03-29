@@ -133,12 +133,12 @@ def change_rect_round(rect: QRect, rect_pos: RectPosition, pos: QPointF, grow: b
         rect.setLeft(round_tl(pos.x()))
     return rect
 
-def change_rect_to_match_size(rect: QRect, rect_pos: RectPosition, size: QSize) -> QRect:
+def change_rect_to_match_size(rect: QRectF, rect_pos: RectPosition, size: QSize) -> QRect:
     """Change the `rect` at place `rect_pos` so that the size matches `size`.
 
     Moving one side will ignore the value in the size of the perpendicular side.
     """
-    rect_new = QRect(rect)
+    rect_new = QRectF(rect)
     if rect_pos == RectPosition.TL:
         rect_new.setSize(size)
         rect_new.moveBottomRight(rect.bottomRight())
@@ -163,4 +163,4 @@ def change_rect_to_match_size(rect: QRect, rect_pos: RectPosition, size: QSize) 
     elif rect_pos == RectPosition.LEFT:
         rect_new.setWidth(size.width())
         rect_new.moveRight(rect.right())
-    return rect_new
+    return rect_new.toRect()

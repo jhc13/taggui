@@ -26,7 +26,6 @@ class Grid:
 
     def update(self, screen: QRect | None = None):
         assert screen == None or isinstance(screen, QRect)
-        bucket_res = settings.value('export_bucket_res_size', type=int)
         bucket_strategy = settings.value('export_bucket_strategy', type=str)
         if screen != None:
             self.screen = screen
