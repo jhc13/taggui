@@ -75,14 +75,12 @@ class MarkingItem(QGraphicsRectItem):
             area_color.setAlpha(127)
             self.area.setBrush(area_color)
             self.area.setPen(Qt.NoPen)
-            self.move(False)
         if interactive:
             MarkingItem.handle_selected = RectPosition.BR
 
-    def move(self, is_in_move):
+    def move(self):
         if self.rect_type == ImageMarking.CROP:
-            if not is_in_move:
-                self.image_view.image_viewer.hud_item.setValues(self.rect(), MarkingItem.handle_selected)
+            self.image_view.image_viewer.hud_item.setValues(self.rect(), MarkingItem.handle_selected)
         elif self.rect_type == ImageMarking.INCLUDE:
             self.area.setRect(QRectF(grid.snap(self.rect().toRect().topLeft(), ceil),
                                      grid.snap(self.rect().toRect().adjusted(0,0,1,1).bottomRight(), floor)))
@@ -107,7 +105,7 @@ class MarkingItem(QGraphicsRectItem):
             self.image_view.image_viewer.proxy_image_index.model().sourceModel().add_to_undo_stack(
                 action_name=f'Change marking geometry', should_ask_for_confirmation=False)
             self.setZValue(4)
-            self.move(False)
+            self.move()
         else:
             event.ignore()
 
@@ -179,12 +177,12 @@ class MarkingItem(QGraphicsRectItem):
                 self.setRect(rect)
                 self.size_changed()
 
-            self.move(True)
+            self.move()
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
         MarkingItem.handle_selected = RectPosition.NONE
-        self.move(False)
+        self.move()
         self.image_view.image_viewer.marking_changed(self)
         self.setZValue(2)
         if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
@@ -328,6 +326,8 @@ class ResizeHintHUD(QGraphicsItem):
         self.path_size = QPainterPath()
         self.setCacheMode(QGraphicsItem.DeviceCoordinateCache)
         self.setZValue(3)
+        self.last_point: QPointF | float = QPointF(-1, -1)
+        self.last_pos = RectPosition.NONE
 
     @Slot(QRectF, RectPosition)
     def setValues(self, rect: QRectF, pos: RectPosition):
@@ -336,30 +336,36 @@ class ResizeHintHUD(QGraphicsItem):
 
         self.rect = rect
         self.setVisible(pos != RectPosition.NONE)
+        pos_change = self.last_pos != pos
+        self.last_pos = pos
 
         self.path_ar = QPainterPath()
         self.path_size = QPainterPath()
+        do_update = False
 
         if pos == RectPosition.TL:
-            self.add_hyperbola_limit(self.rect.bottomRight(), -1, -1)
+            do_update = self.add_hyperbola_limit(self.rect.bottomRight(), -1, -1, pos_change)
         elif pos == RectPosition.TOP:
-            self.add_line_limit_lr(self.rect.bottom(), -1)
+            do_update = self.add_line_limit_lr(self.rect.bottom(), -1, pos_change)
         elif pos == RectPosition.TR:
-            self.add_hyperbola_limit(self.rect.bottomLeft(), 1, -1)
+            do_update = self.add_hyperbola_limit(self.rect.bottomLeft(), 1, -1, pos_change)
         elif pos == RectPosition.RIGHT:
-            self.add_line_limit_td(self.rect.x(), 1)
+            do_update = self.add_line_limit_td(self.rect.x(), 1, pos_change)
         elif pos == RectPosition.BR:
-            self.add_hyperbola_limit(self.rect.topLeft(), 1, 1)
+            do_update = self.add_hyperbola_limit(self.rect.topLeft(), 1, 1, pos_change)
         elif pos == RectPosition.BOTTOM:
-            self.add_line_limit_lr(self.rect.y(), 1)
+            do_update = self.add_line_limit_lr(self.rect.y(), 1, pos_change)
         elif pos == RectPosition.BL:
-            self.add_hyperbola_limit(self.rect.topRight(), -1, 1)
+            do_update = self.add_hyperbola_limit(self.rect.topRight(), -1, 1, pos_change)
         elif pos == RectPosition.LEFT:
-            self.add_line_limit_td(self.rect.right(), -1)
+            do_update = self.add_line_limit_td(self.rect.right(), -1, pos_change)
 
-        self.update()
+        if do_update:
+            self.update()
 
-    def add_line_limit_td(self, x: float, lr: int):
+    def add_line_limit_td(self, x: float, lr: int, pos_change: bool) -> bool:
+        if self.last_point == x and not pos_change:
+            return False
         width = settings.value('export_resolution', type=int)**2 / self.rect.height()
         res_size = max(settings.value('export_bucket_res_size', type=int), 1)
         self.path_size.moveTo(x + lr * width, self.rect.y()                     )
@@ -373,8 +379,12 @@ class ResizeHintHUD(QGraphicsItem):
             self.path_ar.lineTo(x + lr * ar[0] * f, self.rect.y()      + ar[1] * f)
             self.path_ar.moveTo(x + lr * ar[0] * s, self.rect.bottom() - ar[1] * s)
             self.path_ar.lineTo(x + lr * ar[0] * f, self.rect.bottom() - ar[1] * f)
+        self.last_pos = x
+        return True
 
-    def add_line_limit_lr(self, y: float, td: int):
+    def add_line_limit_lr(self, y: float, td: int, pos_change: bool) -> bool:
+        if self.last_point == y and not pos_change:
+            return False
         height = settings.value('export_resolution', type=int)**2 / self.rect.width()
         res_size = max(settings.value('export_bucket_res_size', type=int), 1)
         self.path_size.moveTo(self.rect.x(),                     y + td * height)
@@ -388,8 +398,12 @@ class ResizeHintHUD(QGraphicsItem):
             self.path_ar.lineTo(self.rect.x()     + ar[0] * f, y + td * ar[1] * f)
             self.path_ar.moveTo(self.rect.right() - ar[0] * s, y + td * ar[1] * s)
             self.path_ar.lineTo(self.rect.right() - ar[0] * f, y + td * ar[1] * f)
+        self.last_pos = y
+        return True
 
-    def add_hyperbola_limit(self, pos: QPointF, lr: int, td: int):
+    def add_hyperbola_limit(self, pos: QPointF, lr: int, td: int, pos_change: bool) -> bool:
+        if self.last_point == pos and not pos_change:
+            return False
         target_area = settings.value('export_resolution', type=int)**2
         res_size = max(settings.value('export_bucket_res_size', type=int), 1)
         if td < 0:
@@ -411,6 +425,8 @@ class ResizeHintHUD(QGraphicsItem):
                     self._boundingRect.height() / ar[1], 2)
             self.path_ar.moveTo(pos.x() + lr * ar[0] * s, pos.y() + td * ar[1] * s)
             self.path_ar.lineTo(pos.x() + lr * ar[0] * f, pos.y() + td * ar[1] * f)
+        self.last_pos = pos
+        return True
 
     def boundingRect(self):
         return self._boundingRect

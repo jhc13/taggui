@@ -20,7 +20,7 @@ class Grid:
         self.target: QSize
         self.scale_x: float
         self.scale_y: float
-        self.aspect_ratio: tuple[int, int, float] | None
+        self.aspect_ratio: tuple[int, int, float] | None = None
 
         self.update(screen)
 

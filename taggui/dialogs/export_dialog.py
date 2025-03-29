@@ -408,7 +408,7 @@ class ExportDialog(QDialog):
             aspect_ratio = width / height
             rowPosition = self.statistics_table.rowCount()
             notable_aspect_ratio = ''
-            ar = target_dimension.get_noteable_aspect_ratio(aspect_ratio)
+            ar = target_dimension.get_noteable_aspect_ratio(width, height)
             notable_aspect_ratio = f' ({ar[0]}:{ar[1]})' if ar is not None else ''
             utilization = (width * height)**0.5 / resolution if resolution > 0 else 1
 
