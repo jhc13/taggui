@@ -75,6 +75,7 @@ class MarkingItem(QGraphicsRectItem):
             area_color.setAlpha(127)
             self.area.setBrush(area_color)
             self.area.setPen(Qt.NoPen)
+            self.move()
         if interactive:
             MarkingItem.handle_selected = RectPosition.BR
 
