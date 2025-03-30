@@ -79,7 +79,7 @@ class Grid:
         `base_point` and with a step width of `grid`.
         """
         assert isinstance(point, QPoint)
-        latent_size = settings.value('export_latent_size', type=int)
+        latent_size = max(settings.value('export_latent_size', type=int), 1)
         raw = self.map_raw(point)
         return QPoint(method(raw.x()/latent_size)*latent_size,
                       method(raw.y()/latent_size)*latent_size)

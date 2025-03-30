@@ -98,6 +98,8 @@ class ProxyImageListModel(QSortFilterProxyModel):
             caption = self.tag_separator.join(image.tags)
             # Subtract 2 for the `<|startoftext|>` and `<|endoftext|>` tokens.
             number_to_compare = len(self.tokenizer(caption).input_ids) - 2
+        elif filter_[0] == 'stars':
+            number_to_compare = image.rating * 5.0
         elif filter_[0] == 'width':
             number_to_compare = image.dimensions[0]
         elif filter_[0] == 'height':

@@ -178,6 +178,8 @@ comparison.
       caption.
     - `tokens:<=50` will match images that have 50 or fewer tokens in the
       caption.
+- `stars`: Images with this rating in stars
+    - `stars:>=4` will match all images with 4 or 5 stars.
 - `width` and `height`: will match images with the specified width or height.
     - `width:>512` will match images where the width is greater than 512 pixels.
     - `height:=1024` will match images where the height is exactly 1024 pixels.

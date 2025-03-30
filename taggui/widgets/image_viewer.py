@@ -626,6 +626,7 @@ class ImageViewer(QWidget):
     marking = Signal(ImageMarking, name='markingToAdd')
     accept_crop_addition = Signal(bool, name='allowAdditionOfCrop')
     crop_changed = Signal(Grid, name='cropChanged')
+    rating_changed = Signal(float, name='ratingChanged')
 
     def __init__(self, proxy_image_list_model: ProxyImageListModel):
         super().__init__()
@@ -663,6 +664,7 @@ class ImageViewer(QWidget):
         self.proxy_image_index = persistent_image_index
 
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
+        self.rating_changed.emit(image.rating)
 
         if is_complete:
             self.marking_items.clear()
@@ -692,6 +694,13 @@ class ImageViewer(QWidget):
         for marking in image.markings:
             self.add_rectangle(marking.rect, marking.type, interactive=False,
                                name=marking.label, confidence=marking.confidence)
+
+    def rating_change(self, rating: float):
+        if self.proxy_image_index.isValid():
+            image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
+            if image.rating != rating:
+                image.rating = rating
+                self.proxy_image_list_model.sourceModel().write_meta_to_disk(image)
 
     @Slot()
     def setting_change(self, key, value):
@@ -723,6 +732,8 @@ class ImageViewer(QWidget):
     def zoom_out(self, center_pos: QPoint = None):
         view = self.view.viewport().size()
         scene = self.scene.sceneRect()
+        if scene.width() < 1 or scene.height() < 1:
+            return
         limit = min(view.width()/scene.width(), view.height()/scene.height())
         MarkingItem.zoom_factor = max(MarkingItem.zoom_factor / 1.25, limit)
         self.is_zoom_to_fit = MarkingItem.zoom_factor == limit

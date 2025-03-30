@@ -200,6 +200,9 @@ class ImageListModel(QAbstractListModel):
                         crop = meta.get('crop')
                         if crop and type(crop) is list and len(crop) == 4:
                             image.crop = QRect(*crop)
+                        rating = meta.get('rating')
+                        if rating:
+                            image.rating = rating
                         markings = meta.get('markings')
                         if markings and type(markings) is list:
                             for marking in markings:
@@ -248,7 +251,7 @@ class ImageListModel(QAbstractListModel):
 
     def write_meta_to_disk(self, image: Image):
         does_exist = image.path.with_suffix('.json').exists()
-        meta: dict[str, any] = {'version': 1}
+        meta: dict[str, any] = {'version': 1, 'rating': image.rating}
         if image.crop is not None:
             meta['crop'] = image.crop.getRect()
         meta['markings'] = [{'label': marking.label,

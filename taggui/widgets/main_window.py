@@ -5,7 +5,8 @@ from PySide6.QtGui import (QAction, QActionGroup, QCloseEvent, QDesktopServices,
                            QIcon, QKeySequence, QShortcut)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QMessageBox, QStackedWidget, QToolBar,
-                               QVBoxLayout, QWidget)
+                               QVBoxLayout, QWidget, QSizePolicy, QHBoxLayout,
+                               QLabel)
 
 from transformers import AutoTokenizer
 
@@ -130,6 +131,32 @@ class MainWindow(QMainWindow):
         self.add_show_marking_latent_action.setCheckable(True)
         self.add_show_marking_latent_action.setChecked(True)
         self.toolbar.addAction(self.add_show_marking_latent_action)
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.toolbar.addWidget(spacer)
+        star_widget = QWidget()
+        star_layout = QHBoxLayout(star_widget)
+        star_layout.setContentsMargins(0, 0, 0, 0)
+        star_layout.setSpacing(0)
+        self.rating = 0
+        self.star_labels = []
+        for i in range(6):
+            shortcut = QShortcut(QKeySequence(f'Ctrl+{i}'), self)
+            shortcut.activated.connect(lambda checked=False, rating=i:
+                                       self.set_rating(2*rating, False))
+            if i == 0:
+                continue
+            star_label = QLabel('☆', self)
+            star_label.setEnabled(False)
+            star_label.setAlignment(Qt.AlignCenter)
+            star_label.setStyleSheet('QLabel { font-size: 22px; }')
+            star_label.setToolTip(f'Ctrl+{i}')
+            star_label.mousePressEvent = lambda event, rating=i: (
+                self.set_rating(rating/5.0, True))
+            self.star_labels.append(star_label)
+            star_layout.addWidget(star_label)
+        self.image_viewer.rating_changed.connect(self.set_rating)
+        self.toolbar.addWidget(star_widget)
 
         self.image_list = ImageList(self.proxy_image_list_model,
                                     tag_separator, image_list_image_width)
@@ -578,6 +605,21 @@ class MainWindow(QMainWindow):
         self.add_toggle_marking_action.triggered.connect(lambda: self.image_viewer.change_marking())
         self.add_show_labels_action.toggled.connect(self.image_viewer.show_label)
         self.add_show_marking_latent_action.toggled.connect(self.image_viewer.show_marking_latent)
+
+    @Slot(float)
+    def set_rating(self, rating: float, interactive: bool = False):
+        """Set the rating from 0.0 to 1.0.
+
+        In the future, half-stars '⯪' might be included, but right now it's
+        causing display issues."""
+        if interactive and rating == 2.0/10.0 and self.rating == rating:
+            rating = 0.0
+        self.rating = rating
+        for i, label in enumerate(self.star_labels):
+            label.setEnabled(True)
+            label.setText('★' if 2*i+1 < 10.0*rating else '☆')
+        if interactive:
+            self.image_viewer.rating_change(rating)
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(

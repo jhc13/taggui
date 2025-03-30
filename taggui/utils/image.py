@@ -30,4 +30,5 @@ class Image:
     target_dimension: QSize | None = None
     crop: QRect | None = None
     markings: list[Marking] = field(default_factory=list)
+    rating: float = 0.0
     thumbnail: QIcon | None = None
