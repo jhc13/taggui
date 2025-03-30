@@ -897,15 +897,19 @@ class ImageViewer(QWidget):
         image: Image = self.proxy_image_index.data(Qt.ItemDataRole.UserRole)
 
         if marking.rect_type == ImageMarking.CROP:
+            self.inhibit_reload_image = True
+            self.proxy_image_list_model.sourceModel().layoutAboutToBeChanged.emit()
             image.thumbnail = None
             image.crop = marking.rect().toRect() # ensure int!
             image.target_dimension = grid.target
-            self.inhibit_reload_image = True
             self.crop_changed.emit(None)
+            self.proxy_image_list_model.sourceModel().changePersistentIndex(self.proxy_image_index, self.proxy_image_index)
+
             self.proxy_image_list_model.sourceModel().dataChanged.emit(
                 self.proxy_image_index, self.proxy_image_index,
                 [Qt.ItemDataRole.DecorationRole, Qt.ItemDataRole.SizeHintRole,
                  Qt.ToolTipRole, Qt.ItemDataRole.UserRole])
+            self.proxy_image_list_model.sourceModel().layoutChanged.emit()
             self.inhibit_reload_image = False
         else:
             image.markings = [Marking(m.data(0),
