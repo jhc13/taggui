@@ -11,6 +11,11 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from utils.settings import settings
 from widgets.main_window import MainWindow
 
+####### TEMP FIXME
+import faulthandler
+faulthandler.enable()
+####### TEMP FIXME
+
 
 def suppress_warnings():
     """Suppress all warnings when not in a development environment."""

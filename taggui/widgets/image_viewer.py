@@ -394,7 +394,7 @@ class ResizeHintHUD(QGraphicsItem):
     def add_hyperbola_limit(self, pos: QPointF, lr: int, td: int, pos_change: bool) -> bool:
         if self.last_point == pos and not pos_change:
             return False
-        target_area = settings.value('export_resolution', type=int)**2
+        target_area = max(settings.value('export_resolution', type=int)**2, 1)
         res_size = max(settings.value('export_bucket_res_size', type=int), 1)
         if td < 0:
             distance_x = target_area / (pos.y() - self._boundingRect.y())
