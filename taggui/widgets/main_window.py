@@ -620,6 +620,7 @@ class MainWindow(QMainWindow):
             label.setText('★' if 2*i+1 < 10.0*rating else '☆')
         if interactive:
             self.image_viewer.rating_change(rating)
+            self.proxy_image_list_model.invalidateFilter()
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(

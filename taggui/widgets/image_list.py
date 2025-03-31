@@ -21,8 +21,7 @@ from utils.image import Image
 from utils.settings import settings
 from utils.settings_widgets import SettingsComboBox
 from utils.utils import get_confirmation_dialog_reply, pluralize
-
-from taggui.utils.grid import Grid
+from utils.grid import Grid
 
 
 def replace_filter_wildcards(filter_: str | list) -> str | list:
