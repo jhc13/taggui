@@ -902,8 +902,14 @@ class ImageViewer(QWidget):
             image.thumbnail = None
             image.crop = marking.rect().toRect() # ensure int!
             image.target_dimension = grid.target
+            if not self.proxy_image_list_model.does_image_match_filter(
+                    image, self.proxy_image_list_model.filter):
+                self.proxy_image_list_model.filter = [['path', str(image.path)],
+                                                      'OR',
+                                                      self.proxy_image_list_model.filter]
             self.crop_changed.emit(None)
-            self.proxy_image_list_model.sourceModel().changePersistentIndex(self.proxy_image_index, self.proxy_image_index)
+            self.proxy_image_list_model.sourceModel().changePersistentIndex(
+                self.proxy_image_index, self.proxy_image_index)
 
             self.proxy_image_list_model.sourceModel().dataChanged.emit(
                 self.proxy_image_index, self.proxy_image_index,

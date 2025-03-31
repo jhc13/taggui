@@ -2,7 +2,7 @@ import operator
 import re
 from fnmatch import fnmatchcase
 
-from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt, QRect
+from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt, QRect, QSize
 from transformers import PreTrainedTokenizerBase
 
 from models.image_list_model import ImageListModel
@@ -87,7 +87,7 @@ class ProxyImageListModel(QSortFilterProxyModel):
                 # accept any dimension separator of [x:]
                 dimension = (filter_[1]).replace(':', 'x').split('x')
                 if image.target_dimension is None:
-                    image.target_dimension = target_dimension.get(image.dimensions)
+                    image.target_dimension = target_dimension.get(QSize(*image.dimensions))
                 return (len(dimension) == 2
                         and dimension[0] == str(image.target_dimension.width())
                         and dimension[1] == str(image.target_dimension.height()))

@@ -500,8 +500,6 @@ class ExportDialog(QDialog):
                         only_missing = False
                     if msgBox.clickedButton() == rename_button:
                         only_missing = False
-                else:
-                    path_missing = True
             else:
                 path_missing = True
 
@@ -584,17 +582,16 @@ class ExportDialog(QDialog):
             image_file = Image.open(image_entry.path)
             export_can_alpha = export_format != ExportFormat.JPG
             # Preserve alpha if present:
-            if image_file.mode in ("RGBA", "LA", "PA") and export_can_alpha:  # Check for alpha channels
-                image_file = image_file.convert("RGBA")
+            if image_file.mode in ('RGBA', 'LA', 'PA') and export_can_alpha:  # Check for alpha channels
+                image_file = image_file.convert('RGBA')
             else:
-                image_file = image_file.convert("RGB")  # Otherwise, convert to RGB
-            current_width, current_height = image_file.size
+                image_file = image_file.convert('RGB')  # Otherwise, convert to RGB
 
             # 1. pass: add includes
             for marking in image_entry.markings:
                 if marking.type == ImageMarking.INCLUDE and export_can_alpha:
                     if image_file.mode == 'RGB':
-                        image_file = image_file.convert("RGBA")
+                        image_file = image_file.convert('RGBA')
                         # completely transparent
                         alpha = Image.new('L', image_file.size, 0)
                     else:
@@ -607,7 +604,7 @@ class ExportDialog(QDialog):
             for marking in image_entry.markings:
                 if marking.type == ImageMarking.EXCLUDE and export_can_alpha:
                     if image_file.mode == 'RGB':
-                        image_file = image_file.convert("RGBA")
+                        image_file = image_file.convert('RGBA')
                         # completely opaque
                         alpha = Image.new('L', image_file.size, 255)
                     else:
@@ -640,12 +637,10 @@ class ExportDialog(QDialog):
                                                  crop_height + image_entry.target_dimension.height()))
 
             if export_can_alpha:
+                if cropped_image.mode == 'RGB':
+                    cropped_image = cropped_image.convert('RGBA')
                 alpha = cropped_image.getchannel('A')
                 if quantize_alpha:
-                    if image_entry.crop is None:
-                        crop = QRect(0, 0, *image_entry.dimensions)
-                    else:
-                        crop = image_entry.crop
                     for marking in image_entry.markings:
                         if marking.type == ImageMarking.INCLUDE:
                             rect = QRect(grid.map(marking.rect.topLeft(), ceil),
