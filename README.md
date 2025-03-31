@@ -143,11 +143,21 @@ apply:
       caption. For example, images with the tag `orange cat` or the
       tag `catastrophe`.
 - `marking`: Images that contain at least one marking with this label. It
-  doesn't matter whether it is a _hint_, _include_ or _exclude_ marking.
+  doesn't matter whether it is a _hint_, _include_ or _exclude_ marking. Is also
+  doesn't matter whether the marking is on the exported image, i.e., cropped 
+  away or not.
   - `marking:cat:>0.789` when the label is followed by a colon with a
     relational operator and a number then only those markings are matched 
     where the confidence fits to the specified number, in this example case
     a `cat` marking must have a confidence number higher than 0.789.
+- `crops`: Images that contain at least one marking that will be cropped on the
+  resulting image
+  - `crops:hand` at least one `hand` marking is not completely visible on the
+    exported image.
+- `visible`: Images that contain the marking in the exported area, completely
+   or partly
+  - `visible:face`: At least a part of the face must be visible when the image
+    gets exported.
 - `name`: Images that contain the filter term in the file name
     - `name:cat` will match images such as `cat-1.jpg` or `large_cat.png`.
 - `path`: Images that contain the filter term in the full file path

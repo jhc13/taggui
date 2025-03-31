@@ -50,8 +50,8 @@ class FilterLineEdit(QLineEdit):
                                     | QuotedString(quote_char="'",
                                                    esc_char='\\')
                                     | Word(printables, exclude_chars='()'))
-        string_filter_keys = ['tag', 'caption', 'marking', 'name', 'path',
-                              'size', 'target']
+        string_filter_keys = ['tag', 'caption', 'marking', 'crops', 'visible',
+                              'name', 'path', 'size', 'target']
         string_filter_expressions = [Group(CaselessLiteral(key) + Suppress(':')
                                            + optionally_quoted_string)
                                      for key in string_filter_keys]

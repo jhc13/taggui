@@ -2,7 +2,7 @@ import operator
 import re
 from fnmatch import fnmatchcase
 
-from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt
+from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt, QRect
 from transformers import PreTrainedTokenizerBase
 
 from models.image_list_model import ImageListModel
@@ -63,6 +63,16 @@ class ProxyImageListModel(QSortFilterProxyModel):
                                comparison_operator(marking.confidence,
                                                    confidence_target))
                                for marking in image.markings)
+            if filter_[0] == 'crops':
+                crop = image.crop if image.crop is not None else QRect(0, 0, *image.dimensions)
+                return any(fnmatchcase(marking.label, filter_[1]) and
+                           marking.rect.intersects(crop) and not crop.contains(marking.rect)
+                           for marking in image.markings)
+            if filter_[0] == 'visible':
+                crop = image.crop if image.crop is not None else QRect(0, 0, *image.dimensions)
+                return any(fnmatchcase(marking.label, filter_[1]) and
+                           marking.rect.intersects(crop)
+                           for marking in image.markings)
             if filter_[0] == 'name':
                 return fnmatchcase(image.path.name, f'*{filter_[1]}*')
             if filter_[0] == 'path':

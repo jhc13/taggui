@@ -173,13 +173,13 @@ class MarkingItem(QGraphicsRectItem):
     def mouseReleaseEvent(self, event):
         MarkingItem.handle_selected = RectPosition.NONE
         self.move()
-        self.image_view.image_viewer.marking_changed(self)
         self.setZValue(2)
         if ((event.modifiers() & Qt.KeyboardModifier.ControlModifier) ==
                 Qt.KeyboardModifier.ControlModifier):
             self.image_view.set_insertion_mode(self.rect_type)
         self.ungrabMouse()
         super().mouseReleaseEvent(event)
+        self.image_view.image_viewer.marking_changed(self)
 
     def paint(self, painter, option, widget=None):
         if self.rect_type == ImageMarking.CROP:
