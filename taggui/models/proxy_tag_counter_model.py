@@ -21,8 +21,19 @@ class ProxyTagCounterModel(QSortFilterProxyModel):
             left.row()]
         right_tag, right_count = self.tag_counter_model.most_common_tags[
             right.row()]
+        if self.tag_counter_model.most_common_tags_filtered is None:
+            left_cnt_f = 0
+            right_cnt_f = 0
+        else:
+            left_cnt_f = self.tag_counter_model.most_common_tags_filtered[left_tag]
+            right_cnt_f = self.tag_counter_model.most_common_tags_filtered[right_tag]
+
         if self.sort_by == AllTagsSortBy.FREQUENCY:
-            return left_count < right_count
+            return left_count < right_count or (left_count == right_count and
+                                                left_cnt_f < right_cnt_f)
+        elif self.sort_by == AllTagsSortBy.FREQUENCY_FILTERED:
+            return left_cnt_f < right_cnt_f or (left_cnt_f == right_cnt_f and
+                                                left_count < right_count)
         elif self.sort_by == AllTagsSortBy.NAME:
             return left_tag < right_tag
         elif self.sort_by == AllTagsSortBy.LENGTH:

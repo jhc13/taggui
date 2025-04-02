@@ -4,6 +4,7 @@ from enum import Enum
 # `StrEnum` is a Python 3.11 feature that can be used here.
 class AllTagsSortBy(str, Enum):
     FREQUENCY = 'Frequency'
+    FREQUENCY_FILTERED = 'Frequency (filtered)'
     NAME = 'Name'
     LENGTH = 'Length'
 

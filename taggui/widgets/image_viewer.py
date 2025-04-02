@@ -904,6 +904,8 @@ class ImageViewer(QWidget):
             image.target_dimension = grid.target
             if not self.proxy_image_list_model.does_image_match_filter(
                     image, self.proxy_image_list_model.filter):
+                # don't call .invalidate() as the displayed list shouldn't
+                # update
                 self.proxy_image_list_model.filter = [['path', str(image.path)],
                                                       'OR',
                                                       self.proxy_image_list_model.filter]

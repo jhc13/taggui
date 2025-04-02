@@ -2,7 +2,8 @@ import operator
 import re
 from fnmatch import fnmatchcase
 
-from PySide6.QtCore import QModelIndex, QSortFilterProxyModel, Qt, QRect, QSize
+from PySide6.QtCore import (QModelIndex, QSortFilterProxyModel, Qt, QRect,
+                            QSize, Signal)
 from transformers import PreTrainedTokenizerBase
 
 from models.image_list_model import ImageListModel
@@ -21,6 +22,8 @@ comparison_operators = {
 
 
 class ProxyImageListModel(QSortFilterProxyModel):
+    filter_changed = Signal()
+
     def __init__(self, image_list_model: ImageListModel,
                  tokenizer: PreTrainedTokenizerBase, tag_separator: str):
         super().__init__()
@@ -28,6 +31,11 @@ class ProxyImageListModel(QSortFilterProxyModel):
         self.tokenizer = tokenizer
         self.tag_separator = tag_separator
         self.filter: list | None = None
+
+    def set_filter(self, new_filter: list | None):
+        self.filter = new_filter
+        self.invalidateFilter()
+        self.filter_changed.emit()
 
     def does_image_match_filter(self, image: Image,
                                 filter_: list | str) -> bool:
@@ -129,3 +137,7 @@ class ProxyImageListModel(QSortFilterProxyModel):
     def is_image_in_filtered_images(self, image: Image) -> bool:
         return (self.filter is None
                 or self.does_image_match_filter(image, self.filter))
+
+    def get_list(self) -> list[Image]:
+        return [self.data(self.index(row, 0, QModelIndex()), Qt.UserRole)
+                for row in range(self.rowCount())]

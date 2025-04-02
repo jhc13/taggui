@@ -532,9 +532,7 @@ class MainWindow(QMainWindow):
     @Slot()
     def set_image_list_filter(self):
         filter_ = self.image_list.filter_line_edit.parse_filter_text()
-        self.proxy_image_list_model.filter = filter_
-        # Apply the new filter.
-        self.proxy_image_list_model.invalidateFilter()
+        self.proxy_image_list_model.set_filter(filter_)
         if filter_ is None:
             all_tags_list_selection_model = (self.all_tags_editor
                                              .all_tags_list.selectionModel())
@@ -620,7 +618,7 @@ class MainWindow(QMainWindow):
             label.setText('★' if 2*i+1 < 10.0*rating else '☆')
         if interactive:
             self.image_viewer.rating_change(rating)
-            self.proxy_image_list_model.invalidateFilter()
+            self.proxy_image_list_model.set_filter(self.proxy_image_list_model.filter)
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(
@@ -645,18 +643,16 @@ class MainWindow(QMainWindow):
             lambda start, end, roles:
                 self.image_viewer.load_image(self.image_viewer.proxy_image_index,
                                              False)
-                if (start.row() <= self.image_viewer.proxy_image_index.row() and
-                    self.image_viewer.proxy_image_index.row() <= end.row()) else 0)
+                if (start.row() <= self.image_viewer.proxy_image_index.row() <= end.row()) else 0)
         self.image_list_model.update_undo_and_redo_actions_requested.connect(
             self.update_undo_and_redo_actions)
-        # Rows are inserted or removed from the proxy image list model when the
-        # filter is changed.
-        self.proxy_image_list_model.rowsInserted.connect(
+        self.proxy_image_list_model.filter_changed.connect(
             lambda: self.image_list.update_image_index_label(
                 self.image_list.list_view.currentIndex()))
-        self.proxy_image_list_model.rowsRemoved.connect(
-            lambda: self.image_list.update_image_index_label(
-                self.image_list.list_view.currentIndex()))
+        self.proxy_image_list_model.filter_changed.connect(
+            lambda: self.tag_counter_model.count_tags_filtered(
+                self.proxy_image_list_model.get_list() if
+                len(self.proxy_image_list_model.filter or [])>0 else None))
         self.image_list.list_view.directory_reload_requested.connect(
             self.reload_directory)
         self.image_list.list_view.tags_paste_requested.connect(
