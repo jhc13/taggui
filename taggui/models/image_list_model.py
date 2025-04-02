@@ -184,7 +184,7 @@ class ImageListModel(QAbstractListModel):
             json_file_path = image_path.with_suffix('.json')
             if (str(json_file_path) in json_file_path_strings and
                 json_file_path.stat().st_size > 0):
-                with json_file_path.open(encoding="UTF-8") as source:
+                with json_file_path.open(encoding='UTF-8') as source:
                     try:
                         meta = json.load(source)
                     except json.JSONDecodeError as e:

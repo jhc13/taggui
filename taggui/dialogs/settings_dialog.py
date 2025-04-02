@@ -153,7 +153,7 @@ class SettingsDialog(QDialog):
         if models_directory_path:
             initial_directory_path = models_directory_path
         elif settings.contains('directory_path'):
-            initial_directory_path = settings.value('directory_path')
+            initial_directory_path = settings.value('directory_path', type=str)
         else:
             initial_directory_path = ''
         models_directory_path = QFileDialog.getExistingDirectory(
@@ -171,7 +171,7 @@ class SettingsDialog(QDialog):
         if marking_models_directory_path:
             initial_directory_path = marking_models_directory_path
         elif settings.contains('directory_path'):
-            initial_directory_path = settings.value('directory_path')
+            initial_directory_path = settings.value('directory_path', type=str)
         else:
             initial_directory_path = ''
         marking_models_directory_path = QFileDialog.getExistingDirectory(

@@ -205,7 +205,7 @@ class AutoCaptioningModel:
         pil_image = exif_transpose(pil_image)
         pil_image = pil_image.convert(self.image_mode)
         if crop and image.crop is not None:
-            pil_image = pil_image.crop( image.crop.getCoords())
+            pil_image = pil_image.crop(image.crop.getCoords())
         return pil_image
 
     def get_model_inputs(self, image_prompt: str, image: Image,

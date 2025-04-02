@@ -55,7 +55,7 @@ class CaptioningThread(ModelThread):
         model_class = get_model_class(model_id)
         self.model = model_class(
             captioning_thread_=self, caption_settings=self.caption_settings)
-        self.error_message =  self.model.get_error_message()
+        self.error_message = self.model.get_error_message()
         if self.error_message:
             return
         self.model.load_processor_and_model()

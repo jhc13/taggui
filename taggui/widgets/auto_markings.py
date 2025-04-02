@@ -149,8 +149,8 @@ class AutoMarkings(QDockWidget):
         # Each `QDockWidget` needs a unique object name for saving its state.
         self.setObjectName('auto_markings')
         self.setWindowTitle('Auto-Markings')
-        self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea
-                             | Qt.DockWidgetArea.RightDockWidgetArea)
+        self.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea |
+                             Qt.DockWidgetArea.RightDockWidgetArea)
 
         self.start_cancel_button = TallPushButton('Start Auto-Marking')
         self.start_cancel_button.setEnabled(False)
@@ -272,6 +272,8 @@ class AutoMarkings(QDockWidget):
             combo.addItem(create_add_box_icon(Qt.red), 'exclude')
             combo.addItem(create_add_box_icon(Qt.green), 'include')
             self.marking_settings_form.class_table.setCellWidget(row, 1, combo)
+        # NOTE: As this thread has no place to display the output, we keep
+        # `stdout` and `stderr`.
         # Redirect `stdout` and `stderr` so that the outputs are displayed in
         # the console text edit.
         ###sys.stdout = self.marking_thread

@@ -311,11 +311,12 @@ class ExportDialog(QDialog):
             self.latent_size_spin_box.setEnabled(True)
         else:
             self.inhibit_statistics_update = True
-            self.resolution_spin_box.setValue(preset[0]) if do_value_change else 0
+            if do_value_change:
+                self.resolution_spin_box.setValue(preset[0])
+                self.bucket_res_size_spin_box.setValue(preset[1])
+                self.latent_size_spin_box.setValue(preset[2])
             self.resolution_spin_box.setEnabled(False)
-            self.bucket_res_size_spin_box.setValue(preset[1]) if do_value_change else 0
             self.bucket_res_size_spin_box.setEnabled(False)
-            self.latent_size_spin_box.setValue(preset[2]) if do_value_change else 0
             self.latent_size_spin_box.setEnabled(False)
             self.inhibit_statistics_update = inhibit_statistics_update_current
             self.show_statistics()
@@ -330,7 +331,7 @@ class ExportDialog(QDialog):
         resolution = self.resolution_spin_box.value()
         if resolution > 0:
             megapixels = resolution * resolution / 1024 / 1024
-            self.megapixels.setText(f"{megapixels:.3f}")
+            self.megapixels.setText(f'{megapixels:.3f}')
         else:
             self.megapixels.setText('-')
 
@@ -411,11 +412,11 @@ class ExportDialog(QDialog):
             self.statistics_table.setItem(rowPosition, 0, QTableWidgetItem(str(width)))
             self.statistics_table.setItem(rowPosition, 1, QTableWidgetItem(str(height)))
             self.statistics_table.setItem(rowPosition, 2, QTableWidgetItem(str(count)))
-            self.statistics_table.setItem(rowPosition, 3, QTableWidgetItem(f"{aspect_ratio:.3f}{notable_aspect_ratio}"))
-            self.statistics_table.setItem(rowPosition, 4, QTableWidgetItem(f"{100*utilization:.1f}%"))
+            self.statistics_table.setItem(rowPosition, 3, QTableWidgetItem(f'{aspect_ratio:.3f}{notable_aspect_ratio}'))
+            self.statistics_table.setItem(rowPosition, 4, QTableWidgetItem(f'{100*utilization:.1f}%'))
 
     @Slot()
-    def set_filter(self, selected_table_item):
+    def set_filter(self, selected_table_item: QTableWidgetItem):
         row = selected_table_item.row()
         width = self.statistics_table.model().index(row, 0).data()
         height = self.statistics_table.model().index(row, 1).data()
@@ -439,7 +440,7 @@ class ExportDialog(QDialog):
         if export_directory_path:
             initial_directory_path = export_directory_path
         elif settings.contains('directory_path'):
-            initial_directory_path = settings.value('directory_path')
+            initial_directory_path = settings.value('directory_path', type=str)
         else:
             initial_directory_path = ''
         export_directory_path = QFileDialog.getExistingDirectory(
@@ -548,7 +549,7 @@ class ExportDialog(QDialog):
                 stem = export_path.stem
                 counter = 0
                 while image_exists:
-                    export_path = export_path.parent / f"{stem}_{counter}{export_path.suffix}"
+                    export_path = export_path.parent / f'{stem}_{counter}{export_path.suffix}'
                     image_exists = export_path.exists()
                     counter += 1
 
@@ -653,7 +654,7 @@ class ExportDialog(QDialog):
                     replacement = cropped_image.filter(ImageFilter.GaussianBlur(10))
                 elif masked_content in [MaskedContent.GREY, MaskedContent.GREY_NOISE]:
                     # 126 is an 18% gray, i.e. the neutral gray, for sRGB.
-                    # As it's masked anyway, there's no need to go into detail
+                    # Anyway, it's masked, so there's no need to go into detail
                     # about different color spaces.
                     replacement = Image.new('RGB', cropped_image.size, (126, 126, 126))
                 elif masked_content == MaskedContent.BLACK:

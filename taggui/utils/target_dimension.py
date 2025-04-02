@@ -40,7 +40,8 @@ def prepare() -> list[tuple[int, int, float]] | None:
     global aspect_ratios
     _preferred_sizes = []
     aspect_ratios = notable_aspect_ratios
-    for res_str in re.split(r'\s*,\s*', settings.value('export_preferred_sizes') or ''):
+    for res_str in re.split(r'\s*,\s*',
+                            settings.value('export_preferred_sizes', type=str) or ''):
         try:
             if res_str == '':
                 continue
@@ -96,7 +97,8 @@ def get(dimensions: QSize) -> QSize:
 
     if resolution == 0:
         # no rescale in this case, only cropping
-        return QSize((width // bucket_res)*bucket_res, (height // bucket_res)*bucket_res)
+        return QSize((width // bucket_res) * bucket_res,
+                     (height // bucket_res) * bucket_res)
 
     if width < bucket_res or height < bucket_res:
         # It doesn't make sense to use such a small image.

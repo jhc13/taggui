@@ -33,11 +33,10 @@ class MarkingThread(ModelThread):
     def preload_model(self):
         if self.marking_settings['model_path'] is None:
             self.error_message = 'Model path not set'
+            self.is_error = True
             self.model = None
             return
         self.model = YOLO(self.marking_settings['model_path'])
-        if self.error_message:
-            return
 
     def get_model_inputs(self, image: Image):
         return '', {}
