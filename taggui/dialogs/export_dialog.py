@@ -271,10 +271,10 @@ class ExportDialog(QDialog):
         grid_row += 1
         grid_layout.addWidget(QLabel('Fiter hashtag (#) tags'), grid_row, 0,
                               Qt.AlignmentFlag.AlignRight)
-        self.filter_hastag_check_box = SettingsBigCheckBox(key='export_filter_hashtag')
-        self.filter_hastag_check_box.setToolTip(
+        self.filter_hashtag_check_box = SettingsBigCheckBox(key='export_filter_hashtag')
+        self.filter_hashtag_check_box.setToolTip(
             'Do not export tags that start with a hashtag (#)')
-        grid_layout.addWidget(self.filter_hastag_check_box, grid_row, 1,
+        grid_layout.addWidget(self.filter_hashtag_check_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         self.layout.addLayout(grid_layout)
@@ -379,9 +379,6 @@ class ExportDialog(QDialog):
             return
 
         resolution = settings.value('export_resolution', type=int)
-        bucket_res = settings.value('export_bucket_res_size', type=int)
-
-        aspect_ratios = target_dimension.prepare()
 
         image_list = self.get_image_list()
         image_dimensions = defaultdict(int)
@@ -401,13 +398,11 @@ class ExportDialog(QDialog):
             )
         self.export_button.setEnabled(len(image_list) > 0)
 
-
         self.statistics_table.setRowCount(0) # clear old data
         for dimensions, count in sorted_dimensions:
             width, height = dimensions
             aspect_ratio = width / height
             rowPosition = self.statistics_table.rowCount()
-            notable_aspect_ratio = ''
             ar = target_dimension.get_noteable_aspect_ratio(width, height)
             notable_aspect_ratio = f' ({ar[0]}:{ar[1]})' if ar is not None else ''
             utilization = (width * height)**0.5 / resolution if resolution > 0 else 1
@@ -424,12 +419,13 @@ class ExportDialog(QDialog):
         row = selected_table_item.row()
         width = self.statistics_table.model().index(row, 0).data()
         height = self.statistics_table.model().index(row, 1).data()
-        filter = f'target:{width}:{height}'
-        text = self.image_list.filter_line_edit.text()
+        add_filter = f'target:{width}:{height}'
+        text = self.image_list.filter_line_edit.text().strip()
         if text != '':
-            self.image_list.filter_line_edit.setText(f'{filter} AND ({text})')
+            text = text if text.startswith('(') else f'({text})'
+            self.image_list.filter_line_edit.setText(f'{add_filter} AND {text}')
         else:
-            self.image_list.filter_line_edit.setText(filter)
+            self.image_list.filter_line_edit.setText(add_filter)
         self.close()
 
     @Slot()
