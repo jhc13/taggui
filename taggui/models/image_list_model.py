@@ -230,6 +230,7 @@ class ImageListModel(QAbstractListModel):
                           should_ask_for_confirmation: bool):
         """Add the current state of the image tags to the undo stack."""
         tags = [{'tags': image.tags.copy(),
+                 'rating': image.rating,
                  'crop': QRect(image.crop) if image.crop is not None else None,
                  'markings': image.markings.copy()} for image in self.images]
         self.undo_stack.append(HistoryItem(action_name, tags,
@@ -290,6 +291,7 @@ class ImageListModel(QAbstractListModel):
                 return
         source_stack.pop()
         tags = [{'tags': image.tags.copy(),
+                 'rating': image.rating,
                  'crop': QRect(image.crop) if image.crop is not None else None,
                  'markings': image.markings.copy()} for image in self.images]
         destination_stack.append(HistoryItem(
@@ -299,11 +301,13 @@ class ImageListModel(QAbstractListModel):
         for image_index, (image, history_image_tags) in enumerate(
                 zip(self.images, history_item.tags)):
             if (image.tags == history_image_tags['tags'] and
+                image.rating == history_image_tags['rating'] and
                 image.crop == history_image_tags['crop'] and
                 image.markings == history_image_tags['markings']):
                 continue
             changed_image_indices.append(image_index)
             image.tags = history_image_tags['tags']
+            image.rating = history_image_tags['rating']
             image.crop = history_image_tags['crop']
             image.markings = history_image_tags['markings']
             self.write_image_tags_to_disk(image)

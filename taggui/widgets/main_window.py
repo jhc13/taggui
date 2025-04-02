@@ -617,6 +617,8 @@ class MainWindow(QMainWindow):
             label.setEnabled(True)
             label.setText('★' if 2*i+1 < 10.0*rating else '☆')
         if interactive:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Change rating', should_ask_for_confirmation=False)
             self.image_viewer.rating_change(rating)
             self.proxy_image_list_model.set_filter(self.proxy_image_list_model.filter)
 
