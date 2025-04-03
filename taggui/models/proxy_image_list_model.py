@@ -38,7 +38,9 @@ class ProxyImageListModel(QSortFilterProxyModel):
         self.filter_changed.emit()
 
     def does_image_match_filter(self, image: Image,
-                                filter_: list | str) -> bool:
+                                filter_: list | str | None) -> bool:
+        if filter_ is None:
+            return True
         if isinstance(filter_, str):
             return (fnmatchcase(self.tag_separator.join(image.tags),
                                 f'*{filter_}*')
