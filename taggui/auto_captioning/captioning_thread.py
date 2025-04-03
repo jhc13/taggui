@@ -57,6 +57,7 @@ class CaptioningThread(ModelThread):
             captioning_thread_=self, caption_settings=self.caption_settings)
         self.error_message = self.model.get_error_message()
         if self.error_message:
+            self.is_error = True
             return
         self.model.load_processor_and_model()
         self.model.monkey_patch_after_loading()

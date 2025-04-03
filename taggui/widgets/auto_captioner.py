@@ -73,6 +73,15 @@ class CaptionSettingsForm(QVBoxLayout):
         self.caption_position_combo_box = FocusedScrollSettingsComboBox(
             key='caption_position')
         self.caption_position_combo_box.addItems(list(CaptionPosition))
+        self.skip_hash_container = QWidget()
+        skip_hash_layout = QHBoxLayout()
+        skip_hash_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        skip_hash_layout.setContentsMargins(0, 0, 0, 0)
+        self.skip_hash_check_box = SettingsBigCheckBox(
+            key='skip_hash', default=True)
+        skip_hash_layout.addWidget(QLabel('Skip hash tags when inserting in prompt'))
+        skip_hash_layout.addWidget(self.skip_hash_check_box)
+        self.skip_hash_container.setLayout(skip_hash_layout)
         self.device_combo_box = FocusedScrollSettingsComboBox(key='device')
         self.device_combo_box.addItems(list(CaptionDevice))
         self.load_in_4_bit_container = QWidget()
@@ -113,6 +122,7 @@ class CaptionSettingsForm(QVBoxLayout):
                                    self.caption_start_line_edit)
         basic_settings_form.addRow('Caption position',
                                    self.caption_position_combo_box)
+        basic_settings_form.addRow(self.skip_hash_container)
         self.device_label = QLabel('Device')
         basic_settings_form.addRow(self.device_label, self.device_combo_box)
         basic_settings_form.addRow(self.load_in_4_bit_container)
@@ -276,6 +286,7 @@ class CaptionSettingsForm(QVBoxLayout):
         non_wd_tagger_widgets = [
             self.prompt_label,
             self.prompt_text_edit,
+            self.skip_hash_container,
             self.caption_start_label,
             self.caption_start_line_edit,
             self.device_label,
@@ -319,6 +330,7 @@ class CaptionSettingsForm(QVBoxLayout):
         return {
             'model_id': self.model_combo_box.currentText(),
             'prompt': self.prompt_text_edit.toPlainText(),
+            'skip_hash': self.skip_hash_check_box.isChecked(),
             'caption_start': self.caption_start_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),

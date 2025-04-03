@@ -16,20 +16,23 @@ from utils.enums import CaptionDevice
 from utils.image import Image
 
 
-def replace_template_variable(match: re.Match, image: Image) -> str:
+def replace_template_variable(match: re.Match, image: Image, skip_hash: bool) -> str:
     template_variable = match.group(0)[1:-1].lower()
     if template_variable == 'tags':
-        return ', '.join(image.tags)
+        if skip_hash:
+            return ', '.join([t for t in image.tags if not t.startswith('#')])
+        else:
+            return ', '.join(image.tags)
     if template_variable == 'name':
         return image.path.stem
     if template_variable in ('directory', 'folder'):
         return image.path.parent.name
 
 
-def replace_template_variables(text: str, image: Image) -> str:
+def replace_template_variables(text: str, image: Image, skip_hash: bool) -> str:
     # Replace template variables inside curly braces that are not escaped.
     text = re.sub(r'(?<!\\){[^{}]+(?<!\\)}',
-                  lambda match: replace_template_variable(match, image), text)
+                  lambda match: replace_template_variable(match, image, skip_hash), text)
     # Unescape escaped curly braces.
     text = re.sub(r'\\([{}])', r'\1', text)
     return text
@@ -54,6 +57,7 @@ class AutoCaptioningModel:
         self.caption_settings = caption_settings
         self.model_id = caption_settings['model_id']
         self.prompt = caption_settings['prompt']
+        self.skip_hash = caption_settings['skip_hash']
         self.caption_start = caption_settings['caption_start']
         self.device_setting: CaptionDevice = caption_settings['device']
         self.device: torch.device = self.get_device()
@@ -185,7 +189,8 @@ class AutoCaptioningModel:
 
     def get_image_prompt(self, image: Image) -> str | None:
         if self.prompt:
-            image_prompt = replace_template_variables(self.prompt, image)
+            image_prompt = replace_template_variables(self.prompt, image,
+                                                      self.skip_hash)
         else:
             self.prompt = self.get_default_prompt()
             image_prompt = self.prompt
