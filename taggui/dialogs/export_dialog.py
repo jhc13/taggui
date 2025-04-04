@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout,
                                QVBoxLayout, QHBoxLayout, QAbstractItemView)
 from PIL import Image, ImageFilter, ImageCms
 
+from utils.enums import MaskingStrategy, CaptionStrategy
 from utils.settings import DEFAULT_SETTINGS, settings
 from utils.image import ImageMarking
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
@@ -20,8 +21,6 @@ from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
 import utils.target_dimension as target_dimension
 from utils.grid import Grid
 from widgets.image_list import ImageList
-
-from taggui.utils.enums import MaskingStrategy
 
 try:
     import pillow_jxl
@@ -188,7 +187,7 @@ class ExportDialog(QDialog):
         bucket_strategy_combo_box.addItems(list(BucketStrategy))
         bucket_strategy_combo_box.setToolTip(
             'crop: center crop\n'
-            'scale: assymetric scaling\n'
+            'scale: asymmetric scaling\n'
             'crop and scale: use both to minimize each effect')
         grid_layout.addWidget(bucket_strategy_combo_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
@@ -244,6 +243,20 @@ class ExportDialog(QDialog):
             'Use "feed through" to keep the color space as it is.\n'
             'Use "sRGB (implicit, without profile)" to save in sRGB but don\'t embed the ICC profile to save 8k file size.')
         grid_layout.addWidget(color_space_combo_box, grid_row, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
+        grid_layout.addWidget(QLabel('Caption'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        caption_algorithm_combo_box = SettingsComboBox(key='export_caption_algorithm')
+        caption_algorithm_combo_box.addItems(list(CaptionStrategy))
+        caption_algorithm_combo_box.setToolTip(
+            'Define how the tags should be exported:\n'
+            'tag list - just like the tag text files\n'
+            'only first tag, only last tag - only this one tag\n'
+            'enumeration - natural language list with commas\n'
+            'prefixed enumeration - first tag directly followed by enumeration')
+        grid_layout.addWidget(caption_algorithm_combo_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
@@ -540,6 +553,7 @@ class ExportDialog(QDialog):
         tag_separator = settings.value('tag_separator', type=str)
         if settings.value('insert_space_after_tag_separator', type=bool):
             tag_separator += ' '
+        caption_algorithm = settings.value('export_caption_algorithm', type=str)
         filter_hashtag = settings.value('export_filter_hashtag', type=bool)
         quantize_alpha = settings.value('export_quantize_alpha', type=bool)
         masking_strategy = settings.value('export_masking_strategy', type=str)
@@ -578,12 +592,36 @@ class ExportDialog(QDialog):
             if filter_hashtag:
                 tags = [tag for tag in image_entry.tags if tag[0] != '#']
             else:
-                tags = image_entry.tags
+                tags = image_entry.tags.copy()
+
+            if len(tags) == 0:
+                tags = ['']
+
+            this_caption_algorithm = caption_algorithm
+            if caption_algorithm == CaptionStrategy.PREFIX_ENUMERATION:
+                if len(tags) > 1:
+                    prefix = tags.pop(0)
+                    tags[0] = prefix + ' ' + tags[0]
+                this_caption_algorithm = CaptionStrategy.ENUMERATION
+
+            match this_caption_algorithm:
+                case  CaptionStrategy.TAG_LIST:
+                    tag_string = tag_separator.join(tags)
+                case  CaptionStrategy.FIRST:
+                    tag_string = tags[0]
+                case  CaptionStrategy.LAST:
+                    tag_string = tags[-1]
+                case  CaptionStrategy.ENUMERATION:
+                    if len(tags) == 1:
+                        tag_string = tags[0]
+                    elif len(tags) == 2:
+                        tag_string = ' and '.join(tags)
+                    else:
+                        tag_string = ', '.join(tags[:-1]) + ', and ' + tags[-1]
 
             try:
                 export_path.with_suffix('.txt').write_text(
-                    tag_separator.join(tags), encoding='utf-8',
-                    errors='replace')
+                    tag_string, encoding='utf-8', errors='replace')
             except OSError:
                 error_message_box = QMessageBox()
                 error_message_box.setWindowTitle('Error')

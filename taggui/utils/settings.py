@@ -25,6 +25,7 @@ DEFAULT_SETTINGS = {
     'export_format': '.png - PNG',
     'export_quality': 100,
     'export_color_space': 'sRGB',
+    'export_caption_algorithm': 'tag list (using tag separator)',
     'export_directory_path': '',
     'export_keep_dir_structure': False,
     'export_filter_hashtag': True

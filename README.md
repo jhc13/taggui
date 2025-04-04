@@ -415,6 +415,13 @@ supports alpha masks (all, but not the classic JPEG) you can make sure that
 the masks are aligned to the latent pixels that the trainer is using for
 masked training.
 
+`Masking strategy`:
+Select how the _include_ and _exclude_ masks are applied. They can be completely
+ignored, replace the image content, or, when the image format supports
+transparency, make that part of the image transparent. 
+The replacement content, or with _replace_ the invisible content hidden by
+the transparency, is defined by _Masked content_.
+
 `Masked content`:
 When exporting with _include_ or _exclude_ markings in an image format that
 supports alpha masks (all, but not the classic JPEG) you can change the
@@ -455,6 +462,23 @@ When no color space convertation should happen you can choose "feed through".
 The simple "sRGB" is most likely the setting you want to choose here unless
 you are an expert and have special requirements.
 
+`Caption`:
+Define how the tags are exported into a caption.
+It can be a simple tag list, using the same _Tag separator_ as used for the
+image tag files.  
+_Only first tag_ and _Only last tag_ are exporting exactly one tag. This can
+be a good option when you are using tagging for image organizing and then 
+derive a complete captioning sentence out of those for modern models like SD3
+or Flux.  
+_Enumeration_ creates a natural language list out of the tags. I.e., it is a
+comma separated list with the word "and" in the last place. Also, the 
+Oxford comma is used (a comma directly before the "and").  
+_Prefixed enumeration_ is similar to _enumeration_, but the first tag is used
+as a prefix and the remaining tags are translated to the enumeration. The
+use case is also using tags to organize the images and then transfer those
+to a caption by prepending it with something like "Photography of" which you'd
+place then as the first tag.
+ 
 `Export directory`:
 The place to export the images to.
 

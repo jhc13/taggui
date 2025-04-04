@@ -86,3 +86,11 @@ class BucketStrategy(str, Enum):
     CROP = 'crop'
     SCALE = 'scale'
     CROP_SCALE = 'crop and scale'
+
+
+class CaptionStrategy(str, Enum):
+    TAG_LIST = 'tag list (using tag separator)'
+    FIRST = 'only first tag'
+    LAST = 'only last tag'
+    ENUMERATION = 'enumeration ("t1, t2, t3, and t4")'
+    PREFIX_ENUMERATION = 'prefixed enumeration ("t1 t2, t3, and t4")'
