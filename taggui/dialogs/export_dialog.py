@@ -516,10 +516,9 @@ class ExportDialog(QDialog):
         self.progress_bar.show()
 
         tag_separator = settings.value('tag_separator', type=str)
+        if settings.value('insert_space_after_tag_separator', type=bool):
+            tag_separator += ' '
         filter_hashtag = settings.value('export_filter_hashtag', type=bool)
-        resolution = settings.value('export_resolution', type=int)
-        bucket_res = settings.value('export_bucket_res_size', type=int)
-        latent_size = settings.value('export_latent_size', type=int)
         quantize_alpha = settings.value('export_quantize_alpha', type=bool)
         masked_content = settings.value('export_masked_content', type=str)
         export_format = settings.value('export_format', type=str)
@@ -529,7 +528,6 @@ class ExportDialog(QDialog):
         if color_space == 'sRGB (implicit, without profile)':
             color_space = 'sRGB'
             save_profile = False
-        bucket_strategy = settings.value('export_bucket_strategy', type=str)
 
         for image_index, image_entry in enumerate(self.get_image_list()):
             self.progress_bar.setValue(image_index)

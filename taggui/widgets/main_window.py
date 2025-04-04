@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QKeyCombination, QModelIndex, QUrl, Qt, Slot
 from PySide6.QtGui import (QAction, QActionGroup, QCloseEvent, QDesktopServices,
-                           QIcon, QKeySequence, QShortcut)
+                           QIcon, QKeySequence, QShortcut, QMouseEvent)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
                                QMessageBox, QStackedWidget, QToolBar,
                                QVBoxLayout, QWidget, QSizePolicy, QHBoxLayout,
@@ -152,7 +152,7 @@ class MainWindow(QMainWindow):
             star_label.setStyleSheet('QLabel { font-size: 22px; }')
             star_label.setToolTip(f'Ctrl+{i}')
             star_label.mousePressEvent = lambda event, rating=i: (
-                self.set_rating(rating/5.0, True))
+                self.set_rating(rating/5.0, True, event))
             self.star_labels.append(star_label)
             star_layout.addWidget(star_label)
         self.image_viewer.rating_changed.connect(self.set_rating)
@@ -605,11 +605,19 @@ class MainWindow(QMainWindow):
         self.add_show_marking_latent_action.toggled.connect(self.image_viewer.show_marking_latent)
 
     @Slot(float)
-    def set_rating(self, rating: float, interactive: bool = False):
+    def set_rating(self, rating: float, interactive: bool = False,
+                   event: QMouseEvent|None = None):
         """Set the rating from 0.0 to 1.0.
 
         In the future, half-stars '⯪' might be included, but right now it's
         causing display issues."""
+        if event is not None and (event.modifiers() & Qt.ControlModifier) == Qt.ControlModifier:
+            # don't set the image but instead the filter
+            is_shift = (event.modifiers() & Qt.ShiftModifier) == Qt.ShiftModifier
+            stars = f'stars:{'>=' if is_shift else '='}{round(rating*5)}'
+            self.image_list.filter_line_edit.setText(stars)
+            return
+
         if interactive and rating == 2.0/10.0 and self.rating == rating:
             rating = 0.0
         self.rating = rating

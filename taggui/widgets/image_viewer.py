@@ -107,6 +107,9 @@ class MarkingItem(QGraphicsRectItem):
                 action_name=f'Change marking geometry', should_ask_for_confirmation=False)
             self.setZValue(4)
             self.move()
+        elif (event.button() == Qt.MouseButton.RightButton and
+                MarkingItem.handle_selected != RectPosition.NONE):
+            pass
         else:
             event.ignore()
 
