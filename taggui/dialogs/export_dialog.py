@@ -21,6 +21,8 @@ import utils.target_dimension as target_dimension
 from utils.grid import Grid
 from widgets.image_list import ImageList
 
+from taggui.utils.enums import MaskingStrategy
+
 try:
     import pillow_jxl
 except ModuleNotFoundError:
@@ -128,14 +130,31 @@ class ExportDialog(QDialog):
             'Only available when the output format supports an alpha channel.')
         latent_layout.addWidget(self.quantize_alpha_check_box,
                               Qt.AlignmentFlag.AlignLeft)
-        latent_layout.addWidget(QLabel('Masked content'),
+        latent_widget.setLayout(latent_layout)
+        grid_layout.addWidget(latent_widget, grid_row, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
+        grid_layout.addWidget(QLabel('Masking strategy'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        masking_widget = QWidget()
+        masking_layout = QHBoxLayout()
+        masking_layout.setContentsMargins(0, 0, 0, 0)
+        self.masking_strategy_combo_box = SettingsComboBox(key='export_masking_strategy')
+        self.masking_strategy_combo_box.addItems(list(MaskingStrategy))
+        self.masking_strategy_combo_box.setToolTip(
+            'Ignore the exclude masks, replace the content of the masks or\n'
+            'remove it (make it transparent) when supported by the image format.')
+        masking_layout.addWidget(self.masking_strategy_combo_box,
+                                 Qt.AlignmentFlag.AlignLeft)
+        masking_layout.addWidget(QLabel('Masked content'),
                                 Qt.AlignmentFlag.AlignRight)
         self.masked_content_combo_box = SettingsComboBox(key='export_masked_content')
         self.masked_content_combo_box.addItems(list(MaskedContent))
-        latent_layout.addWidget(self.masked_content_combo_box,
+        masking_layout.addWidget(self.masked_content_combo_box,
                               Qt.AlignmentFlag.AlignLeft)
-        latent_widget.setLayout(latent_layout)
-        grid_layout.addWidget(latent_widget, grid_row, 1,
+        masking_widget.setLayout(masking_layout)
+        grid_layout.addWidget(masking_widget, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
@@ -340,26 +359,29 @@ class ExportDialog(QDialog):
         """
         Slot to call when the export format was changed.
         """
+        replace_mask_item = self.masking_strategy_combo_box.model().item(2)
         if export_format == ExportFormat.JPG:
             self.quality_spin_box.setValue(75) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
             self.quantize_alpha_check_box.setEnabled(False)
-            self.masked_content_combo_box.setEnabled(False)
+            if self.masking_strategy_combo_box.currentIndex() == 2:
+                self.masking_strategy_combo_box.setCurrentIndex(1)
+            replace_mask_item.setFlags(replace_mask_item.flags() & ~Qt.ItemIsEnabled)
         if export_format == ExportFormat.JPGXL:
             self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
             self.quantize_alpha_check_box.setEnabled(True)
-            self.masked_content_combo_box.setEnabled(True)
+            replace_mask_item.setFlags(replace_mask_item.flags() | Qt.ItemIsEnabled)
         elif export_format == ExportFormat.PNG:
             self.quality_spin_box.setValue(100) if do_value_change else 0
             self.quality_spin_box.setEnabled(False)
             self.quantize_alpha_check_box.setEnabled(True)
-            self.masked_content_combo_box.setEnabled(True)
+            replace_mask_item.setFlags(replace_mask_item.flags() | Qt.ItemIsEnabled)
         elif export_format == ExportFormat.WEBP:
             self.quality_spin_box.setValue(80) if do_value_change else 0
             self.quality_spin_box.setEnabled(True)
             self.quantize_alpha_check_box.setEnabled(True)
-            self.masked_content_combo_box.setEnabled(True)
+            replace_mask_item.setFlags(replace_mask_item.flags() | Qt.ItemIsEnabled)
 
     @Slot()
     def quality_change(self, quality: str):
@@ -520,6 +542,7 @@ class ExportDialog(QDialog):
             tag_separator += ' '
         filter_hashtag = settings.value('export_filter_hashtag', type=bool)
         quantize_alpha = settings.value('export_quantize_alpha', type=bool)
+        masking_strategy = settings.value('export_masking_strategy', type=str)
         masked_content = settings.value('export_masked_content', type=str)
         export_format = settings.value('export_format', type=str)
         quality = settings.value('export_quality', type=int)
@@ -576,15 +599,16 @@ class ExportDialog(QDialog):
             # then handle the image
             image_file = Image.open(image_entry.path)
             export_can_alpha = export_format != ExportFormat.JPG
+            export_mask = masking_strategy != 'ignore'
             # Preserve alpha if present:
-            if image_file.mode in ('RGBA', 'LA', 'PA') and export_can_alpha:  # Check for alpha channels
+            if image_file.mode in ('RGBA', 'LA', 'PA') and export_mask:  # Check for alpha channels
                 image_file = image_file.convert('RGBA')
             else:
                 image_file = image_file.convert('RGB')  # Otherwise, convert to RGB
 
             # 1. pass: add includes
             for marking in image_entry.markings:
-                if marking.type == ImageMarking.INCLUDE and export_can_alpha:
+                if marking.type == ImageMarking.INCLUDE and export_mask:
                     if image_file.mode == 'RGB':
                         image_file = image_file.convert('RGBA')
                         # completely transparent
@@ -597,7 +621,7 @@ class ExportDialog(QDialog):
 
             # 2. pass: remove excludes
             for marking in image_entry.markings:
-                if marking.type == ImageMarking.EXCLUDE and export_can_alpha:
+                if marking.type == ImageMarking.EXCLUDE and export_mask:
                     if image_file.mode == 'RGB':
                         image_file = image_file.convert('RGBA')
                         # completely opaque
@@ -631,7 +655,7 @@ class ExportDialog(QDialog):
                                                  crop_width + image_entry.target_dimension.width(),
                                                  crop_height + image_entry.target_dimension.height()))
 
-            if export_can_alpha:
+            if export_mask:
                 if cropped_image.mode == 'RGB':
                     cropped_image = cropped_image.convert('RGBA')
                 alpha = cropped_image.getchannel('A')
@@ -663,7 +687,7 @@ class ExportDialog(QDialog):
                 if masked_content in [MaskedContent.BLUR_NOISE, MaskedContent.GREY_NOISE]:
                     np_image = np.array(replacement)
                     # Add random noise with a minimal blur
-                    noise = np.random.normal(0, 40, np_image.shape).astype(np.uint8)
+                    noise = np.random.normal(0, 30, np_image.shape).astype(np.uint8)
                     noisy_image = np_image + noise
                     noisy_image = np.clip(noisy_image, 0, 255)
                     replacement = Image.fromarray(noisy_image).filter(ImageFilter.GaussianBlur(1))
@@ -672,6 +696,10 @@ class ExportDialog(QDialog):
                     cropped_image = Image.composite(cropped_image, replacement, alpha)
 
                 cropped_image.putalpha(alpha)
+
+            if not export_can_alpha or masking_strategy == 'replace':
+                # remove alpha
+                cropped_image = cropped_image.convert('RGB')
 
             lossless = quality > 99
 

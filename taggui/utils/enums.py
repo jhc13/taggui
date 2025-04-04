@@ -40,6 +40,11 @@ Presets = {
     'SDXL, SD3, Flux': (1024, 64, 8, '1024:1024, 1408:704, 1216:832, 1152:896, 1344:768, 1536:640')
 }
 
+class MaskingStrategy(str, Enum):
+    IGNORE = 'ignore'
+    REPLACE = 'replace'
+    REMOVE = 'remove'
+
 
 class MaskedContent(str, Enum):
     ORIGINAL = 'original'
