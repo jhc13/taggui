@@ -478,7 +478,23 @@ as a prefix and the remaining tags are translated to the enumeration. The
 use case is also using tags to organize the images and then transfer those
 to a caption by prepending it with something like "Photography of" which you'd
 place then as the first tag.
- 
+
+`Separate by #newline`:
+Create a new line in the captioning file for every `#newline` tag.
+When _Prefixed enumeration_ is selected the first tag is repeated for
+every new line.
+
+This option is relevant when you want to use multi captioning, which is
+supported by many trainers.
+
+`Fiter (other) hashtag (#) tags`:
+When set, all tags that start with a hashtag (i.e., the "#" character) are not
+included in the exported captions.
+
+This allows you to use tags for internal image organization like marking
+images that you don't want to export or adding notes about an image into the
+tag list.
+
 `Export directory`:
 The place to export the images to.
 
@@ -488,11 +504,3 @@ be used for the exported images as well when selected.
 
 `Statistics`:
 Preview of the generated image sizes from the export function.
-
-`Fiter hashtag (#) tags`:
-When set all tags that start with a hashtag (i.e., the "#" character) are not
-included in the exported captions.
-
-This allows you to use tags for internal image organization like marking
-images that you don't want to export or adding notes about an image into the
-tag list.

@@ -257,6 +257,31 @@ class ExportDialog(QDialog):
             'enumeration - natural language list with commas\n'
             'prefixed enumeration - first tag directly followed by enumeration')
         grid_layout.addWidget(caption_algorithm_combo_box, grid_row, 1,
+                                           Qt.AlignmentFlag.AlignLeft)
+
+        grid_row += 1
+        grid_layout.addWidget(QLabel('Separate by #newline'), grid_row, 0,
+                              Qt.AlignmentFlag.AlignRight)
+        caption_hashtag_widget = QWidget()
+        caption_hashtag_layout = QHBoxLayout()
+        caption_hashtag_layout.setContentsMargins(0, 0, 0, 0)
+        self.separate_newline_check_box = SettingsBigCheckBox(key='export_separate_newline')
+        self.separate_newline_check_box.setToolTip(
+            'Create a multi-caption file where each line contains a caption for\n'
+            'the image. The tags are split by the tag "#newline" and the\n'
+            'captioning algorith is used for each group. Only for prefixed\n'
+            'enumeration the first tag is used repeatedly for each group.')
+        caption_hashtag_layout.addWidget(self.separate_newline_check_box,
+                                         Qt.AlignmentFlag.AlignLeft)
+        caption_hashtag_layout.addWidget(QLabel('Fiter (other) hashtag (#) tags'),
+                                           Qt.AlignmentFlag.AlignRight)
+        self.filter_hashtag_check_box = SettingsBigCheckBox(key='export_filter_hashtag')
+        self.filter_hashtag_check_box.setToolTip(
+            'Do not export tags that start with a hashtag (#)')
+        caption_hashtag_layout.addWidget(self.filter_hashtag_check_box,
+                                         Qt.AlignmentFlag.AlignLeft)
+        caption_hashtag_widget.setLayout(caption_hashtag_layout)
+        grid_layout.addWidget(caption_hashtag_widget, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
@@ -298,15 +323,6 @@ class ExportDialog(QDialog):
         self.statistics_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.statistics_table.itemDoubleClicked.connect(self.set_filter)
         grid_layout.addWidget(self.statistics_table, grid_row, 1,
-                              Qt.AlignmentFlag.AlignLeft)
-
-        grid_row += 1
-        grid_layout.addWidget(QLabel('Fiter hashtag (#) tags'), grid_row, 0,
-                              Qt.AlignmentFlag.AlignRight)
-        self.filter_hashtag_check_box = SettingsBigCheckBox(key='export_filter_hashtag')
-        self.filter_hashtag_check_box.setToolTip(
-            'Do not export tags that start with a hashtag (#)')
-        grid_layout.addWidget(self.filter_hashtag_check_box, grid_row, 1,
                               Qt.AlignmentFlag.AlignLeft)
 
         self.layout.addLayout(grid_layout)
@@ -554,6 +570,7 @@ class ExportDialog(QDialog):
         if settings.value('insert_space_after_tag_separator', type=bool):
             tag_separator += ' '
         caption_algorithm = settings.value('export_caption_algorithm', type=str)
+        separate_newline = settings.value('export_separate_newline', type=bool)
         filter_hashtag = settings.value('export_filter_hashtag', type=bool)
         quantize_alpha = settings.value('export_quantize_alpha', type=bool)
         masking_strategy = settings.value('export_masking_strategy', type=str)
@@ -590,38 +607,61 @@ class ExportDialog(QDialog):
 
             # write the tag file first
             if filter_hashtag:
-                tags = [tag for tag in image_entry.tags if tag[0] != '#']
+                tags = [tag for tag in image_entry.tags if
+                        tag[0] != '#' or (separate_newline and tag == '#newline')]
             else:
                 tags = image_entry.tags.copy()
 
             if len(tags) == 0:
                 tags = ['']
 
+            if separate_newline:
+                tag_groups = []
+                temp_list = []
+                for tag in tags:
+                    if tag == '#newline':
+                        if temp_list:
+                            tag_groups.append(temp_list)
+                            temp_list = []
+                    else:
+                        temp_list.append(tag)
+                if temp_list:
+                    tag_groups.append(temp_list)
+            else:
+                tag_groups = [tags]
+
             this_caption_algorithm = caption_algorithm
             if caption_algorithm == CaptionStrategy.PREFIX_ENUMERATION:
-                if len(tags) > 1:
-                    prefix = tags.pop(0)
-                    tags[0] = prefix + ' ' + tags[0]
+                prefix = tag_groups[0].pop(0) + ' '
+                if len(tag_groups[0]) == 0:
+                    tag_groups.pop(0)
                 this_caption_algorithm = CaptionStrategy.ENUMERATION
+            else:
+                prefix = ''
 
-            match this_caption_algorithm:
-                case  CaptionStrategy.TAG_LIST:
-                    tag_string = tag_separator.join(tags)
-                case  CaptionStrategy.FIRST:
-                    tag_string = tags[0]
-                case  CaptionStrategy.LAST:
-                    tag_string = tags[-1]
-                case  CaptionStrategy.ENUMERATION:
-                    if len(tags) == 1:
+            all_tags = []
+            for tags in tag_groups:
+                match this_caption_algorithm:
+                    case  CaptionStrategy.TAG_LIST:
+                        tag_string = tag_separator.join(tags)
+                    case  CaptionStrategy.FIRST:
                         tag_string = tags[0]
-                    elif len(tags) == 2:
-                        tag_string = ' and '.join(tags)
-                    else:
-                        tag_string = ', '.join(tags[:-1]) + ', and ' + tags[-1]
+                    case  CaptionStrategy.LAST:
+                        tag_string = tags[-1]
+                    case  CaptionStrategy.ENUMERATION:
+                        if len(tags) == 1:
+                            tag_string = tags[0]
+                        elif len(tags) == 2:
+                            tag_string = ' and '.join(tags)
+                        else:
+                            tag_string = ', '.join(tags[:-1]) + ', and ' + tags[-1]
+                        tag_string = prefix + tag_string
+                if tag_string != '':
+                    all_tags.append(tag_string)
 
             try:
                 export_path.with_suffix('.txt').write_text(
-                    tag_string, encoding='utf-8', errors='replace')
+                    '\n'.join(all_tags), encoding='utf-8', errors='replace')
             except OSError:
                 error_message_box = QMessageBox()
                 error_message_box.setWindowTitle('Error')
