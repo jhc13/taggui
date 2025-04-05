@@ -372,9 +372,9 @@ the marking.
 When you have the path to the YOLO models configured in the _Settings..._ 
 dialog, you can use them to automatically detect features in the image that
 can be used for marking. After selecting the relevant model in the drop-down 
-list, you see a table with all classes it can detect. In each line you can
+list, you see a table with all classes it can detect. In each line, you can
 decide whether it should be ignored or added as a hint, exclude or include.
-Next to the label you can see the confidence the model had during detection.
+Next to the label, you can see the confidence the model had during detection.
 
 More detailed control about the minimal required confidence, the IoU and
 the maximal number of detected markings per image can be set in the
@@ -424,13 +424,13 @@ the transparency, is defined by _Masked content_.
 
 `Masked content`:
 When exporting with _include_ or _exclude_ markings in an image format that
-supports alpha masks (all, but not the classic JPEG) you can change the
+supports alpha masks (all, but not the classic JPEG), you can change the
 content that is invisible due to the mask.
 It is known that some masked content can slightly bleed through during the
 masked training, so it can be beneficial when this (supposed to be invisible)
-content is replaced. In simple cases (e.g. masking the face for cloth LoRA
-training) the default "blur + noise" is a good choice. In hard cases to really
-hide the original data "grey + noise" can be a good choice. "original" doesn't
+content is replaced. In simple cases (e.g., masking the face for cloth LoRA
+training) the default "blur + noise" is a good choice. In hard cases, to really
+hide the original data, "grey + noise" can be a good choice. "original" doesn't
 modify the data behind the mask.
 
 `Preferres sizes`:
@@ -448,16 +448,16 @@ the aspect ratio of an image and can create slight distortions. Or a
 combination of both that reduces each effect.
 
 `Output format`:
-The file type and quality setting for formats that have a lossy compression.
+The file type and quality setting for formats that have lossy compression.
 Note: for JPEG a number above 95 should be avoided.
 
 `Output color space`:
 Most models will expect the images in sRGB format and don't contain any
 color management. So it is important that the exporter handles this as
 the images used for the training might use a different color space.
-To save 8 kB for each image you might want to select "sRGB implicit" as that
+To save 8 kB for each image, you might want to select "sRGB implicit" as that
 converts the image to sRGB but doesn't store the ICC information.
-When no color space convertation should happen you can choose "feed through".
+When no color space conversation should happen, you can choose "feed through".
 
 The simple "sRGB" is most likely the setting you want to choose here unless
 you are an expert and have special requirements.
@@ -487,10 +487,10 @@ When the source images are organized in subdirectories this structure will
 be used for the exported images as well when selected.
 
 `Statistics`:
-Preview of the generated image sizes from the export funtion.
+Preview of the generated image sizes from the export function.
 
 `Fiter hashtag (#) tags`:
-When set all tags that start with a hashtag (i.e. the "#" character) are not
+When set all tags that start with a hashtag (i.e., the "#" character) are not
 included in the exported captions.
 
 This allows you to use tags for internal image organization like marking
