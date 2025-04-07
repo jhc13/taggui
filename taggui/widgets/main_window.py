@@ -533,6 +533,7 @@ class MainWindow(QMainWindow):
     def set_image_list_filter(self):
         filter_ = self.image_list.filter_line_edit.parse_filter_text()
         self.proxy_image_list_model.set_filter(filter_)
+        self.proxy_image_list_model.filter_changed.emit()
         if filter_ is None:
             all_tags_list_selection_model = (self.all_tags_editor
                                              .all_tags_list.selectionModel())
