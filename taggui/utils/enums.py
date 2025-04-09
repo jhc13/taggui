@@ -94,3 +94,9 @@ class CaptionStrategy(str, Enum):
     LAST = 'only last tag'
     ENUMERATION = 'enumeration ("t1, t2, t3, and t4")'
     PREFIX_ENUMERATION = 'prefixed enumeration ("t1 t2, t3, and t4")'
+
+
+class HashNewlineHandling(str, Enum):
+    IGNORE = 'No special handling'
+    MULTILINE = 'Create additional line'
+    MULTIFILE = 'Create additional file'

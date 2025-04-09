@@ -3,6 +3,7 @@ import os
 import io
 from math import ceil, floor
 from pathlib import Path
+import shutil
 import numpy as np
 
 from PySide6.QtCore import QRect, QSize, Qt, Slot
@@ -13,7 +14,9 @@ from PySide6.QtWidgets import (QWidget, QDialog, QFileDialog, QGridLayout,
                                QVBoxLayout, QHBoxLayout, QAbstractItemView)
 from PIL import Image, ImageFilter, ImageCms
 
-from utils.enums import MaskingStrategy, CaptionStrategy
+from utils.enums import (ExportFilter, Presets, MaskingStrategy, MaskedContent,
+                         ExportFormat, ExportFormatDict, IccProfileList,
+                         BucketStrategy, CaptionStrategy, HashNewlineHandling)
 from utils.settings import DEFAULT_SETTINGS, settings
 from utils.image import ImageMarking
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
@@ -27,8 +30,6 @@ try:
 except ModuleNotFoundError:
     pass
 
-from utils.enums import (ExportFilter, Presets, MaskedContent, ExportFormat,
-                         ExportFormatDict, IccProfileList, BucketStrategy)
 
 class ExportDialog(QDialog):
     def __init__(self, parent, image_list: ImageList):
@@ -260,25 +261,26 @@ class ExportDialog(QDialog):
                                            Qt.AlignmentFlag.AlignLeft)
 
         grid_row += 1
-        grid_layout.addWidget(QLabel('Separate by #newline'), grid_row, 0,
+        grid_layout.addWidget(QLabel('Fiter hashtag (#) tags'), grid_row, 0,
                               Qt.AlignmentFlag.AlignRight)
         caption_hashtag_widget = QWidget()
         caption_hashtag_layout = QHBoxLayout()
         caption_hashtag_layout.setContentsMargins(0, 0, 0, 0)
-        self.separate_newline_check_box = SettingsBigCheckBox(key='export_separate_newline')
-        self.separate_newline_check_box.setToolTip(
-            'Create a multi-caption file where each line contains a caption for\n'
-            'the image. The tags are split by the tag "#newline" and the\n'
-            'captioning algorith is used for each group. Only for prefixed\n'
-            'enumeration the first tag is used repeatedly for each group.')
-        caption_hashtag_layout.addWidget(self.separate_newline_check_box,
-                                         Qt.AlignmentFlag.AlignLeft)
-        caption_hashtag_layout.addWidget(QLabel('Fiter (other) hashtag (#) tags'),
-                                           Qt.AlignmentFlag.AlignRight)
         self.filter_hashtag_check_box = SettingsBigCheckBox(key='export_filter_hashtag')
         self.filter_hashtag_check_box.setToolTip(
             'Do not export tags that start with a hashtag (#)')
         caption_hashtag_layout.addWidget(self.filter_hashtag_check_box,
+                                         Qt.AlignmentFlag.AlignLeft)
+        self.separate_newline_combo_box = SettingsComboBox(key='export_separate_newline')
+        self.separate_newline_combo_box.addItems(list(HashNewlineHandling))
+        self.separate_newline_combo_box.setToolTip(
+            'Create a multi-caption file where each line contains a caption for\n'
+            'the image. The tags are split by the tag "#newline" and the\n'
+            'captioning algorith is used for each group. Only for prefixed\n'
+            'enumeration the first tag is used repeatedly for each group.')
+        caption_hashtag_layout.addWidget(QLabel('Handle #newline'),
+                                           Qt.AlignmentFlag.AlignRight)
+        caption_hashtag_layout.addWidget(self.separate_newline_combo_box,
                                          Qt.AlignmentFlag.AlignLeft)
         caption_hashtag_widget.setLayout(caption_hashtag_layout)
         grid_layout.addWidget(caption_hashtag_widget, grid_row, 1,
@@ -570,7 +572,7 @@ class ExportDialog(QDialog):
         if settings.value('insert_space_after_tag_separator', type=bool):
             tag_separator += ' '
         caption_algorithm = settings.value('export_caption_algorithm', type=str)
-        separate_newline = settings.value('export_separate_newline', type=bool)
+        separate_newline = settings.value('export_separate_newline', type=str)
         filter_hashtag = settings.value('export_filter_hashtag', type=bool)
         quantize_alpha = settings.value('export_quantize_alpha', type=bool)
         masking_strategy = settings.value('export_masking_strategy', type=str)
@@ -583,7 +585,9 @@ class ExportDialog(QDialog):
             color_space = 'sRGB'
             save_profile = False
 
-        for image_index, image_entry in enumerate(self.get_image_list()):
+        image_list = self.get_image_list()
+        self.progress_bar.setMaximum(len(image_list))
+        for image_index, image_entry in enumerate(image_list):
             self.progress_bar.setValue(image_index)
             if export_keep_dir_structure:
                 relative_path = image_entry.path.relative_to(directory_path)
@@ -607,8 +611,9 @@ class ExportDialog(QDialog):
 
             # write the tag file first
             if filter_hashtag:
-                tags = [tag for tag in image_entry.tags if
-                        tag[0] != '#' or (separate_newline and tag == '#newline')]
+                tags = [tag for tag in image_entry.tags if tag[0] != '#' or
+                        (separate_newline != HashNewlineHandling.IGNORE and
+                         tag == '#newline')]
             else:
                 tags = image_entry.tags.copy()
 
@@ -660,8 +665,17 @@ class ExportDialog(QDialog):
                     all_tags.append(tag_string)
 
             try:
-                export_path.with_suffix('.txt').write_text(
-                    '\n'.join(all_tags), encoding='utf-8', errors='replace')
+                if separate_newline != HashNewlineHandling.MULTIFILE:
+                    multifile_count = None
+                    export_path.with_suffix('.txt').write_text(
+                        '\n'.join(all_tags), encoding='utf-8', errors='replace')
+                else:
+                    multifile_count = len(all_tags) or None
+                    for index, this_tags in enumerate(all_tags):
+                        suffix = '.txt' if index == 0 else f'.{index}.txt'
+                        export_path.with_suffix(suffix).write_text(
+                            this_tags, encoding='utf-8', errors='replace')
+
             except OSError:
                 error_message_box = QMessageBox()
                 error_message_box.setWindowTitle('Error')
@@ -801,6 +815,10 @@ class ExportDialog(QDialog):
                     final_image.save(export_path, format=ExportFormatDict[export_format],
                                      quality=quality, lossless=lossless,
                                      icc_profile=None)
+            if multifile_count is not None:
+                for index in range(1, multifile_count):
+                    suffix = f'.{index}{export_path.suffix}'
+                    shutil.copy(export_path, export_path.with_suffix(suffix))
         self.close()
 
     def get_image_list(self):
