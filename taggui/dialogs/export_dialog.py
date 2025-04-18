@@ -368,9 +368,9 @@ class ExportDialog(QDialog):
             self.resolution_spin_box.setEnabled(False)
             self.bucket_res_size_spin_box.setEnabled(False)
             self.latent_size_spin_box.setEnabled(False)
-            self.inhibit_statistics_update = inhibit_statistics_update_current
-            self.show_statistics()
         self.preferred_sizes_line_edit.setText(preset[3]) if do_value_change else 0
+        self.inhibit_statistics_update = inhibit_statistics_update_current
+        self.show_statistics()
 
     @Slot()
     def show_megapixels(self):

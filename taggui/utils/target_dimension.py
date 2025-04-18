@@ -16,7 +16,7 @@ notable_aspect_ratios = [
     (16, 9, 16/9),
     (21, 9, 21/9),
 ]
-aspect_ratios = notable_aspect_ratios
+aspect_ratios = notable_aspect_ratios.copy()
 
 settings.change.connect(lambda: _preferred_sizes.clear())
 
@@ -39,7 +39,7 @@ def prepare() -> list[tuple[int, int, float]] | None:
     global _preferred_sizes
     global aspect_ratios
     _preferred_sizes = []
-    aspect_ratios = notable_aspect_ratios
+    aspect_ratios = notable_aspect_ratios.copy()
     for res_str in re.split(r'\s*,\s*',
                             settings.value('export_preferred_sizes', type=str) or ''):
         try:
@@ -69,6 +69,18 @@ def prepare() -> list[tuple[int, int, float]] | None:
                     file=sys.stderr)
             continue # Skip to the next resolution if there's an error
     return aspect_ratios
+
+def calculate_cropped_area(width: int, height: int, test_width: int, test_height: int) -> int:
+    original_aspect_ratio = width / height
+    target_aspect_ratio = test_width / test_height
+
+    if original_aspect_ratio > target_aspect_ratio:
+        # Crop horizontally
+        cropped_area = height * (width - (height * test_width) / test_height)
+    else:
+        # Crop vertically
+        cropped_area = width * (height - (width * test_height) / test_width)
+    return int(cropped_area)
 
 def get(dimensions: QSize) -> QSize:
     """
@@ -124,20 +136,22 @@ def get(dimensions: QSize) -> QSize:
         # 1.1: exact width
         test_width = max(opt_width // bucket_res, 1) * bucket_res
         test_height = max((height * test_width / width) // bucket_res, 1) * bucket_res
-        test_loss = ((height * test_width / width) - test_height) * test_width
+        test_loss = calculate_cropped_area(width, height, test_width, test_height)
         if (test_width, test_height) in _preferred_sizes:
             test_loss *= preferred_sizes_bonus
-        if test_loss < loss:
+        if test_loss < loss or (test_loss == loss and
+                                (candidate_width < test_width or candidate_height < test_height)):
             candidate_width = test_width
             candidate_height = test_height
             loss = test_loss
         # 1.2: exact height
         test_height = max(opt_height // bucket_res, 1) * bucket_res
         test_width = max((width * test_height / height) // bucket_res, 1) * bucket_res
-        test_loss = ((width * test_height / height) - test_width) * test_height
+        test_loss = calculate_cropped_area(width, height, test_width, test_height)
         if (test_height, test_width) in _preferred_sizes:
             test_loss *= preferred_sizes_bonus
-        if test_loss < loss:
+        if test_loss < loss or (test_loss == loss and
+                                (candidate_width < test_width or candidate_height < test_height)):
             candidate_width = test_width
             candidate_height = test_height
             loss = test_loss
@@ -151,10 +165,11 @@ def get(dimensions: QSize) -> QSize:
                 break
             if (test_width > width or test_height > height) and not upscaling:
                 break
-            test_loss = ((height * test_width / width) - test_height) * test_width
+            test_loss = calculate_cropped_area(width, height, test_width, test_height)
             if (test_height, test_width) in _preferred_sizes:
                 test_loss *= preferred_sizes_bonus
-                if test_loss < loss:
+                if test_loss < loss or (test_loss == loss and
+                                        (candidate_width < test_width or candidate_height < test_height)):
                     candidate_width = test_width
                     candidate_height = test_height
                     loss = test_loss
@@ -166,15 +181,16 @@ def get(dimensions: QSize) -> QSize:
                 break
             if (test_width > width or test_height > height) and not upscaling:
                 break
-            test_loss = ((width * test_height / height) - test_width) * test_height
+            test_loss = calculate_cropped_area(width, height, test_width, test_height)
             if (test_height, test_width) in _preferred_sizes:
                 test_loss *= preferred_sizes_bonus
-            if test_loss < loss:
+            if test_loss < loss or (test_loss == loss and
+                                    (candidate_width < test_width or candidate_height < test_height)):
                 candidate_width = test_width
                 candidate_height = test_height
                 loss = test_loss
 
-        return QSize(candidate_width, candidate_height)
+    return QSize(candidate_width, candidate_height)
 
 def get_noteable_aspect_ratio(width: float|int, height: float|int) -> tuple[int, int, bool] | None:
     """Test whether the aspect_ratio is noteable and return it."""
