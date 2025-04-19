@@ -44,6 +44,7 @@ class MaskingStrategy(str, Enum):
     IGNORE = 'ignore'
     REPLACE = 'replace'
     REMOVE = 'remove'
+    MASK_FILE = 'create mask files'
 
 
 class MaskedContent(str, Enum):

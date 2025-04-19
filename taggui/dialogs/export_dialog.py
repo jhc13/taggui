@@ -513,7 +513,6 @@ class ExportDialog(QDialog):
         no_overwrite = True
         only_missing = True
         refresh_tags = False
-        path_missing = False
 
         try:
             if os.path.exists(export_directory_path):
@@ -532,11 +531,11 @@ class ExportDialog(QDialog):
                     refresh_button = msgBox.addButton('Refresh', QMessageBox.ApplyRole)
                     refresh_button.setToolTip('Export only missing images, but update all captions')
                     overwrite_button = msgBox.addButton('Overwrite', QMessageBox.DestructiveRole)
-                    refresh_button.setToolTip('Overwrite all existing files')
+                    overwrite_button.setToolTip('Overwrite all existing files')
                     rename_button = msgBox.addButton('Rename', QMessageBox.YesRole)
-                    refresh_button.setToolTip('Export with a new name')
+                    rename_button.setToolTip('Export with a new name')
                     only_missing_button = msgBox.addButton('Only missing', QMessageBox.AcceptRole)
-                    refresh_button.setToolTip('Export only missing images')
+                    only_missing_button.setToolTip('Export only missing images')
                     msgBox.addButton(QMessageBox.Cancel)
                     msgBox.setDefaultButton(refresh_button)
                     button = msgBox.exec_()
@@ -551,9 +550,6 @@ class ExportDialog(QDialog):
                     if msgBox.clickedButton() == rename_button:
                         only_missing = False
             else:
-                path_missing = True
-
-            if path_missing:
                 button = QMessageBox.critical(
                     self,
                     'Path error',
@@ -585,6 +581,12 @@ class ExportDialog(QDialog):
             color_space = 'sRGB'
             save_profile = False
 
+        if masking_strategy == MaskingStrategy.MASK_FILE:
+            export_mask_directory_path = export_directory_path / 'mask'
+            export_directory_path = export_directory_path / 'image'
+        else:
+            export_mask_directory_path = Path()
+
         image_list = self.get_image_list()
         self.progress_bar.setMaximum(len(image_list))
         for image_index, image_entry in enumerate(image_list):
@@ -592,21 +594,32 @@ class ExportDialog(QDialog):
             if export_keep_dir_structure:
                 relative_path = image_entry.path.relative_to(directory_path)
                 export_path = export_directory_path / relative_path
-                export_path.parent.mkdir(parents=True, exist_ok=True)
+                export_mask_path = export_mask_directory_path / relative_path
             else:
                 export_path = export_directory_path / image_entry.path.name
+                export_mask_path = export_mask_directory_path / image_entry.path.name
+            export_path.parent.mkdir(parents=True, exist_ok=True)
             export_path = export_path.with_suffix(export_format.split(' ', 1)[0])
+            if masking_strategy == MaskingStrategy.MASK_FILE:
+                export_mask_path.parent.mkdir(parents=True, exist_ok=True)
+                export_mask_path = export_mask_path.with_suffix(export_format.split(' ', 1)[0])
+                mask_exists = export_mask_path.exists()
+            else:
+                mask_exists = False
 
             image_exists = export_path.exists()
-            if image_exists and only_missing and not refresh_tags:
+            if (image_exists or mask_exists) and only_missing and not refresh_tags:
                 continue
 
             if no_overwrite:
                 stem = export_path.stem
                 counter = 0
-                while image_exists:
+                while (image_exists or mask_exists):
                     export_path = export_path.parent / f'{stem}_{counter}{export_path.suffix}'
                     image_exists = export_path.exists()
+                    if masking_strategy == MaskingStrategy.MASK_FILE:
+                        export_mask_path = export_mask_path.parent / f'{stem}_{counter}{export_mask_path.suffix}'
+                        mask_exists = export_mask_path.exists()
                     counter += 1
 
             # write the tag file first
@@ -683,7 +696,7 @@ class ExportDialog(QDialog):
                 error_message_box.setText(f'Failed to save tags for {image_entry.path}.')
                 error_message_box.exec()
 
-            if image_exists and only_missing:
+            if  (image_exists or mask_exists) and only_missing:
                 # tags were refreshed, export_path was changed when we should
                 # rename and not overwrite, so we can skip the image writing
                 continue
@@ -691,7 +704,7 @@ class ExportDialog(QDialog):
             # then handle the image
             image_file = Image.open(image_entry.path)
             export_can_alpha = export_format != ExportFormat.JPG
-            export_mask = masking_strategy != 'ignore'
+            export_mask = masking_strategy != MaskingStrategy.IGNORE
             # Preserve alpha if present:
             if image_file.mode in ('RGBA', 'LA', 'PA') and export_mask:  # Check for alpha channels
                 image_file = image_file.convert('RGBA')
@@ -789,16 +802,17 @@ class ExportDialog(QDialog):
 
                 cropped_image.putalpha(alpha)
 
-            if not export_can_alpha or masking_strategy == 'replace':
+            if not export_can_alpha or masking_strategy in [MaskingStrategy.REPLACE,
+                                                            MaskingStrategy.MASK_FILE]:
                 # remove alpha
-                cropped_image = cropped_image.convert('RGB')
+                export_image = cropped_image.convert('RGB')
 
             lossless = quality > 99
 
             if color_space == "feed through (don't touch)":
-                cropped_image.save(export_path, format=ExportFormatDict[export_format],
+                export_image.save(export_path, format=ExportFormatDict[export_format],
                                    quality=quality, lossless=lossless,
-                                   icc_profile=cropped_image.info.get('icc_profile') )
+                                   icc_profile=export_image.info.get('icc_profile') )
             else:
                 source_profile_raw = image_file.info.get('icc_profile')
                 if source_profile_raw is None: # assume sRGB
@@ -806,7 +820,7 @@ class ExportDialog(QDialog):
                 source_profile = ImageCms.ImageCmsProfile(io.BytesIO(source_profile_raw))
                 target_profile_raw = QColorSpace(getattr(QColorSpace, IccProfileList(color_space).name)).iccProfile()
                 target_profile = ImageCms.ImageCmsProfile(io.BytesIO(target_profile_raw))
-                final_image = ImageCms.profileToProfile(cropped_image, source_profile, target_profile)
+                final_image = ImageCms.profileToProfile(export_image, source_profile, target_profile)
                 if save_profile:
                     final_image.save(export_path, format=ExportFormatDict[export_format],
                                      quality=quality, lossless=lossless,
@@ -815,10 +829,18 @@ class ExportDialog(QDialog):
                     final_image.save(export_path, format=ExportFormatDict[export_format],
                                      quality=quality, lossless=lossless,
                                      icc_profile=None)
+            if masking_strategy == MaskingStrategy.MASK_FILE:
+                alpha_channel = cropped_image.getchannel('A')
+                alpha_channel.save(export_mask_path, format=ExportFormatDict[export_format],
+                                   quality=quality, lossless=lossless,
+                                   icc_profile=None)
+
             if multifile_count is not None:
                 for index in range(1, multifile_count):
                     suffix = f'.{index}{export_path.suffix}'
                     shutil.copy(export_path, export_path.with_suffix(suffix))
+                    if masking_strategy == MaskingStrategy.MASK_FILE:
+                        shutil.copy(export_mask_path, export_mask_path.with_suffix(suffix))
         self.close()
 
     def get_image_list(self):

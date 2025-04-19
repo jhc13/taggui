@@ -418,7 +418,8 @@ masked training.
 `Masking strategy`:
 Select how the _include_ and _exclude_ masks are applied. They can be completely
 ignored, replace the image content, or, when the image format supports
-transparency, make that part of the image transparent. 
+transparency, make that part of the image transparent. You can also opt to
+get separate masking files.
 The replacement content, or with _replace_ the invisible content hidden by
 the transparency, is defined by _Masked content_.
 
