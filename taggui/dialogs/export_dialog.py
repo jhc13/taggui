@@ -806,6 +806,8 @@ class ExportDialog(QDialog):
                                                             MaskingStrategy.MASK_FILE]:
                 # remove alpha
                 export_image = cropped_image.convert('RGB')
+            else:
+                export_image = cropped_image
 
             lossless = quality > 99
 
