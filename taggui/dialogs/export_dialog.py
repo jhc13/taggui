@@ -792,9 +792,9 @@ class ExportDialog(QDialog):
                 if masked_content in [MaskedContent.BLUR_NOISE, MaskedContent.GREY_NOISE]:
                     np_image = np.array(replacement)
                     # Add random noise with a minimal blur
-                    noise = np.random.normal(0, 30, np_image.shape).astype(np.uint8)
+                    noise = np.random.normal(0, 30, np_image.shape).astype(np.int8)
                     noisy_image = np_image + noise
-                    noisy_image = np.clip(noisy_image, 0, 255)
+                    noisy_image = np.clip(noisy_image, 0, 255).astype(np.uint8)
                     replacement = Image.fromarray(noisy_image).filter(ImageFilter.GaussianBlur(1))
 
                 if replacement:
