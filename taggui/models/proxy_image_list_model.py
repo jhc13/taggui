@@ -124,6 +124,8 @@ class ProxyImageListModel(QSortFilterProxyModel):
             number_to_compare = image.dimensions[0]
         elif filter_[0] == 'height':
             number_to_compare = image.dimensions[1]
+        elif filter_[0] == 'area':
+            number_to_compare =  image.dimensions[0] * image.dimensions[1]
         return comparison_operator(number_to_compare, int(filter_[2]))
 
     def filterAcceptsRow(self, source_row: int,

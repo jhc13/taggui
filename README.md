@@ -193,6 +193,8 @@ comparison.
 - `width` and `height`: will match images with the specified width or height.
     - `width:>512` will match images where the width is greater than 512 pixels.
     - `height:=1024` will match images where the height is exactly 1024 pixels.
+- `area`: will match images with the specified amount of pixels.
+  - `area:<1048576` will match images with less than 1 mega pixels (1024²).
 
 ### Spaces and quotes
 
