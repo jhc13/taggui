@@ -482,6 +482,36 @@ class ImageListModel(QAbstractListModel):
             self.dataChanged.emit(self.index(changed_image_indices[0]),
                                   self.index(changed_image_indices[-1]))
 
+    def sort_sentences_down(self, separate_newline: bool):
+        """Sort the tags so that the sentences are on the bottom."""
+        self.add_to_undo_stack(action_name='Sort Sentence Tags',
+                               should_ask_for_confirmation=True)
+        changed_image_indices = []
+        for image_index, image in enumerate(self.images):
+            changed_image_indices.append(image_index)
+            sentence_tags = []
+            non_sentence_tags = []
+            for tag in image.tags:
+                if separate_newline and tag == '#newline':
+                    continue
+                if tag.endswith('.'):
+                    sentence_tags.append(tag)
+                else:
+                    non_sentence_tags.append(tag)
+            if separate_newline:
+                if len(sentence_tags) > 0:
+                    non_sentence_tags.append(sentence_tags.pop())
+                for tag in sentence_tags:
+                    non_sentence_tags.append('#newline')
+                    non_sentence_tags.append(tag)
+            else:
+                non_sentence_tags.extend(sentence_tags)
+            image.tags = non_sentence_tags
+            self.write_image_tags_to_disk(image)
+        if changed_image_indices:
+            self.dataChanged.emit(self.index(changed_image_indices[0]),
+                                  self.index(changed_image_indices[-1]))
+
     def move_tags_to_front(self, tags_to_move: list[str]):
         """
         Move one or more tags to the front of the tags list for each image.
