@@ -203,7 +203,8 @@ class ImageListView(QListView):
 
     @Slot(Grid)
     def show_crop_size(self, grid):
-        for index in self.selectedIndexes():
+        index = self.currentIndex()
+        if index.isValid():
             image = index.data(Qt.ItemDataRole.UserRole)
             if grid is None:
                 self.delegate.remove_label(index)
