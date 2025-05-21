@@ -14,7 +14,7 @@ from auto_captioning.models.wd_tagger import WdTagger
 from auto_captioning.models.xcomposer2 import Xcomposer2, Xcomposer2_4khd
 
 MODELS = [
-    'fancyfeast/llama-joycaption-alpha-two-hf-llava',
+    'fancyfeast/llama-joycaption-beta-one-hf-llava',
     'internlm/internlm-xcomposer2-vl-7b-4bit',
     'internlm/internlm-xcomposer2-vl-7b',
     'internlm/internlm-xcomposer2-vl-1_8b',
