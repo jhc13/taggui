@@ -12,9 +12,9 @@ class Joycaption(AutoCaptioningModel):
     def monkey_patch_after_loading(self) -> None:
         if self.load_in_4_bit:
             attention = self.model.vision_tower.vision_model.head.attention
-            # If our out_proj was converted into a nn.Linear4bit, replace
-            # it with the original nn.Linear. JoyCaption's out-projection
-            # layer is not dynamically quantizable.
+            # JoyCaption's out-projection layer is not dynamically quantizable,
+            # so if it was converted into `nn.Linear4bit`, replace it with the
+            # original `nn.Linear`.
             if isinstance(attention.out_proj, bitsandbytes.nn.Linear4bit):
                 attention.out_proj = torch.nn.Linear(
                     in_features=attention.embed_dim,
