@@ -1,6 +1,8 @@
-from transformers import AutoModelForCausalLM
+import numpy as np
+from transformers import AutoModelForCausalLM, BatchFeature
 
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
+from utils.image import Image
 from utils.utils import list_with_and
 
 
@@ -33,9 +35,21 @@ class Florence2(AutoCaptioningModel):
 class Florence2Promptgen(Florence2):
     use_safetensors = True
     task_prompts = [
-        '<GENERATE_PROMPT>',
+        '<GENERATE_TAGS>',
         '<CAPTION>',
         '<DETAILED_CAPTION>',
-        '<MORE_DETAILED_CAPTION>'
+        '<MORE_DETAILED_CAPTION>',
+        '<ANALYZE>',
+        '<MIXED_CAPTION>',
+        '<MIXED_CAPTION_PLUS>',
     ]
-    default_prompt = task_prompts[0]
+    default_prompt = task_prompts[1]
+
+    def get_model_inputs(self, image_prompt: str,
+                         image: Image) -> BatchFeature | dict | np.ndarray:
+        model_inputs = super().get_model_inputs(image_prompt, image)
+        model_inputs = {
+            'input_ids': model_inputs['input_ids'],
+            'pixel_values': model_inputs['pixel_values'],
+        }
+        return model_inputs
