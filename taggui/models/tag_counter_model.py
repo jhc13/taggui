@@ -14,6 +14,7 @@ class TagCounterModel(QAbstractListModel):
         super().__init__()
         self.tag_counter = Counter()
         self.most_common_tags = []
+        self.most_common_tags_filtered = None
         self.all_tags_list = None
 
     def rowCount(self, parent=None) -> int:
@@ -24,7 +25,10 @@ class TagCounterModel(QAbstractListModel):
         if role == Qt.ItemDataRole.UserRole:
             return tag, count
         if role == Qt.ItemDataRole.DisplayRole:
-            return f'{tag} ({count})'
+            if self.most_common_tags_filtered is None:
+                return f'{tag} ({count})'
+            else:
+                return f'{tag} ({self.most_common_tags_filtered[tag]}/{count})'
         if role == Qt.ItemDataRole.EditRole:
             return tag
 
@@ -69,7 +73,18 @@ class TagCounterModel(QAbstractListModel):
     @Slot()
     def count_tags(self, images: list[Image]):
         self.tag_counter.clear()
+        self.most_common_tags_filtered = None
         for image in images:
             self.tag_counter.update(image.tags)
         self.most_common_tags = self.tag_counter.most_common()
+        self.modelReset.emit()
+
+    @Slot()
+    def count_tags_filtered(self, images: list[Image] | None):
+        if images is None:
+            self.most_common_tags_filtered = None
+        else:
+            self.most_common_tags_filtered = Counter()
+            for image in images:
+                self.most_common_tags_filtered.update(image.tags)
         self.modelReset.emit()

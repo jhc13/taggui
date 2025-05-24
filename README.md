@@ -17,6 +17,11 @@ models.
   Tagger, and many more
 - Batch tag operations for renaming, deleting, and sorting tags
 - Advanced image list filtering
+- Export images ready to be used for training
+- Mark images manually or with the help of YOLO models to create masks for
+  inclusion and exclusion of image parts for masked training
+- Crop images with advanced hints that respect relevant aspect ratios and
+  bucket sizes of the training scripts
 
 ## Installation
 
@@ -137,11 +142,30 @@ apply:
     - `caption:cat` will match images that have `cat` anywhere in the
       caption. For example, images with the tag `orange cat` or the
       tag `catastrophe`.
+- `marking`: Images that contain at least one marking with this label. It
+  doesn't matter whether it is a _hint_, _include_ or _exclude_ marking. Is also
+  doesn't matter whether the marking is on the exported image, i.e., cropped 
+  away or not.
+  - `marking:cat:>0.789` when the label is followed by a colon with a
+    relational operator and a number then only those markings are matched 
+    where the confidence fits to the specified number, in this example case
+    a `cat` marking must have a confidence number higher than 0.789.
+- `crops`: Images that contain at least one marking that will be cropped on the
+  resulting image
+  - `crops:hand` at least one `hand` marking is not completely visible on the
+    exported image.
+- `visible`: Images that contain the marking in the exported area, completely
+   or partly
+  - `visible:face`: At least a part of the face must be visible when the image
+    gets exported.
 - `name`: Images that contain the filter term in the file name
     - `name:cat` will match images such as `cat-1.jpg` or `large_cat.png`.
 - `path`: Images that contain the filter term in the full file path
     - `path:cat` will match images such as `C:\Users\cats\dog.jpg` or
       `/home/dogs/cat.jpg`.
+- `size`: Images that have the given size, stated in double colon separated
+  numbers.
+    - `size:512:512` will match images of the dimension 512x512 pixels.
 - You can also use a filter term with no prefix to filter for images that
   contain the term in either the caption or the file path.
     - `cat` will match images containing `cat` in the caption or file path.
@@ -164,6 +188,13 @@ comparison.
       caption.
     - `tokens:<=50` will match images that have 50 or fewer tokens in the
       caption.
+- `stars`: Images with this rating in stars
+    - `stars:>=4` will match all images with 4 or 5 stars.
+- `width` and `height`: will match images with the specified width or height.
+    - `width:>512` will match images where the width is greater than 512 pixels.
+    - `height:=1024` will match images where the height is exactly 1024 pixels.
+- `area`: will match images with the specified amount of pixels.
+  - `area:<1048576` will match images with less than 1 mega pixels (1024²).
 
 ### Spaces and quotes
 
@@ -253,3 +284,226 @@ You can nest parentheses and operators to create arbitrarily complex filters.
 
 The `Edit` menu contains additional features for batch tag operations, such as
 `Find and Replace` (`Ctrl`+`R`) and `Batch Reorder Tags` (`Ctrl`+`B`).
+
+## Cropping and masking with markings
+
+Next to tagging images with words and text, taggui supports visual tagging, 
+called _marking_. There are different types of marking and except the `crop`
+they can be changed into each other.
+
+All markings are marking the pixels inside the border 🞑, not any pixels below
+the border.
+
+<img src='images/doc/cropping.jpg' alt='TagGUI cropping and masking feature' width='100%'>
+
+### Crop
+
+The _crop_, shown with a blue border, defines
+the part of the image that will be exported. Depending on the export settings
+a bucketing is likely configured. When the cropped area doesn't exactly fit
+into a bucket as defined by the _Bucket resolution size_ and the _Bucket fitting
+strategy_, it might be necessary to crop even more. This additional cropped
+area is shown by a semitransparent red overlay.
+
+During the editing of the crop, you get hints to help with this task:
+
+In the image list, an overlay shows the size of the original images as well as 
+the size of the cropped area. The small number in the brackets shows how many
+pixels the crop is extended to fit into a bucket. The target size is the image
+size when exported, a checkmark is shown when this size is one of the preferred 
+sizes. And when the crop has a well-known aspect ratio, it is also shown.
+
+In the main image, lines are shown to quickly be able to select the best size.
+The straight lines follow well-known aspect ratios. And a green line shows where
+the size of the crop is big enough to fully use the native _Resolution_ of the 
+model.  
+These lines are intended for a quick orientation and thus placed at the 
+theoretical optimal position, taking the discrete nature of image pixels into
+account the real optimal position might be in a slightly different place. 
+Especially when the _Bucket resolution size_ is changed it might be necessary
+to optimize the crop when a pixel-perfect result is required.
+
+Inside the cropping area lines are shown to help with aesthetical alignment
+of the content. These lines are drawn in the middle (stroked), following the
+1/3rd rule (dashed) and in the golden ratio (dotted).  
+These lines can temporarily be hidden by pressing the `alt` key.
+
+### Hint
+
+A _hint_, shown with a gray border, is just a hint and has no effect on
+exporting the image. 
+A _hint_ has a label where you can give it a name and which you can use for
+filtering images which contain the given marking.  
+A _hint_ can be changed in an _exclude_ or an _include_.
+
+### Exclude
+
+An _exclude_, shown with a red border, is an area guaranteed to be masked
+(made transparent) when the image is exported.
+When _Latent size_ and _Quantize alpha channel_ are set and the _exclude_ area
+doesn't fit, the mask will be grown to make sure that no excluded pixel will
+stay unmasked.  
+An _exclude_ can be changed in an _include_ or a _hint_.
+
+### Include
+
+An _include_, shown with a green border, is an area included when the image is
+exported.
+When no _include_ is set, the full image (of course respecting the _crop_) is
+included.
+When an _include_ and an _exclude_ are overlapping, the _exclude_ takes
+precedence.
+And when _Latent size_ and _Quantize alpha channel_ are set and the _include_ 
+area doesn't fit, the mask will be shrunken to make sure that only included
+pixels will stay unmasked.  
+An _include_ can be changed in a _hint_ or an _include_.
+
+### Working with markings
+
+Markings can be created by the use of the toolbar or by holding the `ctrl` key
+to create a _hint_ or with `ctrl + alt` to create an _exclude_.
+The position and size can be changed by dragging them to the desired place.
+When the `shift` key is pressed during dragging the current part is snapped
+to the next position that fits the current _export_ settings.
+The marking label can be edited by clicking on it.
+And the type can be changed in the toolbar or with a right mouse button click on
+the marking.
+
+### Automatic marking detection
+
+When you have the path to the YOLO models configured in the _Settings..._ 
+dialog, you can use them to automatically detect features in the image that
+can be used for marking. After selecting the relevant model in the drop-down 
+list, you see a table with all classes it can detect. In each line, you can
+decide whether it should be ignored or added as a hint, exclude or include.
+Next to the label, you can see the confidence the model had during detection.
+
+More detailed control about the minimal required confidence, the IoU and
+the maximal number of detected markings per image can be set in the
+advanced settings.
+
+Note: When you are already using image generation tools like ADetailer you
+will most likely have already relevant YOLO models. There are many models
+widely available when you are searching for "YOLO" or "ADetailer".
+
+## Export
+
+Exporting the images to a directory allows different options. By choosing the
+preset for the target AI model, many important settings are automatically set.
+
+`Image selection`:
+Select whether all images, or those with the current filter or only the
+currently selected images should be exported.
+
+`Preset`:
+Choose a given preset or `manual` to set your own values.
+
+`Resolution`:
+The native resolution of the model, like 1024 for SDXL or Flux.
+
+`Image size`:
+A hint showing the megapixels. The exported images will not exceed this
+number.
+
+`Bucket resolution size`:
+The bucket size the training tool is using.
+
+`Latent size`:
+The size of one latent space pixel in image pixels.
+
+`Quantize alpha channel`:
+When exporting with _include_ or _exclude_ markings in an image format that
+supports alpha masks (all, but not the classic JPEG) you can make sure that
+the masks are aligned to the latent pixels that the trainer is using for
+masked training.
+
+`Masking strategy`:
+Select how the _include_ and _exclude_ masks are applied. They can be completely
+ignored, replace the image content, or, when the image format supports
+transparency, make that part of the image transparent. You can also opt to
+get separate masking files.
+The replacement content, or with _replace_ the invisible content hidden by
+the transparency, is defined by _Masked content_.
+
+`Masked content`:
+When exporting with _include_ or _exclude_ markings in an image format that
+supports alpha masks (all, but not the classic JPEG), you can change the
+content that is invisible due to the mask.
+It is known that some masked content can slightly bleed through during the
+masked training, so it can be beneficial when this (supposed to be invisible)
+content is replaced. In simple cases (e.g., masking the face for cloth LoRA
+training) the default "blur + noise" is a good choice. In hard cases, to really
+hide the original data, "grey + noise" can be a good choice. "original" doesn't
+modify the data behind the mask.
+
+`Preferres sizes`:
+A comma separated list of target sizes that should be preferred for the
+exported images.
+
+`Allow upscaling`:
+Do upscale images when set. This is bad for the quality but might reduce the
+number of buckets that must be used for training.
+
+`Bucket fitting strategy`:
+The method to make sure an image fits into a bucket. It can be a direct crop
+that removes information from the side of an image. Or a scaling that changes
+the aspect ratio of an image and can create slight distortions. Or a
+combination of both that reduces each effect.
+
+`Output format`:
+The file type and quality setting for formats that have lossy compression.
+Note: for JPEG a number above 95 should be avoided.
+
+`Output color space`:
+Most models will expect the images in sRGB format and don't contain any
+color management. So it is important that the exporter handles this as
+the images used for the training might use a different color space.
+To save 8 kB for each image, you might want to select "sRGB implicit" as that
+converts the image to sRGB but doesn't store the ICC information.
+When no color space conversation should happen, you can choose "feed through".
+
+The simple "sRGB" is most likely the setting you want to choose here unless
+you are an expert and have special requirements.
+
+`Caption`:
+Define how the tags are exported into a caption.
+It can be a simple tag list, using the same _Tag separator_ as used for the
+image tag files.  
+_Only first tag_ and _Only last tag_ are exporting exactly one tag. This can
+be a good option when you are using tagging for image organizing and then 
+derive a complete captioning sentence out of those for modern models like SD3
+or Flux.  
+_Enumeration_ creates a natural language list out of the tags. I.e., it is a
+comma separated list with the word "and" in the last place. Also, the 
+Oxford comma is used (a comma directly before the "and").  
+_Prefixed enumeration_ is similar to _enumeration_, but the first tag is used
+as a prefix and the remaining tags are translated to the enumeration. The
+use case is also using tags to organize the images and then transfer those
+to a caption by prepending it with something like "Photography of" which you'd
+place then as the first tag.
+
+`Separate by #newline`:
+Create a new line in the captioning file for every `#newline` tag.
+When _Prefixed enumeration_ is selected the first tag is repeated for
+every new line.
+
+This option is relevant when you want to use multi captioning, which is
+supported by many trainers.
+
+`Fiter (other) hashtag (#) tags`:
+When set, all tags that start with a hashtag (i.e., the "#" character) are not
+included in the exported captions.
+
+This allows you to use tags for internal image organization like marking
+images that you don't want to export or adding notes about an image into the
+tag list.
+
+`Export directory`:
+The place to export the images to.
+
+`Keep input directory structure`:
+When the source images are organized in subdirectories this structure will
+be used for the exported images as well when selected.
+
+`Statistics`:
+Preview of the generated image sizes from the export function.

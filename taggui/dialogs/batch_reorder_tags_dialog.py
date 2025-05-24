@@ -48,6 +48,19 @@ class BatchReorderTagsDialog(QDialog):
         top_buttons_layout.addWidget(shuffle_button)
         top_layout.addLayout(top_buttons_layout)
         horizontal_line = HorizontalLine()
+        middle_layout = QHBoxLayout()
+        middle_layout.setContentsMargins(20, 20, 20, 20)
+        middle_layout.setSpacing(20)
+        separate_newline_check_box = SettingsBigCheckBox(
+            key='reorder_tags_separate_newline', default=True)
+        separate_newline_check_box.setText('Separate by #newline')
+        middle_layout.addWidget(separate_newline_check_box)
+        sort_sentences_button = QPushButton('Sort Sentence Tags to Bottom')
+        sort_sentences_button.clicked.connect(
+            lambda: self.image_list_model.sort_sentences_down(
+                separate_newline_check_box.isChecked()))
+        middle_layout.addWidget(sort_sentences_button)
+        horizontal_line2 = HorizontalLine()
         bottom_layout = QVBoxLayout()
         bottom_layout.setContentsMargins(20, 20, 20, 20)
         bottom_layout.setSpacing(20)
@@ -65,6 +78,8 @@ class BatchReorderTagsDialog(QDialog):
         bottom_layout.addWidget(self.move_tags_button)
         layout.addLayout(top_layout)
         layout.addWidget(horizontal_line)
+        layout.addLayout(middle_layout)
+        layout.addWidget(horizontal_line2)
         layout.addLayout(bottom_layout)
 
         self.move_tags_line_edit.textChanged.emit(

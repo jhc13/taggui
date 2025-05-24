@@ -16,20 +16,23 @@ from utils.enums import CaptionDevice
 from utils.image import Image
 
 
-def replace_template_variable(match: re.Match, image: Image) -> str:
+def replace_template_variable(match: re.Match, image: Image, skip_hash: bool) -> str:
     template_variable = match.group(0)[1:-1].lower()
     if template_variable == 'tags':
-        return ', '.join(image.tags)
+        if skip_hash:
+            return ', '.join([t for t in image.tags if not t.startswith('#')])
+        else:
+            return ', '.join(image.tags)
     if template_variable == 'name':
         return image.path.stem
     if template_variable in ('directory', 'folder'):
         return image.path.parent.name
 
 
-def replace_template_variables(text: str, image: Image) -> str:
+def replace_template_variables(text: str, image: Image, skip_hash: bool) -> str:
     # Replace template variables inside curly braces that are not escaped.
     text = re.sub(r'(?<!\\){[^{}]+(?<!\\)}',
-                  lambda match: replace_template_variable(match, image), text)
+                  lambda match: replace_template_variable(match, image, skip_hash), text)
     # Unescape escaped curly braces.
     text = re.sub(r'\\([{}])', r'\1', text)
     return text
@@ -54,6 +57,7 @@ class AutoCaptioningModel:
         self.caption_settings = caption_settings
         self.model_id = caption_settings['model_id']
         self.prompt = caption_settings['prompt']
+        self.skip_hash = caption_settings['skip_hash']
         self.caption_start = caption_settings['caption_start']
         self.device_setting: CaptionDevice = caption_settings['device']
         self.device: torch.device = self.get_device()
@@ -173,19 +177,8 @@ class AutoCaptioningModel:
         return
 
     @staticmethod
-    def get_captioning_start_datetime_string(
-            captioning_start_datetime: datetime) -> str:
-        return captioning_start_datetime.strftime('%Y-%m-%d %H:%M:%S')
-
-    def get_captioning_message(self, are_multiple_images_selected: bool,
-                               captioning_start_datetime: datetime) -> str:
-        if are_multiple_images_selected:
-            captioning_start_datetime_string = (
-                self.get_captioning_start_datetime_string(
-                    captioning_start_datetime))
-            return (f'Captioning... (device: {self.device}, start time: '
-                    f'{captioning_start_datetime_string})')
-        return f'Captioning... (device: {self.device})'
+    def get_generation_text() -> str:
+        return 'Captioning'
 
     @staticmethod
     def get_default_prompt() -> str:
@@ -197,7 +190,8 @@ class AutoCaptioningModel:
 
     def get_image_prompt(self, image: Image) -> str | None:
         if self.prompt:
-            image_prompt = replace_template_variables(self.prompt, image)
+            image_prompt = replace_template_variables(self.prompt, image,
+                                                      self.skip_hash)
         else:
             self.prompt = self.get_default_prompt()
             image_prompt = self.prompt
@@ -211,17 +205,19 @@ class AutoCaptioningModel:
             text = image_prompt or self.caption_start
         return text
 
-    def load_image(self, image: Image) -> PilImage:
+    def load_image(self, image: Image, crop: bool) -> PilImage:
         pil_image = PilImage.open(image.path)
         # Rotate the image according to the orientation tag.
         pil_image = exif_transpose(pil_image)
         pil_image = pil_image.convert(self.image_mode)
+        if crop and image.crop is not None:
+            pil_image = pil_image.crop(image.crop.getCoords())
         return pil_image
 
-    def get_model_inputs(self, image_prompt: str,
-                         image: Image) -> BatchFeature | dict | np.ndarray:
+    def get_model_inputs(self, image_prompt: str, image: Image,
+                         crop: bool) -> BatchFeature | dict | np.ndarray:
         text = self.get_input_text(image_prompt)
-        pil_image = self.load_image(image)
+        pil_image = self.load_image(image, crop)
         model_inputs = (self.processor(text=text, images=pil_image,
                                        return_tensors='pt')
                         .to(self.device, **self.dtype_argument))

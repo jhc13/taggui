@@ -2,7 +2,7 @@ from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (QDialog, QFileDialog, QGridLayout, QLabel,
                                QLineEdit, QPushButton, QVBoxLayout)
 
-from utils.settings import DEFAULT_SETTINGS, get_settings
+from utils.settings import DEFAULT_SETTINGS, settings
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
                                     SettingsSpinBox)
 
@@ -10,7 +10,6 @@ from utils.settings_widgets import (SettingsBigCheckBox, SettingsLineEdit,
 class SettingsDialog(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
-        self.settings = get_settings()
         self.setWindowTitle('Settings')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
@@ -31,25 +30,29 @@ class SettingsDialog(QDialog):
                               5, 0, Qt.AlignmentFlag.AlignRight)
         grid_layout.addWidget(QLabel('Auto-captioning models directory'), 6, 0,
                               Qt.AlignmentFlag.AlignRight)
+        grid_layout.addWidget(QLabel('Auto-marking models directory'), 8, 0,
+                              Qt.AlignmentFlag.AlignRight)
 
         font_size_spin_box = SettingsSpinBox(
-            key='font_size', default=DEFAULT_SETTINGS['font_size'],
+            key='font_size',
             minimum=1, maximum=99)
         font_size_spin_box.valueChanged.connect(self.show_restart_warning)
+        file_types_line_edit = SettingsLineEdit(
+            key='image_list_file_formats')
+        file_types_line_edit.setMinimumWidth(400)
+        file_types_line_edit.textChanged.connect(self.show_restart_warning)
         # Images that are too small cause lag, so set a minimum width.
         image_list_image_width_spin_box = SettingsSpinBox(
             key='image_list_image_width',
-            default=DEFAULT_SETTINGS['image_list_image_width'],
             minimum=16, maximum=9999)
         image_list_image_width_spin_box.valueChanged.connect(
             self.show_restart_warning)
         self.insert_space_after_tag_separator_check_box = SettingsBigCheckBox(
-            key='insert_space_after_tag_separator',
-            default=DEFAULT_SETTINGS['insert_space_after_tag_separator'])
+            key='insert_space_after_tag_separator')
         self.insert_space_after_tag_separator_check_box.stateChanged.connect(
             self.show_restart_warning)
         tag_separator_line_edit = QLineEdit()
-        tag_separator = self.settings.value(
+        tag_separator = settings.value(
             'tag_separator', defaultValue=DEFAULT_SETTINGS['tag_separator'],
             type=str)
         if tag_separator == '\n':
@@ -60,13 +63,11 @@ class SettingsDialog(QDialog):
         tag_separator_line_edit.textChanged.connect(
             self.handle_tag_separator_change)
         autocomplete_tags_check_box = SettingsBigCheckBox(
-            key='autocomplete_tags',
-            default=DEFAULT_SETTINGS['autocomplete_tags'])
+            key='autocomplete_tags')
         autocomplete_tags_check_box.stateChanged.connect(
             self.show_restart_warning)
         self.models_directory_line_edit = SettingsLineEdit(
-            key='models_directory_path',
-            default=DEFAULT_SETTINGS['models_directory_path'])
+            key='models_directory_path')
         self.models_directory_line_edit.setMinimumWidth(400)
         self.models_directory_line_edit.setClearButtonEnabled(True)
         self.models_directory_line_edit.textChanged.connect(
@@ -75,11 +76,15 @@ class SettingsDialog(QDialog):
         models_directory_button.setFixedWidth(
             int(models_directory_button.sizeHint().width() * 1.3))
         models_directory_button.clicked.connect(self.set_models_directory_path)
-        file_types_line_edit = SettingsLineEdit(
-            key='image_list_file_formats',
-            default=DEFAULT_SETTINGS['image_list_file_formats'])
-        file_types_line_edit.setMinimumWidth(400)
-        file_types_line_edit.textChanged.connect(self.show_restart_warning)
+        self.marking_models_directory_line_edit = SettingsLineEdit(
+            key='marking_models_directory_path')
+        self.marking_models_directory_line_edit.setMinimumWidth(400)
+        self.marking_models_directory_line_edit.setClearButtonEnabled(True)
+        marking_models_directory_button = QPushButton('Select Directory...')
+        marking_models_directory_button.setFixedWidth(
+            int(marking_models_directory_button.sizeHint().width() * 1.3))
+        marking_models_directory_button.clicked.connect(
+            self.set_marking_models_directory_path)
 
         grid_layout.addWidget(font_size_spin_box, 0, 1,
                               Qt.AlignmentFlag.AlignLeft)
@@ -96,6 +101,10 @@ class SettingsDialog(QDialog):
         grid_layout.addWidget(self.models_directory_line_edit, 6, 1,
                               Qt.AlignmentFlag.AlignLeft)
         grid_layout.addWidget(models_directory_button, 7, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(self.marking_models_directory_line_edit, 8, 1,
+                              Qt.AlignmentFlag.AlignLeft)
+        grid_layout.addWidget(marking_models_directory_button, 9, 1,
                               Qt.AlignmentFlag.AlignLeft)
         layout.addLayout(grid_layout)
 
@@ -133,18 +142,18 @@ class SettingsDialog(QDialog):
             self.disable_insert_space_after_tag_separator_check_box()
         else:
             self.insert_space_after_tag_separator_check_box.setEnabled(True)
-        self.settings.setValue('tag_separator', tag_separator)
+        settings.setValue('tag_separator', tag_separator)
         self.show_restart_warning()
 
     @Slot()
     def set_models_directory_path(self):
-        models_directory_path = self.settings.value(
+        models_directory_path = settings.value(
             'models_directory_path',
             defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         if models_directory_path:
             initial_directory_path = models_directory_path
-        elif self.settings.contains('directory_path'):
-            initial_directory_path = self.settings.value('directory_path')
+        elif settings.contains('directory_path'):
+            initial_directory_path = settings.value('directory_path', type=str)
         else:
             initial_directory_path = ''
         models_directory_path = QFileDialog.getExistingDirectory(
@@ -153,3 +162,21 @@ class SettingsDialog(QDialog):
             dir=initial_directory_path)
         if models_directory_path:
             self.models_directory_line_edit.setText(models_directory_path)
+
+    @Slot()
+    def set_marking_models_directory_path(self):
+        marking_models_directory_path = settings.value(
+            'marking_models_directory_path',
+            defaultValue=DEFAULT_SETTINGS['marking_models_directory_path'], type=str)
+        if marking_models_directory_path:
+            initial_directory_path = marking_models_directory_path
+        elif settings.contains('directory_path'):
+            initial_directory_path = settings.value('directory_path', type=str)
+        else:
+            initial_directory_path = ''
+        marking_models_directory_path = QFileDialog.getExistingDirectory(
+            parent=self, caption='Select directory containing auto-marking '
+                                 'models (YOLO models)',
+            dir=initial_directory_path)
+        if marking_models_directory_path:
+            self.marking_models_directory_line_edit.setText(marking_models_directory_path)

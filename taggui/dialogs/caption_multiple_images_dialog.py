@@ -3,9 +3,10 @@ from utils.utils import ConfirmationDialog
 
 
 class CaptionMultipleImagesDialog(ConfirmationDialog):
-    def __init__(self, selected_image_count: int):
-        title = 'Generate Captions'
-        question = f'Caption {selected_image_count} selected images?'
+    def __init__(self, selected_image_count: int, caption_singular = 'Caption',
+                 caption_plural = 'Captions'):
+        title = f'Generate {caption_plural}'
+        question = f'{caption_singular} {selected_image_count} selected images?'
         super().__init__(title=title, question=question)
         self.show_alert_check_box = SettingsBigCheckBox(
             key='show_alert_when_captioning_finished', default=True,

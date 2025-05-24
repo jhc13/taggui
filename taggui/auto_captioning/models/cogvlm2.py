@@ -65,9 +65,9 @@ class Cogvlm2(AutoCaptioningModel):
     def format_prompt(prompt: str) -> str:
         return f'Question: {prompt} Answer:'
 
-    def get_model_inputs(self, image_prompt: str, image: Image) -> dict:
+    def get_model_inputs(self, image_prompt: str, image: Image, crop: bool) -> dict:
         text = self.get_input_text(image_prompt)
-        pil_image = self.load_image(image)
+        pil_image = self.load_image(image, crop)
         image_size = self.model.config.vision_config['image_size']
         patch_size = self.model.config.vision_config['patch_size']
         vision_tokens_count = ((image_size // patch_size // 2)

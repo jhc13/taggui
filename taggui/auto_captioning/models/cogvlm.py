@@ -65,9 +65,9 @@ class Cogvlm(AutoCaptioningModel):
         # `caption_start` is added later.
         return image_prompt
 
-    def get_model_inputs(self, image_prompt: str, image: Image) -> dict:
+    def get_model_inputs(self, image_prompt: str, image: Image, crop: bool) -> dict:
         text = self.get_input_text(image_prompt)
-        pil_image = self.load_image(image)
+        pil_image = self.load_image(image, crop)
         model_inputs = self.model.build_conversation_input_ids(
             self.processor, query=text, images=[pil_image],
             template_version=None)
