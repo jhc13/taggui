@@ -1,3 +1,4 @@
+import bitsandbytes
 import torch
 from transformers import LlavaForConditionalGeneration
 
@@ -8,10 +9,18 @@ class Joycaption(AutoCaptioningModel):
     dtype = torch.bfloat16
     transformers_model_class = LlavaForConditionalGeneration
 
-    def get_additional_error_message(self) -> str | None:
+    def monkey_patch_after_loading(self) -> None:
         if self.load_in_4_bit:
-            return 'This model cannot be loaded in 4-bit.'
-        return None
+            attention = self.model.vision_tower.vision_model.head.attention
+            # JoyCaption's out-projection layer is not dynamically quantizable,
+            # so if it was converted into `nn.Linear4bit`, replace it with the
+            # original `nn.Linear`.
+            if isinstance(attention.out_proj, bitsandbytes.nn.Linear4bit):
+                attention.out_proj = torch.nn.Linear(
+                    in_features=attention.embed_dim,
+                    out_features=attention.embed_dim,
+                    device=self.device,
+                    dtype=self.dtype)
 
     @staticmethod
     def get_default_prompt() -> str:

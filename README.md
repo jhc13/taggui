@@ -3,8 +3,8 @@
 <img src='images/icon.png' alt='TagGUI icon' width='128'>
 
 Cross-platform desktop application for quickly adding and editing image tags
-and captions, aimed towards creators of image datasets for generative AI models
-like Stable Diffusion.
+and captions, aimed towards creators of image datasets for generative AI
+models.
 
 <img src='images/screenshot-v1.25.0.png' alt='TagGUI screenshot' width='100%'>
 
@@ -12,7 +12,7 @@ like Stable Diffusion.
 
 - Keyboard-friendly interface for fast tagging
 - Tag autocomplete based on your own most-used tags
-- Integrated Stable Diffusion token counter
+- Integrated token counter (for Stable Diffusion)
 - Automatic caption and tag generation with models including CogVLM, LLaVA, WD
   Tagger, and many more
 - Batch tag operations for renaming, deleting, and sorting tags

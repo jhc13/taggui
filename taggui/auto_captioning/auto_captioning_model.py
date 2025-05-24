@@ -106,10 +106,11 @@ class AutoCaptioningModel:
                 load_in_4bit=True,
                 bnb_4bit_quant_type='nf4',
                 bnb_4bit_compute_dtype=self.dtype,
+                bnb_4bit_quant_storage=self.dtype,
                 bnb_4bit_use_double_quant=True
             )
             arguments['quantization_config'] = quantization_config
-        elif self.device.type == 'cuda':
+        if self.device.type == 'cuda':
             arguments['torch_dtype'] = self.dtype
         return arguments
 

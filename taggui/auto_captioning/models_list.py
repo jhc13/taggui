@@ -1,5 +1,5 @@
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
-from auto_captioning.models.cog import Cogagent, Cogvlm
+from auto_captioning.models.cogvlm import Cogvlm
 from auto_captioning.models.cogvlm2 import Cogvlm2
 from auto_captioning.models.florence_2 import Florence2, Florence2Promptgen
 from auto_captioning.models.joycaption import Joycaption
@@ -14,20 +14,20 @@ from auto_captioning.models.wd_tagger import WdTagger
 from auto_captioning.models.xcomposer2 import Xcomposer2, Xcomposer2_4khd
 
 MODELS = [
-    'fancyfeast/llama-joycaption-alpha-two-hf-llava',
+    'fancyfeast/llama-joycaption-beta-one-hf-llava',
     'internlm/internlm-xcomposer2-vl-7b-4bit',
     'internlm/internlm-xcomposer2-vl-7b',
     'internlm/internlm-xcomposer2-vl-1_8b',
     'internlm/internlm-xcomposer2-4khd-7b',
     'THUDM/cogvlm-chat-hf',
-    'THUDM/cogagent-vqa-hf',
     'THUDM/cogvlm2-llama3-chat-19B-int4',
     'THUDM/cogvlm2-llama3-chat-19B',
     'microsoft/Florence-2-large-ft',
     'microsoft/Florence-2-large',
     'microsoft/Florence-2-base-ft',
     'microsoft/Florence-2-base',
-    'MiaoshouAI/Florence-2-base-PromptGen',
+    'MiaoshouAI/Florence-2-large-PromptGen-v2.0',
+    'MiaoshouAI/Florence-2-base-PromptGen-v2.0',
     'microsoft/Phi-3-vision-128k-instruct',
     'llava-hf/llava-v1.6-mistral-7b-hf',
     'llava-hf/llava-v1.6-vicuna-7b-hf',
@@ -64,8 +64,6 @@ MODELS = [
 
 def get_model_class(model_id: str) -> type[AutoCaptioningModel]:
     lowercase_model_id = model_id.lower()
-    if 'cogagent' in lowercase_model_id:
-        return Cogagent
     if 'cogvlm2' in lowercase_model_id:
         return Cogvlm2
     if 'cogvlm' in lowercase_model_id:
