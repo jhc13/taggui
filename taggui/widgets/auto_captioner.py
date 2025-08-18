@@ -10,12 +10,13 @@ from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
 
 from auto_captioning.captioning_thread import CaptioningThread
 from auto_captioning.models.wd_tagger import WdTagger
+from auto_captioning.models.remote import RemoteGen
 from auto_captioning.models_list import MODELS, get_model_class
 from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
 from models.image_list_model import ImageListModel
 from utils.big_widgets import TallPushButton
 from utils.enums import CaptionDevice, CaptionPosition
-from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
+from utils.settings import DEFAULT_SETTINGS, settings, get_tag_separator
 from utils.settings_widgets import (FocusedScrollSettingsComboBox,
                                     FocusedScrollSettingsDoubleSpinBox,
                                     FocusedScrollSettingsSpinBox,
@@ -50,7 +51,6 @@ class HorizontalLine(QFrame):
 class CaptionSettingsForm(QVBoxLayout):
     def __init__(self):
         super().__init__()
-        self.settings = get_settings()
         try:
             import bitsandbytes
             self.is_bitsandbytes_available = True
@@ -66,14 +66,28 @@ class CaptionSettingsForm(QVBoxLayout):
         # custom model that was set.
         self.model_combo_box.setEditable(True)
         self.model_combo_box.addItems(self.get_local_model_paths())
-        self.model_combo_box.addItems(MODELS)
+        self.model_combo_box.addItems(MODELS)#remote
+        self.remote_address_line_edit = SettingsLineEdit(key='remote_address', default='http://localhost:5000')
+
+        self.api_key_line_edit = SettingsLineEdit(key='api_key', default='')
         self.prompt_text_edit = SettingsPlainTextEdit(key='prompt')
         set_text_edit_height(self.prompt_text_edit, 4)
         self.caption_start_line_edit = SettingsLineEdit(key='caption_start')
         self.caption_start_line_edit.setClearButtonEnabled(True)
+        self.caption_stop_line_edit = SettingsLineEdit(key='stop_sequence', default='[<|eot_id|>, <|eot|>, <|eos|>]')
+        self.caption_stop_line_edit.setClearButtonEnabled(True)
         self.caption_position_combo_box = FocusedScrollSettingsComboBox(
             key='caption_position')
         self.caption_position_combo_box.addItems(list(CaptionPosition))
+        self.skip_hash_container = QWidget()
+        skip_hash_layout = QHBoxLayout()
+        skip_hash_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        skip_hash_layout.setContentsMargins(0, 0, 0, 0)
+        self.skip_hash_check_box = SettingsBigCheckBox(
+            key='skip_hash', default=True)
+        skip_hash_layout.addWidget(QLabel('Skip hash tags when inserting in prompt'))
+        skip_hash_layout.addWidget(self.skip_hash_check_box)
+        self.skip_hash_container.setLayout(skip_hash_layout)
         self.device_combo_box = FocusedScrollSettingsComboBox(key='device')
         self.device_combo_box.addItems(list(CaptionDevice))
         self.load_in_4_bit_container = QWidget()
@@ -85,6 +99,15 @@ class CaptionSettingsForm(QVBoxLayout):
         load_in_4_bit_layout.addWidget(QLabel('Load in 4-bit'))
         load_in_4_bit_layout.addWidget(self.load_in_4_bit_check_box)
         self.load_in_4_bit_container.setLayout(load_in_4_bit_layout)
+        self.limit_to_crop_container = QWidget()
+        limit_to_crop_layout = QHBoxLayout()
+        limit_to_crop_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        limit_to_crop_layout.setContentsMargins(0, 0, 0, 0)
+        self.limit_to_crop_check_box = SettingsBigCheckBox(
+            key='limit_to_crop', default=True)
+        limit_to_crop_layout.addWidget(QLabel('Limit to crop'))
+        limit_to_crop_layout.addWidget(self.limit_to_crop_check_box)
+        self.limit_to_crop_container.setLayout(limit_to_crop_layout)
         self.remove_tag_separators_container = QWidget()
         remove_tag_separators_layout = QHBoxLayout(
             self.remove_tag_separators_container)
@@ -98,17 +121,24 @@ class CaptionSettingsForm(QVBoxLayout):
         remove_tag_separators_layout.addWidget(
             self.remove_tag_separators_check_box)
         basic_settings_form.addRow('Model', self.model_combo_box)
+        basic_settings_form.addRow('OAI endpoint', self.remote_address_line_edit)
+        basic_settings_form.addRow('API Key', self.api_key_line_edit)
         self.prompt_label = QLabel('Prompt')
         basic_settings_form.addRow(self.prompt_label, self.prompt_text_edit)
         self.caption_start_label = QLabel('Start caption with')
+        self.caption_stop_label = QLabel('Stop tokens')
         basic_settings_form.addRow(self.caption_start_label,
                                    self.caption_start_line_edit)
+        basic_settings_form.addRow(self.caption_stop_label,
+                                   self.caption_stop_line_edit)
         basic_settings_form.addRow('Caption position',
                                    self.caption_position_combo_box)
+        basic_settings_form.addRow(self.skip_hash_container)
         self.device_label = QLabel('Device')
         basic_settings_form.addRow(self.device_label, self.device_combo_box)
         basic_settings_form.addRow(self.load_in_4_bit_container)
         basic_settings_form.addRow(self.remove_tag_separators_container)
+        basic_settings_form.addRow(self.limit_to_crop_container)
 
         self.wd_tagger_settings_form_container = QWidget()
         wd_tagger_settings_form = QFormLayout(
@@ -181,8 +211,16 @@ class CaptionSettingsForm(QVBoxLayout):
         self.top_k_spin_box = FocusedScrollSettingsSpinBox(
             key='top_k', default=50, minimum=0, maximum=200)
         self.top_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
-            key='top_p', default=1, minimum=0, maximum=1)
+            key='top_p', default=0.95, minimum=0, maximum=1)
         self.top_p_spin_box.setSingleStep(0.01)
+        self.top_a_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='top_a', default=0.05, minimum=0, maximum=1)
+        self.top_a_spin_box.setSingleStep(0.01)
+        self.min_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='min_p', default=0.05, minimum=0, maximum=1)
+        self.min_p_spin_box.setSingleStep(0.01)
+        self.typical_p_spin_box = FocusedScrollSettingsDoubleSpinBox(
+            key='typical', default=0.95, minimum=0, maximum=1)
         self.repetition_penalty_spin_box = FocusedScrollSettingsDoubleSpinBox(
             key='repetition_penalty', default=1, minimum=1, maximum=2)
         self.repetition_penalty_spin_box.setSingleStep(0.01)
@@ -190,6 +228,8 @@ class CaptionSettingsForm(QVBoxLayout):
             key='no_repeat_ngram_size', default=3, minimum=0, maximum=5)
         self.gpu_index_spin_box = FocusedScrollSettingsSpinBox(
             key='gpu_index', default=0, minimum=0, maximum=9)
+        
+        
         advanced_settings_form.addRow(bad_forced_words_form)
         advanced_settings_form.addRow(HorizontalLine())
         advanced_settings_form.addRow('Minimum tokens',
@@ -206,6 +246,9 @@ class CaptionSettingsForm(QVBoxLayout):
                                       self.temperature_spin_box)
         advanced_settings_form.addRow('Top-k', self.top_k_spin_box)
         advanced_settings_form.addRow('Top-p', self.top_p_spin_box)
+        advanced_settings_form.addRow('Top-a', self.top_a_spin_box)
+        advanced_settings_form.addRow('Min-p', self.min_p_spin_box)
+        advanced_settings_form.addRow('Typical P', self.typical_p_spin_box)
         advanced_settings_form.addRow('Repetition penalty',
                                       self.repetition_penalty_spin_box)
         advanced_settings_form.addRow('No repeat n-gram size',
@@ -241,7 +284,7 @@ class CaptionSettingsForm(QVBoxLayout):
             self.load_in_4_bit_check_box.setChecked(False)
 
     def get_local_model_paths(self) -> list[str]:
-        models_directory_path = self.settings.value(
+        models_directory_path = settings.value(
             'models_directory_path',
             defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         if not models_directory_path:
@@ -263,25 +306,60 @@ class CaptionSettingsForm(QVBoxLayout):
 
     @Slot(str)
     def show_settings_for_model(self, model_id: str):
-        wd_tagger_widgets = [self.wd_tagger_settings_form_container]
-        non_wd_tagger_widgets = [
+        remote_widgets = [
             self.prompt_label,
             self.prompt_text_edit,
             self.caption_start_label,
             self.caption_start_line_edit,
-            self.device_label,
-            self.device_combo_box,
-            self.load_in_4_bit_container,
-            self.remove_tag_separators_container,
-            self.horizontal_line,
+            self.remote_address_line_edit,
+            self.caption_stop_label,
+            self.caption_stop_line_edit,
+            self.api_key_line_edit
+        ]
+        is_remote = get_model_class(model_id) == RemoteGen
+        wd_tagger_widgets = [
+            self.wd_tagger_settings_form_container
+        ]
+        prompted_widgets = [
+            self.prompt_label,
+            self.prompt_text_edit,
+            self.skip_hash_container,
+            self.caption_start_label,
+            self.caption_start_line_edit,
             self.toggle_advanced_settings_form_button,
             self.advanced_settings_form_container
         ]
+        local_widgets = [
+            self.device_combo_box,
+            self.load_in_4_bit_container,
+            self.remove_tag_separators_container,
+            self.device_label,
+            self.horizontal_line
+        ]
         is_wd_tagger_model = get_model_class(model_id) == WdTagger
-        for widget in wd_tagger_widgets:
-            widget.setVisible(is_wd_tagger_model)
-        for widget in non_wd_tagger_widgets:
-            widget.setVisible(not is_wd_tagger_model)
+        if is_wd_tagger_model:
+            for widget in wd_tagger_widgets:
+                widget.setVisible(True)
+            for widget in prompted_widgets:
+                widget.setVisible(False)
+            for widget in remote_widgets:
+                widget.setVisible(False)
+            for widget in local_widgets:
+                widget.setVisible(False)
+        elif is_remote:
+            for widget in wd_tagger_widgets:
+                widget.setVisible(False)
+            for widget in prompted_widgets:
+                widget.setVisible(True)
+            for widget in remote_widgets:
+                widget.setVisible(True)
+            for widget in local_widgets:
+                widget.setVisible(False)
+        else:
+            for widget in prompted_widgets:
+                widget.setVisible(True)
+            for widget in local_widgets:
+                widget.setVisible(False)
         self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
 
     @Slot(str)
@@ -308,13 +386,17 @@ class CaptionSettingsForm(QVBoxLayout):
 
     def get_caption_settings(self) -> dict:
         return {
+            'api_url': self.remote_address_line_edit.text(),
+            'api_key': self.api_key_line_edit.text(),
             'model_id': self.model_combo_box.currentText(),
             'prompt': self.prompt_text_edit.toPlainText(),
+            'skip_hash': self.skip_hash_check_box.isChecked(),
             'caption_start': self.caption_start_line_edit.text(),
             'caption_position': self.caption_position_combo_box.currentText(),
             'device': self.device_combo_box.currentText(),
             'gpu_index': self.gpu_index_spin_box.value(),
             'load_in_4_bit': self.load_in_4_bit_check_box.isChecked(),
+            'limit_to_crop': self.limit_to_crop_check_box.isChecked(),
             'remove_tag_separators':
                 self.remove_tag_separators_check_box.isChecked(),
             'bad_words': self.bad_words_line_edit.text(),
@@ -328,9 +410,13 @@ class CaptionSettingsForm(QVBoxLayout):
                 'temperature': self.temperature_spin_box.value(),
                 'top_k': self.top_k_spin_box.value(),
                 'top_p': self.top_p_spin_box.value(),
+                'min_p': self.min_p_spin_box.value(),
+                'top_a': self.top_a_spin_box.value(),
+                'typical': self.typical_p_spin_box.value(),
                 'repetition_penalty': self.repetition_penalty_spin_box.value(),
                 'no_repeat_ngram_size':
-                    self.no_repeat_ngram_size_spin_box.value()
+                    self.no_repeat_ngram_size_spin_box.value(),
+                'stop_sequnce': self.caption_stop_line_edit.text()
             },
             'wd_tagger_settings': {
                 'show_probabilities':
@@ -357,7 +443,6 @@ class AutoCaptioner(QDockWidget):
         super().__init__()
         self.image_list_model = image_list_model
         self.image_list = image_list
-        self.settings = get_settings()
         self.is_captioning = False
         self.captioning_thread = None
         self.processor = None
@@ -482,7 +567,7 @@ class AutoCaptioner(QDockWidget):
             self.progress_bar.setValue(0)
             self.progress_bar.show()
         tag_separator = get_tag_separator()
-        models_directory_path = self.settings.value(
+        models_directory_path = settings.value(
             'models_directory_path',
             defaultValue=DEFAULT_SETTINGS['models_directory_path'], type=str)
         models_directory_path = (Path(models_directory_path)

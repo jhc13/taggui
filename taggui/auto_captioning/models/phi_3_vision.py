@@ -27,8 +27,8 @@ class Phi3Vision(AutoCaptioningModel):
         return image_prompt + self.caption_start
 
     def get_model_inputs(self, image_prompt: str,
-                         image: Image) -> BatchFeature:
-        model_inputs = super().get_model_inputs(image_prompt, image)
+                         image: Image, crop: bool) -> BatchFeature:
+        model_inputs = super().get_model_inputs(image_prompt, image, crop)
         self.input_length = model_inputs['input_ids'].shape[1]
         return model_inputs
 

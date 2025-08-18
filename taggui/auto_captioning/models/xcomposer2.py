@@ -4,7 +4,11 @@ from contextlib import redirect_stdout
 import numpy as np
 import torch
 from PIL import Image as PilImage
-from gptqmodel.models import BaseGPTQModel
+try:
+    from gptqmodel.models import BaseGPTQModel
+    gptq = True
+except:
+    gptq = False
 from torchvision.transforms import functional
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -12,17 +16,18 @@ from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from utils.enums import CaptionDevice
 from utils.image import Image
 
+if gptq:
+    class InternLMXComposer2GPTQ(BaseGPTQModel):
+        base_modules = ['vit', 'vision_proj', 'model.tok_embeddings', 'model.norm',
+                        'output']
+        layers_node = 'model.layers'
+        layer_modules = [
+            ['attention.wqkv.linear'],
+            ['attention.wo.linear'],
+            ['feed_forward.w1.linear', 'feed_forward.w3.linear'],
+            ['feed_forward.w2.linear'],
+        ]
 
-class InternLMXComposer2GPTQ(BaseGPTQModel):
-    base_modules = ['vit', 'vision_proj', 'model.tok_embeddings', 'model.norm',
-                    'output']
-    layers_node = 'model.layers'
-    layer_modules = [
-        ['attention.wqkv.linear'],
-        ['attention.wo.linear'],
-        ['feed_forward.w1.linear', 'feed_forward.w3.linear'],
-        ['feed_forward.w2.linear'],
-    ]
 
 
 class Xcomposer2(AutoCaptioningModel):
@@ -107,9 +112,9 @@ class Xcomposer2(AutoCaptioningModel):
     def get_input_text(self, image_prompt: str) -> str:
         return image_prompt + self.caption_start
 
-    def get_model_inputs(self, image_prompt: str, image: Image) -> dict:
+    def get_model_inputs(self, image_prompt: str, image: Image, crop: bool) -> dict:
         text = self.get_input_text(image_prompt)
-        pil_image = self.load_image(image)
+        pil_image = self.load_image(image, crop)
         input_embeddings_parts = []
         image_mask_parts = []
         processed_image = self.model.vis_processor(pil_image).unsqueeze(0).to(
@@ -189,7 +194,7 @@ class Xcomposer2_4khd(Xcomposer2):
     def monkey_patch_after_loading(self):
         return
 
-    def load_image(self, image: Image) -> PilImage:
-        pil_image = super().load_image(image)
+    def load_image(self, image: Image, crop: bool) -> PilImage:
+        pil_image = super().load_image(image, crop)
         pil_image = hd_transform(pil_image)
         return pil_image

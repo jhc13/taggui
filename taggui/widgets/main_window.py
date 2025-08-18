@@ -1,33 +1,39 @@
 from pathlib import Path
 
 from PySide6.QtCore import QKeyCombination, QModelIndex, QUrl, Qt, Slot
-from PySide6.QtGui import (QAction, QCloseEvent, QDesktopServices, QIcon,
-                           QKeySequence, QPixmap, QShortcut)
+from PySide6.QtGui import (QAction, QActionGroup, QCloseEvent, QDesktopServices,
+                           QIcon, QKeySequence, QShortcut, QMouseEvent)
 from PySide6.QtWidgets import (QApplication, QFileDialog, QMainWindow,
-                               QMessageBox, QStackedWidget, QVBoxLayout,
-                               QWidget)
+                               QMessageBox, QStackedWidget, QToolBar,
+                               QVBoxLayout, QWidget, QSizePolicy, QHBoxLayout,
+                               QLabel)
+
 from transformers import AutoTokenizer
 
 from dialogs.batch_reorder_tags_dialog import BatchReorderTagsDialog
 from dialogs.find_and_replace_dialog import FindAndReplaceDialog
+from dialogs.export_dialog import ExportDialog
 from dialogs.settings_dialog import SettingsDialog
 from models.image_list_model import ImageListModel
 from models.image_tag_list_model import ImageTagListModel
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
+from utils.icons import (taggui_icon, create_add_box_icon, toggle_marking_icon,
+                         show_markings_icon, show_labels_icon,
+                         show_marking_latent_icon)
 from utils.big_widgets import BigPushButton
 from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
-from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
+from utils.settings import DEFAULT_SETTINGS, settings, get_tag_separator
 from utils.shortcut_remover import ShortcutRemover
 from utils.utils import get_resource_path, pluralize
 from widgets.all_tags_editor import AllTagsEditor
 from widgets.auto_captioner import AutoCaptioner
+from widgets.auto_markings import AutoMarkings
 from widgets.image_list import ImageList
 from widgets.image_tags_editor import ImageTagsEditor
-from widgets.image_viewer import ImageViewer
+from widgets.image_viewer import ImageViewer, ImageMarking
 
-ICON_PATH = Path('images/icon.ico')
 GITHUB_REPOSITORY_URL = 'https://github.com/jhc13/taggui'
 TOKENIZER_DIRECTORY_PATH = Path('clip-vit-base-patch32')
 
@@ -36,11 +42,12 @@ class MainWindow(QMainWindow):
     def __init__(self, app: QApplication):
         super().__init__()
         self.app = app
-        self.settings = get_settings()
         # The path of the currently loaded directory. This is set later when a
         # directory is loaded.
         self.directory_path = None
-        image_list_image_width = self.settings.value(
+        self.is_running = True
+        app.aboutToQuit.connect(lambda: setattr(self, 'is_running', False))
+        image_list_image_width = settings.value(
             'image_list_image_width',
             defaultValue=DEFAULT_SETTINGS['image_list_image_width'], type=int)
         tag_separator = get_tag_separator()
@@ -55,7 +62,7 @@ class MainWindow(QMainWindow):
         self.tag_counter_model = TagCounterModel()
         self.image_tag_list_model = ImageTagListModel()
 
-        self.setWindowIcon(QIcon(QPixmap(get_resource_path(ICON_PATH))))
+        self.setWindowIcon(taggui_icon())
         # Not setting this results in some ugly colors.
         self.setPalette(self.app.style().standardPalette())
         # The font size must be set before creating the widgets to ensure that
@@ -63,6 +70,94 @@ class MainWindow(QMainWindow):
         self.set_font_size()
         self.image_viewer = ImageViewer(self.proxy_image_list_model)
         self.create_central_widget()
+
+        self.toolbar = QToolBar('Main toolbar', self)
+        self.toolbar.setObjectName('Main toolbar')
+        self.toolbar.setFloatable(True)
+        self.addToolBar(self.toolbar)
+        self.zoom_fit_best_action = QAction(QIcon.fromTheme('zoom-fit-best'),
+                                            'Zoom to fit', self)
+        self.zoom_fit_best_action.setCheckable(True)
+        self.toolbar.addAction(self.zoom_fit_best_action)
+        self.zoom_in_action = QAction(QIcon.fromTheme('zoom-in'),
+                                      'Zoom in', self)
+        self.toolbar.addAction(self.zoom_in_action)
+        self.zoom_original_action = QAction(QIcon.fromTheme('zoom-original'),
+                                            'Original size', self)
+        self.zoom_original_action.setCheckable(True)
+        self.toolbar.addAction(self.zoom_original_action)
+        self.zoom_out_action = QAction(QIcon.fromTheme('zoom-out'),
+                                       'Zoom out', self)
+        self.toolbar.addAction(self.zoom_out_action)
+        self.toolbar.addSeparator()
+        self.add_action_group = QActionGroup(self)
+        self.add_action_group.setExclusionPolicy(QActionGroup.ExclusiveOptional)
+        self.add_crop_action = QAction(create_add_box_icon(Qt.blue),
+                                       'Add crop', self.add_action_group)
+        self.add_crop_action.setCheckable(True)
+        self.toolbar.addAction(self.add_crop_action)
+        self.add_hint_action = QAction(create_add_box_icon(Qt.gray),
+                                       'Add hint', self.add_action_group)
+        self.add_hint_action.setCheckable(True)
+        self.toolbar.addAction(self.add_hint_action)
+        self.add_exclude_action = QAction(create_add_box_icon(Qt.red),
+                                          'Add exclude mask', self.add_action_group)
+        self.add_exclude_action.setCheckable(True)
+        self.toolbar.addAction(self.add_exclude_action)
+        self.add_include_action = QAction(create_add_box_icon(Qt.green),
+                                          'Add include mask', self.add_action_group)
+        self.add_include_action.setCheckable(True)
+        self.toolbar.addAction(self.add_include_action)
+        self.delete_marking_action = QAction(QIcon.fromTheme('edit-delete'),
+                                            'Delete marking', self)
+        self.delete_marking_action.setEnabled(False)
+        self.toolbar.addAction(self.delete_marking_action)
+        self.add_toggle_marking_action = QAction(toggle_marking_icon(),
+            'Change marking type', self)
+        self.add_toggle_marking_action.setEnabled(False)
+        self.toolbar.addAction(self.add_toggle_marking_action)
+        self.add_show_marking_action = QAction(show_markings_icon(),
+            'Show markings', self)
+        self.add_show_marking_action.setCheckable(True)
+        self.add_show_marking_action.setChecked(True)
+        self.toolbar.addAction(self.add_show_marking_action)
+        self.add_show_labels_action = QAction(show_labels_icon(),
+            'Show labels', self)
+        self.add_show_labels_action.setCheckable(True)
+        self.add_show_labels_action.setChecked(True)
+        self.toolbar.addAction(self.add_show_labels_action)
+        self.add_show_marking_latent_action = QAction(show_marking_latent_icon(),
+            'Show marking in latent space', self)
+        self.add_show_marking_latent_action.setCheckable(True)
+        self.add_show_marking_latent_action.setChecked(True)
+        self.toolbar.addAction(self.add_show_marking_latent_action)
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.toolbar.addWidget(spacer)
+        star_widget = QWidget()
+        star_layout = QHBoxLayout(star_widget)
+        star_layout.setContentsMargins(0, 0, 0, 0)
+        star_layout.setSpacing(0)
+        self.rating = 0
+        self.star_labels = []
+        for i in range(6):
+            shortcut = QShortcut(QKeySequence(f'Ctrl+{i}'), self)
+            shortcut.activated.connect(lambda checked=False, rating=i:
+                                       self.set_rating(2*rating, False))
+            if i == 0:
+                continue
+            star_label = QLabel('☆', self)
+            star_label.setEnabled(False)
+            star_label.setAlignment(Qt.AlignCenter)
+            star_label.setStyleSheet('QLabel { font-size: 22px; }')
+            star_label.setToolTip(f'Ctrl+{i}')
+            star_label.mousePressEvent = lambda event, rating=i: (
+                self.set_rating(rating/5.0, True, event))
+            self.star_labels.append(star_label)
+            star_layout.addWidget(star_label)
+        self.image_viewer.rating_changed.connect(self.set_rating)
+        self.toolbar.addWidget(star_widget)
+
         self.image_list = ImageList(self.proxy_image_list_model,
                                     tag_separator, image_list_image_width)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
@@ -82,7 +177,12 @@ class MainWindow(QMainWindow):
                                             self.image_list)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
                            self.auto_captioner)
+        self.auto_markings = AutoMarkings(self.image_list_model,
+                                          self.image_list, self)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea,
+                           self.auto_markings)
         self.tabifyDockWidget(self.all_tags_editor, self.auto_captioner)
+        self.tabifyDockWidget(self.auto_captioner, self.auto_markings)
         self.all_tags_editor.raise_()
         # Set default widths for the dock widgets.
         # Temporarily set a size for the window so that the dock widgets can be
@@ -101,11 +201,14 @@ class MainWindow(QMainWindow):
         self.reload_directory_action.setDisabled(True)
         self.undo_action = QAction('Undo', parent=self)
         self.redo_action = QAction('Redo', parent=self)
+        self.toggle_toolbar_action = QAction('Toolbar', parent=self)
         self.toggle_image_list_action = QAction('Images', parent=self)
         self.toggle_image_tags_editor_action = QAction('Image Tags',
                                                        parent=self)
         self.toggle_all_tags_editor_action = QAction('All Tags', parent=self)
         self.toggle_auto_captioner_action = QAction('Auto-Captioner',
+                                                    parent=self)
+        self.toggle_auto_markings_action = QAction('Auto-Markings',
                                                     parent=self)
         self.create_menus()
 
@@ -113,10 +216,12 @@ class MainWindow(QMainWindow):
                                            .selectionModel())
         self.image_list_model.image_list_selection_model = (
             self.image_list_selection_model)
+        self.connect_toolbar_signals()
         self.connect_image_list_signals()
         self.connect_image_tags_editor_signals()
         self.connect_all_tags_editor_signals()
         self.connect_auto_captioner_signals()
+        self.connect_auto_markings_signals()
         # Forward any unhandled image changing key presses to the image list.
         key_press_forwarder = KeyPressForwarder(
             parent=self, target=self.image_list.list_view,
@@ -182,13 +287,13 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event: QCloseEvent):
         """Save the window geometry and state before closing."""
-        self.settings.setValue('geometry', self.saveGeometry())
-        self.settings.setValue('window_state', self.saveState())
+        settings.setValue('geometry', self.saveGeometry())
+        settings.setValue('window_state', self.saveState())
         super().closeEvent(event)
 
     def set_font_size(self):
         font = self.app.font()
-        font_size = self.settings.value(
+        font_size = settings.value(
             'font_size', defaultValue=DEFAULT_SETTINGS['font_size'], type=int)
         font.setPointSize(font_size)
         self.app.setFont(font)
@@ -206,11 +311,23 @@ class MainWindow(QMainWindow):
         central_widget.addWidget(self.image_viewer)
         self.setCentralWidget(central_widget)
 
+    @Slot()
+    def zoom(self, factor):
+        if factor < 0:
+            self.zoom_fit_best_action.setChecked(True)
+            self.zoom_original_action.setChecked(False)
+        elif factor == 1.0:
+            self.zoom_fit_best_action.setChecked(False)
+            self.zoom_original_action.setChecked(True)
+        else:
+            self.zoom_fit_best_action.setChecked(False)
+            self.zoom_original_action.setChecked(False)
+
     def load_directory(self, path: Path, select_index: int = 0,
                        save_path_to_settings: bool = False):
         self.directory_path = path.resolve()
         if save_path_to_settings:
-            self.settings.setValue('directory_path', str(self.directory_path))
+            settings.setValue('directory_path', str(self.directory_path))
         self.setWindowTitle(path.name)
         self.image_list_model.load_directory(path)
         self.image_list.filter_line_edit.clear()
@@ -245,7 +362,7 @@ class MainWindow(QMainWindow):
         select_index_key = ('image_index'
                             if self.proxy_image_list_model.filter is None
                             else 'filtered_image_index')
-        select_index = self.settings.value(select_index_key, type=int) or 0
+        select_index = settings.value(select_index_key, type=int) or 0
         self.load_directory(self.directory_path)
         self.image_list.filter_line_edit.setText(filter_text)
         # If the selected image index is out of bounds due to images being
@@ -254,6 +371,12 @@ class MainWindow(QMainWindow):
             select_index = self.proxy_image_list_model.rowCount() - 1
         self.image_list.list_view.setCurrentIndex(
             self.proxy_image_list_model.index(select_index, 0))
+
+    @Slot()
+    def export_images_dialog(self):
+        export_dialog = ExportDialog(parent=self, image_list=self.image_list)
+        export_dialog.exec()
+        return
 
     @Slot()
     def show_settings_dialog(self):
@@ -313,6 +436,9 @@ class MainWindow(QMainWindow):
             [QKeySequence('Ctrl+Shift+L'), QKeySequence('F5')])
         self.reload_directory_action.triggered.connect(self.reload_directory)
         file_menu.addAction(self.reload_directory_action)
+        export_action = QAction('Export...', parent=self)
+        export_action.triggered.connect(self.export_images_dialog)
+        file_menu.addAction(export_action)
         settings_action = QAction('Settings...', parent=self)
         settings_action.setShortcut(QKeySequence('Ctrl+Alt+S'))
         settings_action.triggered.connect(self.show_settings_dialog)
@@ -355,10 +481,14 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(remove_empty_tags_action)
 
         view_menu = menu_bar.addMenu('View')
+        self.toggle_toolbar_action.setCheckable(True)
         self.toggle_image_list_action.setCheckable(True)
         self.toggle_image_tags_editor_action.setCheckable(True)
         self.toggle_all_tags_editor_action.setCheckable(True)
         self.toggle_auto_captioner_action.setCheckable(True)
+        self.toggle_auto_markings_action.setCheckable(True)
+        self.toggle_toolbar_action.triggered.connect(
+            lambda is_checked: self.toolbar.setVisible(is_checked))
         self.toggle_image_list_action.triggered.connect(
             lambda is_checked: self.image_list.setVisible(is_checked))
         self.toggle_image_tags_editor_action.triggered.connect(
@@ -367,10 +497,14 @@ class MainWindow(QMainWindow):
             lambda is_checked: self.all_tags_editor.setVisible(is_checked))
         self.toggle_auto_captioner_action.triggered.connect(
             lambda is_checked: self.auto_captioner.setVisible(is_checked))
+        self.toggle_auto_markings_action.triggered.connect(
+            lambda is_checked: self.auto_markings.setVisible(is_checked))
+        view_menu.addAction(self.toggle_toolbar_action)
         view_menu.addAction(self.toggle_image_list_action)
         view_menu.addAction(self.toggle_image_tags_editor_action)
         view_menu.addAction(self.toggle_all_tags_editor_action)
         view_menu.addAction(self.toggle_auto_captioner_action)
+        view_menu.addAction(self.toggle_auto_markings_action)
 
         help_menu = menu_bar.addMenu('Help')
         open_github_repository_action = QAction('GitHub', parent=self)
@@ -398,9 +532,8 @@ class MainWindow(QMainWindow):
     @Slot()
     def set_image_list_filter(self):
         filter_ = self.image_list.filter_line_edit.parse_filter_text()
-        self.proxy_image_list_model.filter = filter_
-        # Apply the new filter.
-        self.proxy_image_list_model.invalidateFilter()
+        self.proxy_image_list_model.set_filter(filter_)
+        self.proxy_image_list_model.filter_changed.emit()
         if filter_ is None:
             all_tags_list_selection_model = (self.all_tags_editor
                                              .all_tags_list.selectionModel())
@@ -409,7 +542,7 @@ class MainWindow(QMainWindow):
             self.all_tags_editor.all_tags_list.setCurrentIndex(QModelIndex())
             # Select the previously selected image in the unfiltered image
             # list.
-            select_index = self.settings.value('image_index', type=int) or 0
+            select_index = settings.value('image_index', type=int) or 0
             self.image_list.list_view.setCurrentIndex(
                 self.proxy_image_list_model.index(select_index, 0))
         else:
@@ -423,7 +556,80 @@ class MainWindow(QMainWindow):
         settings_key = ('image_index'
                         if self.proxy_image_list_model.filter is None
                         else 'filtered_image_index')
-        self.settings.setValue(settings_key, proxy_image_index.row())
+        settings.setValue(settings_key, proxy_image_index.row())
+
+    def connect_toolbar_signals(self):
+        self.toolbar.visibilityChanged.connect(
+            lambda: self.toggle_toolbar_action.setChecked(
+                self.toolbar.isVisible()))
+        self.image_viewer.zoom.connect(self.zoom)
+        self.zoom_fit_best_action.triggered.connect(
+            self.image_viewer.zoom_fit)
+        self.zoom_in_action.triggered.connect(
+            self.image_viewer.zoom_in)
+        self.zoom_original_action.triggered.connect(
+            self.image_viewer.zoom_original)
+        self.zoom_out_action.triggered.connect(
+            self.image_viewer.zoom_out)
+        self.add_action_group.triggered.connect(
+            lambda action: self.image_viewer.add_marking(
+                ImageMarking.NONE if not action.isChecked() else
+                ImageMarking.CROP if action == self.add_crop_action else
+                ImageMarking.HINT if action == self.add_hint_action else
+                ImageMarking.EXCLUDE if action == self.add_exclude_action else
+                ImageMarking.INCLUDE))
+        self.image_viewer.marking.connect(lambda marking:
+            self.add_crop_action.setChecked(True) if marking == ImageMarking.CROP else
+            self.add_hint_action.setChecked(True) if marking == ImageMarking.HINT else
+            self.add_exclude_action.setChecked(True) if marking == ImageMarking.EXCLUDE else
+            self.add_include_action.setChecked(True) if marking == ImageMarking.INCLUDE else
+            self.add_action_group.checkedAction() and
+                self.add_action_group.checkedAction().setChecked(False))
+        self.image_viewer.scene.selectionChanged.connect(lambda:
+            self.is_running and self.add_toggle_marking_action.setEnabled(
+                self.image_viewer.get_selected_type() not in [ImageMarking.NONE,
+                                                              ImageMarking.CROP]))
+        self.image_viewer.accept_crop_addition.connect(self.add_crop_action.setEnabled)
+        self.image_viewer.scene.selectionChanged.connect(lambda:
+            self.is_running and self.delete_marking_action.setEnabled(
+                self.image_viewer.get_selected_type() != ImageMarking.NONE))
+        self.delete_marking_action.triggered.connect(lambda: self.image_viewer.delete_markings())
+        self.add_show_marking_action.toggled.connect(self.image_viewer.show_marking)
+        self.add_show_marking_action.toggled.connect(self.add_action_group.setEnabled)
+        self.add_show_marking_action.toggled.connect(lambda toggled:
+                self.add_toggle_marking_action.setEnabled(toggled and
+                    self.image_viewer.get_selected_type() != ImageMarking.NONE))
+        self.add_show_marking_action.toggled.connect(self.add_show_labels_action.setEnabled)
+        self.add_show_marking_action.toggled.connect(self.add_show_marking_latent_action.setEnabled)
+        self.add_toggle_marking_action.triggered.connect(lambda: self.image_viewer.change_marking())
+        self.add_show_labels_action.toggled.connect(self.image_viewer.show_label)
+        self.add_show_marking_latent_action.toggled.connect(self.image_viewer.show_marking_latent)
+
+    @Slot(float)
+    def set_rating(self, rating: float, interactive: bool = False,
+                   event: QMouseEvent|None = None):
+        """Set the rating from 0.0 to 1.0.
+
+        In the future, half-stars '⯪' might be included, but right now it's
+        causing display issues."""
+        if event is not None and (event.modifiers() & Qt.ControlModifier) == Qt.ControlModifier:
+            # don't set the image but instead the filter
+            is_shift = (event.modifiers() & Qt.ShiftModifier) == Qt.ShiftModifier
+            stars = f'stars:{'>=' if is_shift else '='}{round(rating*5)}'
+            self.image_list.filter_line_edit.setText(stars)
+            return
+
+        if interactive and rating == 2.0/10.0 and self.rating == rating:
+            rating = 0.0
+        self.rating = rating
+        for i, label in enumerate(self.star_labels):
+            label.setEnabled(True)
+            label.setText('★' if 2*i+1 < 10.0*rating else '☆')
+        if interactive:
+            self.image_list_model.add_to_undo_stack(
+                action_name='Change rating', should_ask_for_confirmation=False)
+            self.image_viewer.rating_change(rating)
+            self.proxy_image_list_model.set_filter(self.proxy_image_list_model.filter)
 
     def connect_image_list_signals(self):
         self.image_list.filter_line_edit.textChanged.connect(
@@ -433,7 +639,7 @@ class MainWindow(QMainWindow):
         self.image_list_selection_model.currentChanged.connect(
             self.image_list.update_image_index_label)
         self.image_list_selection_model.currentChanged.connect(
-            self.image_viewer.load_image)
+            lambda current, previous: self.image_viewer.load_image(current))
         self.image_list_selection_model.currentChanged.connect(
             self.image_tags_editor.load_image_tags)
         self.image_list_model.modelReset.connect(
@@ -444,16 +650,20 @@ class MainWindow(QMainWindow):
                 self.image_list_model.images))
         self.image_list_model.dataChanged.connect(
             self.image_tags_editor.reload_image_tags_if_changed)
+        self.image_list_model.dataChanged.connect(
+            lambda start, end, roles:
+                self.image_viewer.load_image(self.image_viewer.proxy_image_index,
+                                             False)
+                if (start.row() <= self.image_viewer.proxy_image_index.row() <= end.row()) else 0)
         self.image_list_model.update_undo_and_redo_actions_requested.connect(
             self.update_undo_and_redo_actions)
-        # Rows are inserted or removed from the proxy image list model when the
-        # filter is changed.
-        self.proxy_image_list_model.rowsInserted.connect(
+        self.proxy_image_list_model.filter_changed.connect(
             lambda: self.image_list.update_image_index_label(
                 self.image_list.list_view.currentIndex()))
-        self.proxy_image_list_model.rowsRemoved.connect(
-            lambda: self.image_list.update_image_index_label(
-                self.image_list.list_view.currentIndex()))
+        self.proxy_image_list_model.filter_changed.connect(
+            lambda: self.tag_counter_model.count_tags_filtered(
+                self.proxy_image_list_model.get_list() if
+                len(self.proxy_image_list_model.filter or [])>0 else None))
         self.image_list.list_view.directory_reload_requested.connect(
             self.reload_directory)
         self.image_list.list_view.tags_paste_requested.connect(
@@ -463,6 +673,7 @@ class MainWindow(QMainWindow):
         self.image_list.visibilityChanged.connect(
             lambda: self.toggle_image_list_action.setChecked(
                 self.image_list.isVisible()))
+        self.image_viewer.crop_changed.connect(self.image_list.list_view.show_crop_size)
 
     @Slot()
     def update_image_tags(self):
@@ -555,21 +766,29 @@ class MainWindow(QMainWindow):
             lambda: self.toggle_auto_captioner_action.setChecked(
                 self.auto_captioner.isVisible()))
 
+    def connect_auto_markings_signals(self):
+        self.auto_markings.marking_generated.connect(
+            lambda image_index, markings:
+            self.image_list_model.add_image_markings(image_index, markings))
+        self.auto_markings.visibilityChanged.connect(
+            lambda: self.toggle_auto_markings_action.setChecked(
+                self.auto_markings.isVisible()))
+
     def restore(self):
         # Restore the window geometry and state.
-        if self.settings.contains('geometry'):
-            self.restoreGeometry(self.settings.value('geometry', type=bytes))
+        if settings.contains('geometry'):
+            self.restoreGeometry(settings.value('geometry', type=bytes))
         else:
             self.showMaximized()
-        self.restoreState(self.settings.value('window_state', type=bytes))
+        self.restoreState(settings.value('window_state', type=bytes))
         # Get the last index of the last selected image.
-        if self.settings.contains('image_index'):
-            image_index = self.settings.value('image_index', type=int)
+        if settings.contains('image_index'):
+            image_index = settings.value('image_index', type=int)
         else:
             image_index = 0
         # Load the last loaded directory.
-        if self.settings.contains('directory_path'):
-            directory_path = Path(self.settings.value('directory_path',
+        if settings.contains('directory_path'):
+            directory_path = Path(settings.value('directory_path',
                                                       type=str))
             if directory_path.is_dir():
                 self.load_directory(directory_path, select_index=image_index)

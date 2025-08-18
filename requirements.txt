@@ -3,6 +3,7 @@ bitsandbytes==0.45.5
 ExifRead==3.3.1
 imagesize==1.4.1
 pillow==11.2.1
+pillow-jxl-plugin~=1.3.4
 pyparsing==3.2.1
 PySide6==6.9.0
 transformers==4.48.3
@@ -34,3 +35,6 @@ https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-win_amd64
 flash-attn==2.7.4.post1; platform_system == "Linux"
 https://github.com/kingbri1/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu124torch2.6.0cxx11abiFALSE-cp312-cp312-win_amd64.whl; platform_system == "Windows" and python_version == "3.12"
 https://github.com/kingbri1/flash-attention/releases/download/v2.7.4.post1/flash_attn-2.7.4.post1+cu124torch2.6.0cxx11abiFALSE-cp311-cp311-win_amd64.whl; platform_system == "Windows" and python_version == "3.11"
+
+# YOLO
+ultralytics>=8.3.100
