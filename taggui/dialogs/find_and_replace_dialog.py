@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (QDialog, QGridLayout, QLabel, QPushButton,
                                QVBoxLayout)
 
 from models.image_list_model import ImageListModel, Scope
-from utils.settings import get_settings
 from utils.settings_widgets import (SettingsBigCheckBox, SettingsComboBox,
                                     SettingsLineEdit)
 from utils.utils import pluralize
@@ -15,7 +14,6 @@ class FindAndReplaceDialog(QDialog):
     def __init__(self, parent, image_list_model: ImageListModel):
         super().__init__(parent)
         self.image_list_model = image_list_model
-        self.settings = get_settings()
         self.setWindowTitle('Find and Replace')
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)

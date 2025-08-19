@@ -63,9 +63,9 @@ class Moondream1(Moondream):
         del sys.modules[phi_module.__name__]
         return True
 
-    def get_model_inputs(self, image_prompt: str, image: Image) -> dict:
+    def get_model_inputs(self, image_prompt: str, image: Image, crop: bool) -> dict:
         text = self.get_input_text(image_prompt)
-        pil_image = self.load_image(image)
+        pil_image = self.load_image(image, crop)
         encoded_image = self.model.encode_image(pil_image)
         eos_tokens_ids = self.processor('<END>').input_ids
         inputs_embeds = self.model.input_embeds(text, encoded_image,
@@ -102,9 +102,9 @@ class Moondream2(Moondream):
         arguments['revision'] = MOONDREAM2_REVISION
         return arguments
 
-    def get_model_inputs(self, image_prompt: str, image: Image) -> dict:
+    def get_model_inputs(self, image_prompt: str, image: Image, crop: bool) -> dict:
         text = self.get_input_text(image_prompt)
-        pil_image = self.load_image(image)
+        pil_image = self.load_image(image, crop)
         encoded_image = self.model.encode_image(pil_image)
         inputs_embeds = self.model.input_embeds(text, encoded_image,
                                                 self.processor)

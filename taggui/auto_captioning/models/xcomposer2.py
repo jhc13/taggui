@@ -107,9 +107,9 @@ class Xcomposer2(AutoCaptioningModel):
     def get_input_text(self, image_prompt: str) -> str:
         return image_prompt + self.caption_start
 
-    def get_model_inputs(self, image_prompt: str, image: Image) -> dict:
+    def get_model_inputs(self, image_prompt: str, image: Image, crop: bool) -> dict:
         text = self.get_input_text(image_prompt)
-        pil_image = self.load_image(image)
+        pil_image = self.load_image(image, crop)
         input_embeddings_parts = []
         image_mask_parts = []
         processed_image = self.model.vis_processor(pil_image).unsqueeze(0).to(
@@ -189,7 +189,7 @@ class Xcomposer2_4khd(Xcomposer2):
     def monkey_patch_after_loading(self):
         return
 
-    def load_image(self, image: Image) -> PilImage:
-        pil_image = super().load_image(image)
+    def load_image(self, image: Image, crop: bool) -> PilImage:
+        pil_image = super().load_image(image, crop)
         pil_image = hd_transform(pil_image)
         return pil_image

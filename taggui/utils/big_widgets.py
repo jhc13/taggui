@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QCheckBox, QPushButton
 
-from utils.settings import DEFAULT_SETTINGS, get_settings
+from utils.settings import DEFAULT_SETTINGS, settings
 
 
 class BigPushButton(QPushButton):
@@ -20,7 +20,6 @@ class TallPushButton(QPushButton):
 class BigCheckBox(QCheckBox):
     def __init__(self, text: str | None = None):
         super().__init__(text)
-        settings = get_settings()
         font_size = settings.value(
             'font_size', defaultValue=DEFAULT_SETTINGS['font_size'], type=int)
         new_size = font_size * 1.5
