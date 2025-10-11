@@ -24,3 +24,9 @@ class CaptionPosition(str, Enum):
 class CaptionDevice(str, Enum):
     GPU = 'GPU if available'
     CPU = 'CPU'
+
+
+class GeneratedTagOrder(str, Enum):
+    PROBABILITY = 'Highest Probability'
+    ALPHABETICAL = 'Alphabetical'
+    MODEL_DEFAULT = 'Unsorted (Model Default)'

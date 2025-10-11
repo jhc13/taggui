@@ -13,6 +13,7 @@ from onnxruntime import InferenceSession
 import auto_captioning.captioning_thread as captioning_thread
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
 from utils.image import Image
+from utils.enums import GeneratedTagOrder
 
 KAOMOJIS = ['0_0', '(o)_(o)', '+_+', '+_-', '._.', '<o>_<o>', '<|>_<|>', '=_=',
             '>_<', '3_3', '6_9', '>_o', '@_@', '^_^', 'o_o', 'u_u', 'x_x',
@@ -39,23 +40,25 @@ class WdTaggerModel:
                 model_id, filename='selected_tags.csv')
         self.inference_session = InferenceSession(model_path)
         self.tags = []
-        self.rating_tags_indices = []
-        self.general_tags_indices = []
-        self.character_tags_indices = []
+        self.rating_tags_indices = set()
+        self.general_tags_indices = set()
+        self.character_tags_indices = set()
         with open(tags_path, 'r') as tags_file:
             reader = csv.DictReader(tags_file)
             for index, line in enumerate(reader):
                 tag = line['name']
                 if tag not in KAOMOJIS:
                     tag = tag.replace('_', ' ')
-                self.tags.append(tag)
                 category = line['category']
                 if category == '9':
-                    self.rating_tags_indices.append(index)
+                    # Exclude the rating tags.
+                    self.rating_tags_indices.add(index)
                 elif category == '0':
-                    self.general_tags_indices.append(index)
+                    self.tags.append(tag)
+                    self.general_tags_indices.add(index)
                 elif category == '4':
-                    self.character_tags_indices.append(index)
+                    self.tags.append(tag)
+                    self.character_tags_indices.add(index)
 
     def generate_tags(self, image_array: np.ndarray,
                       wd_tagger_settings: dict) -> tuple[tuple, tuple]:
@@ -63,9 +66,6 @@ class WdTaggerModel:
         output_name = self.inference_session.get_outputs()[0].name
         probabilities = self.inference_session.run(
             [output_name], {input_name: image_array})[0][0].astype(np.float32)
-        # Exclude the rating tags.
-        tags = [tag for index, tag in enumerate(self.tags)
-                if index not in self.rating_tags_indices]
         probabilities = np.array([
             probability for index, probability in enumerate(probabilities)
             if index not in self.rating_tags_indices
@@ -73,13 +73,26 @@ class WdTaggerModel:
         tags_to_exclude = get_tags_to_exclude(
             wd_tagger_settings['tags_to_exclude'])
         tags_and_probabilities = []
-        for tag, probability in zip(tags, probabilities):
-            if (probability < wd_tagger_settings['min_probability']
+        min_probability = wd_tagger_settings['min_probability']
+        min_char_probability = wd_tagger_settings['min_char_probability']
+        for tag_and_index, probability in zip(enumerate(self.tags),
+                                              probabilities):
+            index, tag = tag_and_index
+            rounded_probability = round(probability, 2)
+            if (rounded_probability < min_probability
                     or tag in tags_to_exclude):
                 continue
+            elif (index in self.character_tags_indices
+                    and rounded_probability < min_char_probability):
+                continue
             tags_and_probabilities.append((tag, probability))
-        # Sort the tags by probability.
-        tags_and_probabilities.sort(key=lambda x: x[1], reverse=True)
+        # Sort tags.
+        tag_order = wd_tagger_settings['generated_tag_order']
+        if tag_order == GeneratedTagOrder.PROBABILITY:
+            tags_and_probabilities.sort(key=lambda x: x[1], reverse=True)
+        elif tag_order == GeneratedTagOrder.ALPHABETICAL:
+            tags_and_probabilities.sort(key=lambda x: x[0].lower(), reverse=False)
+
         tags_and_probabilities = tags_and_probabilities[
                                  :wd_tagger_settings['max_tags']]
         if tags_and_probabilities:
