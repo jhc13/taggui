@@ -107,6 +107,7 @@ class ImageListView(QListView):
         self.tag_separator = tag_separator
         self.setModel(proxy_image_list_model)
         self.setWordWrap(True)
+        self.setDragEnabled(True)
         # If the actual height of the image is greater than 3 times the width,
         # the image will be scaled down to fit.
         self.setIconSize(QSize(image_width, image_width * 3))
@@ -427,3 +428,4 @@ class ImageList(QDockWidget):
 
     def get_selected_image_indices(self) -> list[QModelIndex]:
         return self.list_view.get_selected_image_indices()
+
