@@ -5,10 +5,15 @@ from PySide6.QtCore import QModelIndex, Qt, Signal, Slot
 from PySide6.QtGui import QFontMetrics, QTextCursor
 from PySide6.QtWidgets import (QAbstractScrollArea, QDockWidget, QFormLayout,
                                QFrame, QHBoxLayout, QLabel, QMessageBox,
+                               QPushButton,
                                QPlainTextEdit, QProgressBar, QScrollArea,
                                QVBoxLayout, QWidget)
 
 from auto_captioning.captioning_thread import CaptioningThread
+from auto_captioning.models.local_server import (
+    DEFAULT_LM_STUDIO_URL, DEFAULT_OLLAMA_URL, DEFAULT_SYSTEM_PROMPT,
+    DEFAULT_USER_PROMPT, LM_STUDIO_MODEL_ID, LmStudioBackend,
+    LocalServerError, OLLAMA_MODEL_ID, OllamaBackend, is_local_server_model)
 from auto_captioning.models.wd_tagger import WdTagger
 from auto_captioning.models_list import MODELS, get_model_class
 from dialogs.caption_multiple_images_dialog import CaptionMultipleImagesDialog
@@ -141,6 +146,8 @@ class CaptionSettingsForm(QVBoxLayout):
         wd_tagger_settings_form.addRow('Maximum tags', self.max_tags_spin_box)
         wd_tagger_settings_form.addRow(tags_to_exclude_form)
 
+        self.build_local_server_settings_form()
+
         self.toggle_advanced_settings_form_button = TallPushButton(
             'Show Advanced Settings')
 
@@ -216,6 +223,7 @@ class CaptionSettingsForm(QVBoxLayout):
 
         self.addLayout(basic_settings_form)
         self.addWidget(self.wd_tagger_settings_form_container)
+        self.addWidget(self.local_server_settings_form_container)
         self.horizontal_line = HorizontalLine()
         self.addWidget(self.horizontal_line)
         self.addWidget(self.toggle_advanced_settings_form_button)
@@ -239,6 +247,102 @@ class CaptionSettingsForm(QVBoxLayout):
         self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
         if not self.is_bitsandbytes_available:
             self.load_in_4_bit_check_box.setChecked(False)
+
+    def build_local_server_settings_form(self):
+        """Settings for the LM Studio and Ollama local server options."""
+        self.local_server_settings_form_container = QWidget()
+        container_layout = QVBoxLayout(
+            self.local_server_settings_form_container)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+
+        def make_form(parent=None) -> QFormLayout:
+            form = QFormLayout(parent)
+            form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+            form.setFieldGrowthPolicy(
+                QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+            form.setContentsMargins(0, 0, 0, 0)
+            return form
+
+        model_placeholder = 'Leave empty to use the loaded model'
+        self.lm_studio_settings_container = QWidget()
+        lm_studio_form = make_form(self.lm_studio_settings_container)
+        self.lm_studio_url_line_edit = SettingsLineEdit(
+            key='lm_studio_url', default=DEFAULT_LM_STUDIO_URL)
+        self.lm_studio_model_line_edit = SettingsLineEdit(
+            key='lm_studio_model')
+        self.lm_studio_model_line_edit.setPlaceholderText(model_placeholder)
+        self.lm_studio_model_line_edit.setClearButtonEnabled(True)
+        lm_studio_form.addRow('LM Studio server URL',
+                              self.lm_studio_url_line_edit)
+        lm_studio_form.addRow('Model name (optional)',
+                              self.lm_studio_model_line_edit)
+
+        self.ollama_settings_container = QWidget()
+        ollama_form = make_form(self.ollama_settings_container)
+        self.ollama_url_line_edit = SettingsLineEdit(
+            key='ollama_url', default=DEFAULT_OLLAMA_URL)
+        self.ollama_model_line_edit = SettingsLineEdit(key='ollama_model')
+        self.ollama_model_line_edit.setPlaceholderText(model_placeholder)
+        self.ollama_model_line_edit.setClearButtonEnabled(True)
+        ollama_form.addRow('Ollama server URL', self.ollama_url_line_edit)
+        ollama_form.addRow('Model name (optional)',
+                           self.ollama_model_line_edit)
+
+        self.test_server_button = QPushButton('Test Connection')
+        self.test_server_label = QLabel()
+        self.test_server_label.setWordWrap(True)
+        test_layout = QHBoxLayout()
+        test_layout.addWidget(self.test_server_button)
+        test_layout.addWidget(self.test_server_label, stretch=1)
+
+        common_form = make_form()
+        self.system_prompt_text_edit = SettingsPlainTextEdit(
+            key='local_server_system_prompt', default=DEFAULT_SYSTEM_PROMPT)
+        set_text_edit_height(self.system_prompt_text_edit, 4)
+        self.local_server_max_tokens_spin_box = FocusedScrollSettingsSpinBox(
+            key='local_server_max_tokens', default=2048, minimum=16,
+            maximum=32768)
+        self.local_server_temperature_spin_box = (
+            FocusedScrollSettingsDoubleSpinBox(
+                key='local_server_temperature', default=0.6, minimum=0,
+                maximum=2))
+        self.local_server_temperature_spin_box.setSingleStep(0.05)
+        self.split_tags_check_box = SettingsBigCheckBox(
+            key='local_server_split_tags', default=True)
+        common_form.addRow('System prompt', self.system_prompt_text_edit)
+        numbers_form = QFormLayout()
+        numbers_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+        numbers_form.addRow('Max tokens',
+                            self.local_server_max_tokens_spin_box)
+        numbers_form.addRow('Temperature',
+                            self.local_server_temperature_spin_box)
+        numbers_form.addRow('Split output into tags (comma/line separated)',
+                            self.split_tags_check_box)
+
+        container_layout.addWidget(self.lm_studio_settings_container)
+        container_layout.addWidget(self.ollama_settings_container)
+        container_layout.addLayout(test_layout)
+        container_layout.addLayout(common_form)
+        container_layout.addLayout(numbers_form)
+        self.test_server_button.clicked.connect(self.test_local_server)
+
+    @Slot()
+    def test_local_server(self):
+        model_id = self.model_combo_box.currentText()
+        if model_id == LM_STUDIO_MODEL_ID:
+            backend = LmStudioBackend(self.lm_studio_url_line_edit.text(),
+                                      self.lm_studio_model_line_edit.text())
+        else:
+            backend = OllamaBackend(self.ollama_url_line_edit.text(),
+                                    self.ollama_model_line_edit.text())
+        self.test_server_label.setText('Checking...')
+        self.test_server_label.repaint()
+        try:
+            model_name = backend.check(timeout=5)
+            self.test_server_label.setText(
+                f'Connected. Model: {model_name}')
+        except LocalServerError as error:
+            self.test_server_label.setText(str(error))
 
     def get_local_model_paths(self) -> list[str]:
         models_directory_path = self.settings.value(
@@ -282,13 +386,36 @@ class CaptionSettingsForm(QVBoxLayout):
             widget.setVisible(is_wd_tagger_model)
         for widget in non_wd_tagger_widgets:
             widget.setVisible(not is_wd_tagger_model)
+        is_server_model = is_local_server_model(model_id)
+        self.local_server_settings_form_container.setVisible(is_server_model)
+        self.lm_studio_settings_container.setVisible(
+            model_id == LM_STUDIO_MODEL_ID)
+        self.ollama_settings_container.setVisible(model_id == OLLAMA_MODEL_ID)
+        self.test_server_label.clear()
+        if is_server_model:
+            # These options only apply to models loaded by TagGUI itself.
+            for widget in (self.device_label, self.device_combo_box,
+                           self.load_in_4_bit_container,
+                           self.remove_tag_separators_container,
+                           self.horizontal_line,
+                           self.toggle_advanced_settings_form_button,
+                           self.advanced_settings_form_container):
+                widget.setVisible(False)
+            self.prompt_label.setText('Prompt (sent as the user prompt)')
+            self.prompt_text_edit.setPlaceholderText(DEFAULT_USER_PROMPT)
+        else:
+            self.prompt_label.setText('Prompt')
+            self.prompt_text_edit.setPlaceholderText('')
+            if (not is_wd_tagger_model and self.toggle_advanced_settings_form_button
+                    .text() == 'Show Advanced Settings'):
+                self.advanced_settings_form_container.setVisible(False)
         self.set_load_in_4_bit_visibility(self.device_combo_box.currentText())
 
     @Slot(str)
     def set_load_in_4_bit_visibility(self, device: str):
         model_id = self.model_combo_box.currentText()
         is_wd_tagger_model = get_model_class(model_id) == WdTagger
-        if is_wd_tagger_model:
+        if is_wd_tagger_model or is_local_server_model(model_id):
             self.load_in_4_bit_container.setVisible(False)
             return
         is_load_in_4_bit_available = (self.is_bitsandbytes_available
@@ -331,6 +458,17 @@ class CaptionSettingsForm(QVBoxLayout):
                 'repetition_penalty': self.repetition_penalty_spin_box.value(),
                 'no_repeat_ngram_size':
                     self.no_repeat_ngram_size_spin_box.value()
+            },
+            'local_server_settings': {
+                'lm_studio_url': self.lm_studio_url_line_edit.text(),
+                'lm_studio_model': self.lm_studio_model_line_edit.text(),
+                'ollama_url': self.ollama_url_line_edit.text(),
+                'ollama_model': self.ollama_model_line_edit.text(),
+                'system_prompt': self.system_prompt_text_edit.toPlainText(),
+                'max_tokens': self.local_server_max_tokens_spin_box.value(),
+                'temperature':
+                    self.local_server_temperature_spin_box.value(),
+                'split_tags': self.split_tags_check_box.isChecked()
             },
             'wd_tagger_settings': {
                 'show_probabilities':

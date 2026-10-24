@@ -4,6 +4,9 @@ from auto_captioning.models.joycaption import Joycaption
 from auto_captioning.models.kosmos_2 import Kosmos2
 from auto_captioning.models.llava_1_point_5 import Llava1Point5
 from auto_captioning.models.llava_llama_3 import LlavaLlama3
+from auto_captioning.models.local_server import (LM_STUDIO_MODEL_ID,
+                                                 OLLAMA_MODEL_ID,
+                                                 LmStudioModel, OllamaModel)
 from auto_captioning.models.llava_next import (LlavaNext34b, LlavaNextMistral,
                                                LlavaNextVicuna)
 from auto_captioning.models.moondream import Moondream1, Moondream2
@@ -11,6 +14,8 @@ from auto_captioning.models.phi_3_vision import Phi3Vision
 from auto_captioning.models.wd_tagger import WdTagger
 
 MODELS = [
+    LM_STUDIO_MODEL_ID,
+    OLLAMA_MODEL_ID,
     'fancyfeast/llama-joycaption-beta-one-hf-llava',
     'microsoft/Florence-2-large-ft',
     'microsoft/Florence-2-large',
@@ -53,6 +58,10 @@ MODELS = [
 
 
 def get_model_class(model_id: str) -> type[AutoCaptioningModel]:
+    if model_id == LM_STUDIO_MODEL_ID:
+        return LmStudioModel
+    if model_id == OLLAMA_MODEL_ID:
+        return OllamaModel
     lowercase_model_id = model_id.lower()
     if 'florence' in lowercase_model_id:
         if 'promptgen' in lowercase_model_id:

@@ -1,4 +1,6 @@
 import shutil
+import subprocess
+import sys
 from enum import Enum
 from functools import reduce
 from operator import or_
@@ -146,6 +148,11 @@ class ImageListView(QListView):
         self.open_image_action = self.addAction('Open Image in Default App')
         self.open_image_action.setShortcut('Ctrl+O')
         self.open_image_action.triggered.connect(self.open_image)
+        self.open_file_location_action = self.addAction('Open File Location')
+        self.open_file_location_action.triggered.connect(
+            self.open_file_location)
+        # The image that was right-clicked to open the context menu.
+        self.context_menu_index = None
 
         self.context_menu = QMenu(self)
         self.context_menu.addAction('Select All Images', self.selectAll,
@@ -161,11 +168,42 @@ class ImageListView(QListView):
         self.context_menu.addAction(self.copy_images_action)
         self.context_menu.addAction(self.delete_images_action)
         self.context_menu.addAction(self.open_image_action)
+        self.context_menu.addAction(self.open_file_location_action)
         self.selectionModel().selectionChanged.connect(
             self.update_context_menu_actions)
 
     def contextMenuEvent(self, event):
-        self.context_menu.exec_(event.globalPos())
+        index = self.indexAt(event.pos())
+        self.context_menu_index = index if index.isValid() else None
+        self.open_file_location_action.setVisible(
+            self.get_file_location_image() is not None)
+        try:
+            self.context_menu.exec_(event.globalPos())
+        finally:
+            self.context_menu_index = None
+
+    def get_file_location_image(self) -> Image | None:
+        """The right-clicked image, else the current or first selected one."""
+        for index in (self.context_menu_index, self.currentIndex()):
+            if index is not None and index.isValid():
+                return index.data(Qt.ItemDataRole.UserRole)
+        selected_images = self.get_selected_images()
+        return selected_images[0] if selected_images else None
+
+    @Slot()
+    def open_file_location(self):
+        image = self.get_file_location_image()
+        if image is None:
+            return
+        image_path = Path(image.path).resolve()
+        if sys.platform == 'win32':
+            # Open Explorer with the file selected.
+            subprocess.Popen(f'explorer /select,"{image_path}"')
+            return
+        if sys.platform == 'darwin':
+            subprocess.Popen(['open', '-R', str(image_path)])
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(image_path.parent)))
 
     @Slot()
     def invert_selection(self):

@@ -9,6 +9,7 @@ from transformers import PreTrainedTokenizerBase
 from models.proxy_image_list_model import ProxyImageListModel
 from models.tag_counter_model import TagCounterModel
 from utils.image import Image
+from utils.filter_text import build_tag_filter_menu
 from utils.settings import DEFAULT_SETTINGS, get_settings
 from utils.text_edit_item_delegate import TextEditItemDelegate
 from utils.utils import get_confirmation_dialog_reply
@@ -92,6 +93,9 @@ class TagInputBox(QLineEdit):
 
 
 class ImageTagsList(QListView):
+    # The tag and the mode (`and`, `not` or `or`).
+    image_list_filter_extension_requested = Signal(str, str)
+
     def __init__(self, image_tag_list_model: QStringListModel):
         super().__init__()
         self.image_tag_list_model = image_tag_list_model
@@ -101,6 +105,15 @@ class ImageTagsList(QListView):
             QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setWordWrap(True)
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+
+    def contextMenuEvent(self, event):
+        index = self.indexAt(event.pos())
+        if not index.isValid():
+            return
+        tag = index.data(Qt.ItemDataRole.EditRole)
+        menu = build_tag_filter_menu(
+            self, tag, self.image_list_filter_extension_requested.emit)
+        menu.exec(event.globalPos())
 
     def keyPressEvent(self, event: QKeyEvent):
         """

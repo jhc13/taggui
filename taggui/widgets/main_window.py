@@ -18,6 +18,7 @@ from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import BigPushButton
 from utils.image import Image
 from utils.key_press_forwarder import KeyPressForwarder
+from utils.filter_text import extend_filter_text
 from utils.settings import DEFAULT_SETTINGS, get_settings, get_tag_separator
 from utils.shortcut_remover import ShortcutRemover
 from utils.utils import get_resource_path, pluralize
@@ -504,6 +505,9 @@ class MainWindow(QMainWindow):
         self.image_tags_editor.visibilityChanged.connect(
             lambda: self.toggle_image_tags_editor_action.setChecked(
                 self.image_tags_editor.isVisible()))
+        (self.image_tags_editor.image_tags_list
+         .image_list_filter_extension_requested.connect(
+            self.extend_image_list_filter_text))
         self.image_tags_editor.tag_input_box.tags_addition_requested.connect(
             self.image_list_model.add_tags)
 
@@ -517,6 +521,15 @@ class MainWindow(QMainWindow):
                                 .replace('"', r'\"').replace("'", r"\'"))
         self.image_list.filter_line_edit.setText(
             f'tag:"{escaped_selected_tag}"')
+
+    @Slot(str, str)
+    def extend_image_list_filter_text(self, tag: str, mode: str):
+        """Stack a tag onto the image list filter (AND, AND NOT or OR)."""
+        filter_line_edit = self.image_list.filter_line_edit
+        new_text = extend_filter_text(filter_line_edit.text(), tag, mode)
+        if new_text != filter_line_edit.text():
+            # Setting the text applies the filter like typing does.
+            filter_line_edit.setText(new_text)
 
     @Slot(str)
     def add_tag_to_selected_images(self, tag: str):
@@ -533,6 +546,9 @@ class MainWindow(QMainWindow):
             self.image_list.filter_line_edit.clear)
         self.all_tags_editor.all_tags_list.image_list_filter_requested.connect(
             self.set_image_list_filter_text)
+        (self.all_tags_editor.all_tags_list
+         .image_list_filter_extension_requested.connect(
+            self.extend_image_list_filter_text))
         self.all_tags_editor.all_tags_list.tag_addition_requested.connect(
             self.add_tag_to_selected_images)
         self.all_tags_editor.all_tags_list.tags_deletion_requested.connect(
