@@ -11,6 +11,7 @@ from models.proxy_tag_counter_model import ProxyTagCounterModel
 from models.tag_counter_model import TagCounterModel
 from utils.big_widgets import TallPushButton
 from utils.enums import AllTagsSortBy, SortOrder
+from utils.filter_text import build_tag_filter_menu
 from utils.settings_widgets import SettingsComboBox
 from utils.text_edit_item_delegate import TextEditItemDelegate
 from utils.utils import get_confirmation_dialog_reply, list_with_and, pluralize
@@ -33,6 +34,8 @@ class AllTagsList(QListView):
     image_list_filter_requested = Signal(str)
     tag_addition_requested = Signal(str)
     tags_deletion_requested = Signal(list)
+    # The tag and the mode (`and`, `not` or `or`).
+    image_list_filter_extension_requested = Signal(str, str)
 
     def __init__(self, proxy_tag_counter_model: ProxyTagCounterModel,
                  all_tags_editor: 'AllTagsEditor'):
@@ -48,6 +51,11 @@ class AllTagsList(QListView):
             self.handle_selection_change)
 
     def mousePressEvent(self, event: QMouseEvent):
+        if event.button() == Qt.MouseButton.RightButton:
+            # Right-clicking opens the context menu without selecting the tag
+            # (selecting would replace the image list filter).
+            event.accept()
+            return
         click_action = (self.all_tags_editor.click_action_combo_box
                         .currentText())
         if click_action == ClickAction.ADD_TO_SELECTED:
@@ -55,6 +63,15 @@ class AllTagsList(QListView):
             tag = index.data(Qt.ItemDataRole.EditRole)
             self.tag_addition_requested.emit(tag)
         super().mousePressEvent(event)
+
+    def contextMenuEvent(self, event):
+        index = self.indexAt(event.pos())
+        if not index.isValid():
+            return
+        tag = index.data(Qt.ItemDataRole.EditRole)
+        menu = build_tag_filter_menu(
+            self, tag, self.image_list_filter_extension_requested.emit)
+        menu.exec(event.globalPos())
 
     def keyPressEvent(self, event: QKeyEvent):
         """
