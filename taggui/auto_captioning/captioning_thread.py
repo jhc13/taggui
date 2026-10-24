@@ -6,6 +6,7 @@ from PIL import UnidentifiedImageError
 from PySide6.QtCore import QModelIndex, QThread, Qt, Signal
 
 from auto_captioning.auto_captioning_model import AutoCaptioningModel
+from auto_captioning.models.local_server import LocalServerError
 from auto_captioning.models_list import get_model_class
 from models.image_list_model import ImageListModel
 from utils.enums import CaptionPosition
@@ -139,6 +140,9 @@ class CaptioningThread(QThread):
     def run(self):
         try:
             self.run_captioning()
+        except LocalServerError as exception:
+            self.is_error = True
+            print(f'Error: {exception}')
         except Exception as exception:
             self.is_error = True
             # Show the error message in the console text edit.
